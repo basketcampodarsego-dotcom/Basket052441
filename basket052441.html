@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check-compat.js"></script>
 </head>
 <body>
 <style>
@@ -472,6 +473,12 @@ function fbInit(){
   try{
     if(!firebase.apps.length){_fbApp=firebase.initializeApp(_fbConfig);}
     else{_fbApp=firebase.app();}
+    // ── APP CHECK con reCAPTCHA Enterprise ──
+    const appCheck=firebase.appCheck();
+    appCheck.activate(
+      new firebase.appCheck.ReCaptchaEnterpriseProvider('6LftZossAAAAAlQgf-7xFKRorHA5'),
+      true // auto-refresh token
+    );
     _db=firebase.firestore();
     _fbReady=true;
     console.log("[FB] Firestore pronto");
