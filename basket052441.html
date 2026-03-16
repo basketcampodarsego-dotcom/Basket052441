@@ -488,6 +488,14 @@ function fbInit(){
       } else {
         // Non autenticato — mostra login, blocca app
         document.getElementById("login-screen").classList.remove("hidden");
+        var badge=document.getElementById("auth-user-badge");
+        if(badge){badge.style.display="none";}
+      }
+    });
+    // ── LOGOUT AUTOMATICO alla chiusura/minimizzazione ──
+    document.addEventListener("visibilitychange",function(){
+      if(document.visibilityState==="hidden"){
+        firebase.auth().signOut();
       }
     });
   }catch(e){console.error("[FB] Errore init:",e);_fbReady=false;}
@@ -1822,21 +1830,25 @@ function csvImport(input){
 //          Rilasciato da|Numero|Scadenza|Gruppo|Sesso
 function csiImport(input){
   var file=input.files[0]; if(!file)return;
-  input.value='';
   var reader=new FileReader();
   reader.onload=function(e){
     try{
-      // Decodifica UTF-16LE (con o senza BOM)
+      // Decodifica UTF-16LE (con o senza BOM) con fallback UTF-8
       var ab=e.target.result;
-      var txt=new TextDecoder('utf-16le').decode(ab).replace(/\r/g,'');
+      var txt='';
+      try{txt=new TextDecoder('utf-16le').decode(ab);}
+      catch(ex){txt=new TextDecoder('utf-8').decode(ab);}
+      txt=txt.replace(/\r/g,'');
+      // Rimuovi eventuale BOM
+      if(txt.charCodeAt(0)===0xFEFF)txt=txt.slice(1);
       var righe=txt.split('\n').map(function(r){return r.trim();}).filter(Boolean);
-      if(righe.length<2){alert('File CSI vuoto o non riconosciuto.');return;}
+      if(righe.length<2){alert('File CSI vuoto o non riconosciuto.');input.value='';return;}
 
       // Individua riga intestazione (contiene "Tessera")
-      var hIdx=righe.findIndex(function(r){return r.startsWith('Tessera');});
-      if(hIdx<0){alert('Intestazione "Tessera" non trovata. Verificare il file CSI.');return;}
+      var hIdx=righe.findIndex(function(r){return r.indexOf('Tessera')>=0;});
+      if(hIdx<0){alert('Intestazione "Tessera" non trovata. Verificare il file CSI.');input.value='';return;}
       var headers=righe[hIdx].split('\t');
-      function col(r,nome){var i=headers.indexOf(nome);return i>=0?r.split('\t')[i].trim():'';}
+      function col(r,nome){var i=headers.indexOf(nome);return i>=0?(r.split('\t')[i]||'').trim():'';}
 
       var aggiunti=0,aggiornati=0,saltati=0;
       var maxId=DB.atleti.reduce(function(m,a){return Math.max(m,a.id||0);},0);
@@ -1851,15 +1863,15 @@ function csiImport(input){
 
         var cog=(col(r,'Cognome')||'').toUpperCase().trim();
         var nom=(col(r,'Nome')||'').toUpperCase().trim();
-        var dn=col(r,'Nato il').trim();      // gg/mm/aaaa
-        var sex=col(r,'Sesso').trim();        // M/F
+        var dn=col(r,'Nato il').trim();
+        var sex=col(r,'Sesso').trim();
         var tel=col(r,'Telefono').trim();
         var email=col(r,'email').trim();
         var ind=(col(r,'Indirizzo')||'').trim();
         var comune=(col(r,'Comune')||'').trim();
         var indFull=ind?(ind+(comune?' - '+comune:'')):comune;
-        var cs=col(r,'C.Medico').trim();      // data scadenza cert. medico
-        var attivita=col(r,'Attività').trim(); // PCA, PVO, ecc.
+        var cs=col(r,'C.Medico').trim();
+        var attivita=col(r,'Attività').trim();
         var tessera=col(r,'Tessera').trim();
 
         // Cerca atleta esistente per CF
@@ -1868,18 +1880,15 @@ function csiImport(input){
         });
 
         if(esistente){
-          // Aggiorna campi se vuoti o se il CSV porta dati più recenti
           var changed=false;
           if(!esistente.tel && tel){esistente.tel=tel;changed=true;}
           if(!esistente.email && email){esistente.email=email;changed=true;}
           if(!esistente.ind && indFull){esistente.ind=indFull;changed=true;}
           if(cs && esistente.cs!==cs){esistente.cs=cs;changed=true;}
-          // Aggiorna cog/nom se maiuscole e diversi (normalizza)
           if(cog && esistente.cog!==cog){esistente.cog=cog;changed=true;}
           if(nom && esistente.nom!==nom){esistente.nom=nom;changed=true;}
           if(sex && esistente.sex!==sex){esistente.sex=sex;changed=true;}
           if(dn && esistente.dn!==dn){esistente.dn=dn;changed=true;}
-          // Segna che è tesserato CSI (nella nota tecnica)
           if(tessera && attivita){
             var csiTag='CSI:'+tessera+'('+attivita+')';
             if(!(esistente.note||'').includes('CSI:')){
@@ -1887,12 +1896,10 @@ function csiImport(input){
               changed=true;
             }
           }
-          // Aggiorna categoria se ricavabile dall'attività CSI e mancante
           var catDaCsi=attivita==='PCA'?'AmaBasket':attivita==='PVO'?'AmaVolley':'';
           if(catDaCsi && !esistente.cat){esistente.cat=catDaCsi;changed=true;}
           if(changed){aggiornati++;} else {saltati++;}
         } else {
-          // Nuovo atleta — aggiunge con ritirato:false
           maxId++;
           var noteNuovo=tessera&&attivita?'CSI:'+tessera+'('+attivita+')':'';
           var catNuovo=attivita==='PCA'?'AmaBasket':attivita==='PVO'?'AmaVolley':'';
@@ -1908,8 +1915,14 @@ function csiImport(input){
       }
 
       saveDB();
+      input.value='';
       alert('Import CSI completato!\n✅ Nuovi: '+aggiunti+'\n✏️ Aggiornati: '+aggiornati+'\n⏭ Invariati: '+saltati+
         (aggiunti>0?'\n\n⚠️ Assegna categoria agli atleti nuovi dall\'anagrafica.':''));
+      renderImpostazioni();
+    }catch(ex){input.value='';alert('Errore import CSI: '+ex.message);}
+  };
+  reader.readAsArrayBuffer(file);
+}
       renderImpostazioni();
     }catch(ex){alert('Errore import CSI: '+ex.message);}
   };
