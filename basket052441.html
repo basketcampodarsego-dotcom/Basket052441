@@ -33,7 +33,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260316.5</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260316.8</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="doLogin()">Accedi</button>
@@ -285,7 +285,7 @@
       <button class="btn btn-green" onclick="g('csv-file').click()">&#11014; Importa CSV</button>
       <input type="file" id="csv-file" accept=".csv" style="display:none" onchange="csvImport(this)">
       <button class="btn btn-blue" onclick="g('csi-file').click()">&#11014; Importa CSV CSI</button>
-      <input type="file" id="csi-file" accept=".csv" style="display:none" onchange="csiImport(this)">
+      <input type="file" id="csi-file" accept=".csv,.txt,text/plain,text/csv,*/*" style="display:none" onchange="csiImport(this)">
       <button class="btn btn-orange" onclick="g('fip-file').click()">&#11014; Importa Statino FIP</button>
       <input type="file" id="fip-file" accept=".pdf,.csv,.xls,.xlsx,.txt" style="display:none" onchange="fipImport(this)">
     </div>
@@ -1937,6 +1937,7 @@ function csiImport(input){
         // Regola critica: ignora sempre Manfrin 1993
         if(cf==='MNFGCM93C07B563K')continue;
 
+
         var cog=(col(r,'Cognome')||'').toUpperCase().trim();
         var nom=(col(r,'Nome')||'').toUpperCase().trim();
         var dn=col(r,'Nato il').trim();
@@ -1949,6 +1950,9 @@ function csiImport(input){
         var cs=col(r,'C.Medico').trim();
         var attivita=col(r,'Attività').trim();
         var tessera=col(r,'Tessera').trim();
+        // Dirigenti: chi ha Qualifiche valorizzata ma Attività vuota è un dirigente, non un atleta
+        var qualifiche=col(r,'Qualifiche').trim();
+        if(!attivita&&qualifiche)continue;
 
         // Cerca atleta esistente per CF
         var esistente=DB.atleti.find(function(a){
@@ -2010,8 +2014,18 @@ function fipImport(input){
   reader.onload=function(e){
     try{
       var uint8=new Uint8Array(e.target.result);
+      // Estrai testo dal PDF: prova più encoding e anche le stringhe PDF raw "(testo)"
       var str='';
-      try{str=new TextDecoder('latin1').decode(uint8);}catch(ex){str='';}
+      var encodings=['utf-8','latin1','utf-16le','utf-16be'];
+      for(var ei=0;ei<encodings.length;ei++){
+        try{str+=new TextDecoder(encodings[ei]).decode(uint8)+' ';}catch(ex){}
+      }
+      // Estrai anche stringhe PDF raw tra parentesi (formato interno PDF)
+      var pdfStrRe=/\(([^)]{6,})\)/g;
+      var pm;
+      while((pm=pdfStrRe.exec(str))!==null){str+=' '+pm[1];}
+      // Normalizza: rimuovi caratteri non-ASCII mantenendo lettere/numeri
+      str=str.replace(/[^A-Za-z0-9\s]/g,' ').toUpperCase();
       // Cerca codici fiscali italiani (16 char)
       var cfRe=/([A-Z]{6}[0-9]{2}[A-EHLMPRST][0-9]{2}[A-Z][0-9]{3}[A-Z])/g;
       var matches=[],m;
@@ -2026,8 +2040,8 @@ function fipImport(input){
         var idx=str.indexOf(cf);
         var contesto=str.substring(Math.max(0,idx-300),idx+300);
         var fascia='';
-        if(/Minibasket/i.test(contesto))fascia='Minibasket';
-        else if(/Under/i.test(contesto))fascia='Under';
+        if(contesto.indexOf('MINIBASKET')>-1)fascia='Minibasket';
+        else if(contesto.indexOf('UNDER')>-1)fascia='Under';
         var atleta=DB.atleti.find(function(a){return a.cf&&a.cf.toUpperCase()===cf.toUpperCase();});
         risultati.push({cf:cf,fascia:fascia,atleta:atleta||null});
       });
