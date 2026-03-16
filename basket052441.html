@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Basket 052441">
@@ -33,7 +36,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260316.8</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260316.9</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="doLogin()">Accedi</button>
@@ -528,7 +531,10 @@ function fbInit(){
     });
     // ── LOGOUT AUTOMATICO solo alla chiusura effettiva della finestra ──
     window.addEventListener("pagehide",function(e){
-      if(!e.persisted){firebase.auth().signOut();}
+      if(!e.persisted){
+        firebase.auth().signOut();
+        _clearAppCache();
+      }
     });
   }catch(e){console.error("[FB] Errore init:",e);_fbReady=false;}
 }
@@ -553,9 +559,27 @@ function doLogin(){
       if(err)err.textContent=msg;
     });
 }
+function _clearAppCache(){
+  // Cancella Cache API (service workers, browser cache)
+  if(window.caches){
+    caches.keys().then(function(names){
+      names.forEach(function(name){caches.delete(name);});
+    });
+  }
+  // Deregistra eventuali service worker
+  if(navigator.serviceWorker){
+    navigator.serviceWorker.getRegistrations().then(function(regs){
+      regs.forEach(function(r){r.unregister();});
+    });
+  }
+}
 function doLogout(){
   if(!confirm("Esci dall'applicazione?"))return;
-  firebase.auth().signOut();
+  _clearAppCache();
+  firebase.auth().signOut().then(function(){
+    // Forza reload senza cache dopo logout
+    window.location.reload(true);
+  });
 }
 function syncStatus(on){
   var el=document.getElementById("sync-status");
@@ -650,6 +674,18 @@ function nextNumRicevuta(){
 }
 buildSearchIndex();
 
+// ── VERSIONE & CACHE CHECK ──────────────────────────────────────────────────
+// Se il browser ha in cache una versione vecchia, forza il reload
+(function(){
+  var BUILD='20260316.9';
+  var stored=sessionStorage.getItem('app_build');
+  if(stored && stored!==BUILD){
+    sessionStorage.setItem('app_build',BUILD);
+    window.location.reload(true);
+    return;
+  }
+  sessionStorage.setItem('app_build',BUILD);
+})();
 
 var ATLETI_FIP=[
 {id:1,cog:"ANCILOTTO",nom:"EDOARDO",sex:"M",dn:"26/09/2014",cf:"NCLDRD14P26B563N",cs:"",mag:"",cat:"Esordienti",naz:"Italia",gen:"ANCILOTTO NICOLA",tel:"",cfTut:"NCLNCL73T26F241Q",indTut:"VIA CALTANA 264/B, VILLANOVA DI CAMPOSAMPIERO (PD)",email:"",ind:"",note:"",scheda:{},ritirato:false},
