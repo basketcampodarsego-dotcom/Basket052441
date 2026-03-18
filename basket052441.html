@@ -37,7 +37,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.4</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.5</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="doLogin()">Accedi</button>
@@ -437,11 +437,12 @@
 <div class="modal-ov" id="modal-ric">
   <div class="modal">
     <div class="modal-title">&#128424; Ricevuta N&deg; <span id="ric-numero" style="color:var(--gold)"></span></div>
-    <div style="display:flex;gap:10px;margin-bottom:14px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn btn-gold btn-sm" id="ric-det-btn" onclick="setRicTipo('detraibile')">Detraibile</button>
       <button class="btn btn-gray btn-sm" id="ric-ndet-btn" onclick="setRicTipo('non-detraibile')">Non Detraibile</button>
+      <button class="btn btn-blue btn-sm" id="ric-modo-btn" onclick="toggleRicModo()">&#128203; Riepilogo anno</button>
     </div>
-    <div id="ric-preview" style="background:white;color:#111;padding:16px;border-radius:6px;font-family:Arial,serif;font-size:12px"></div>
+    <div id="ric-preview" style="background:white;color:#111;padding:16px;border-radius:6px;font-family:Arial,sans-serif;font-size:12px;max-height:60vh;overflow-y:auto"></div>
     <div class="btn-bar">
       <button class="btn btn-gray" onclick="closeModal('modal-ric')">Chiudi</button>
       <button class="btn btn-gold" onclick="ricevutaHTML()">&#11015; Scarica / Stampa</button>
@@ -687,7 +688,7 @@ buildSearchIndex();
 // ── VERSIONE & CACHE CHECK ──────────────────────────────────────────────────
 // Se il browser ha in cache una versione vecchia, forza il reload
 (function(){
-  var BUILD='20260318.4';
+  var BUILD='20260318.5';
   var stored=sessionStorage.getItem('app_build');
   if(stored && stored!==BUILD){
     sessionStorage.setItem('app_build',BUILD);
@@ -1358,7 +1359,120 @@ function salvaScheda(){
   SCHEDA_VOCI.forEach(function(v){sc[v.k]={voto:g("sc-voto-"+v.k)?g("sc-voto-"+v.k).value||"":"",commento:g("sc-comm-"+v.k)?g("sc-comm-"+v.k).value||"":""};});
   a.scheda=sc;saveDB();closeModal("modal-scheda");
 }
-var _pagAtletaId=null,_ricTipo="detraibile",_ricDati=null;
+var _pagAtletaId=null;
+// ── RICEVUTA ─────────────────────────────────────────────────────────────────
+var _ricDati=null,_ricTipo="detraibile",_ricNumeroCorrente=null,_ricModoAnno=false;
+
+function apriRicevutaNew2(pag,idx){
+  _ricDati={atletaId:_pagAtletaId,pag:pag,idx:idx};
+  _ricModoAnno=false;
+  _ricTipo="detraibile";
+  var num=nextNumRicevuta();
+  g("ric-numero").textContent=num;
+  g("ric-modo-btn").style.display="";
+  g("ric-modo-btn").textContent="📋 Mostra riepilogo anno";
+  setRicTipo("detraibile");
+}
+
+function toggleRicModo(){
+  _ricModoAnno=!_ricModoAnno;
+  g("ric-modo-btn").textContent=_ricModoAnno?"📄 Mostra rata singola":"📋 Mostra riepilogo anno";
+  setRicTipo(_ricTipo);
+}
+
+function setRicTipo(t){
+  _ricTipo=t;
+  g("ric-det-btn").className="btn btn-sm "+(t==="detraibile"?"btn-gold":"btn-gray");
+  g("ric-ndet-btn").className="btn btn-sm "+(t==="non-detraibile"?"btn-gold":"btn-gray");
+  if(!_ricDati)return;
+  var a=DB.atleti.find(function(x){return x.id===_ricDati.atletaId;});if(!a)return;
+  var det=t==="detraibile";
+  var cfFisc=det&&a.cfTut?a.cfTut:a.cf;
+  var indFisc=det&&a.indTut?a.indTut:a.ind;
+  var nomeFisc=det&&a.gen?a.gen:(a.cog+" "+a.nom);
+  
+  // Determina le rate da mostrare
+  var pags;
+  if(_ricModoAnno){
+    // Riepilogo anno: tutti i pagamenti dell'anno del pagamento selezionato
+    var annoRif=(_ricDati.pag&&_ricDati.pag.data)?_ricDati.pag.data.substring(0,4):new Date().getFullYear().toString();
+    pags=(DB.pagamenti[a.id]||[]).filter(function(p){return p.data&&p.data.startsWith(annoRif);});
+  } else {
+    pags=[_ricDati.pag];
+  }
+  
+  var anno=pags.length&&pags[0].data?pags[0].data.substring(0,4):new Date().getFullYear().toString();
+  var totale=pags.reduce(function(s,p){return s+(+p.importo||0);},0);
+  var oggi=new Date().toLocaleDateString("it-IT");
+  
+  // Categoria per causale
+  var causale="QUOTA ATTIVITA' SPORTIVA "+
+    (a.cat==="Pulcini"||a.cat==="Aquilotti"||a.cat==="Scoiattoli"||a.cat==="Esordienti"?"MINIBASKET":
+     a.cat==="Special"?"SPECIAL OLYMPICS":
+     a.cat==="AmaBasket"?"BASKET":
+     a.cat==="AmaVolley"?"PALLAVOLO":
+     "BASKET");
+  
+  // Riga data nascita formattata
+  var dnFmt=a.dn?fmtData(a.dn):"";
+  
+  // Righe rate
+  var righeRate="";
+  pags.forEach(function(p,i){
+    righeRate+='<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">RATA '+(i+1)+'</td>'+
+      '<td style="border:1px solid #aaa;padding:5px 8px;text-align:right">'+Number(p.importo||0).toFixed(2)+'</td>'+
+      '<td style="border:1px solid #aaa;padding:5px 8px;text-align:right">'+(p.data?fmtData(p.data):"")+'</td></tr>';
+  });
+  righeRate+='<tr><td colspan="3" style="border:0;padding:3px 0"></td></tr>';
+  righeRate+='<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">TOTALE</td>'+
+    '<td style="border:1px solid #aaa;padding:5px 8px;text-align:right;font-weight:bold">'+totale.toFixed(2)+'</td>'+
+    '<td style="border:1px solid #aaa;padding:5px 8px"></td></tr>';
+  
+  var html='<div style="font-family:Arial,sans-serif;font-size:12px;color:#111;max-width:600px;margin:0 auto;padding:10px">'+
+    '<div style="text-align:center;margin-bottom:8px">'+
+      (LOGO_B64?'<img src="'+LOGO_B64+'" style="width:60px;height:60px;object-fit:contain"><br>':'🏀<br>')+
+      '<strong style="font-size:14px">RIEPILOGO PAGAMENTI ANNO '+anno+'</strong>'+
+    '</div>'+
+    '<p style="margin:8px 0 10px">Con la presente si attesta di aver ricevuto la somma di</p>'+
+    '<table style="border-collapse:collapse;width:100%;margin-bottom:16px">'+righeRate+'</table>'+
+    '<table style="border-collapse:collapse;width:100%;margin-bottom:12px">'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;width:35%;font-weight:bold">Dal sig./sig.ra</td><td style="border:1px solid #aaa;padding:5px 8px">'+esc(nomeFisc.toUpperCase())+'</td></tr>'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">Residente in</td><td style="border:1px solid #aaa;padding:5px 8px">CAMPODARSEGO (PD)</td></tr>'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">Via</td><td style="border:1px solid #aaa;padding:5px 8px">'+esc(indFisc||"")+'</td></tr>'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">Codice Fiscale</td><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">'+esc(cfFisc||"")+'</td></tr>'+
+    '</table>'+
+    '<table style="border-collapse:collapse;width:100%;margin-bottom:12px">'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;width:35%;font-weight:bold">Causale</td><td style="border:1px solid #aaa;padding:5px 8px">'+causale+'</td></tr>'+
+    '</table>'+
+    '<p style="margin:8px 0 6px"><strong>Per l\'esercizio dell\'attività sportiva di basket di:</strong></p>'+
+    '<table style="border-collapse:collapse;width:100%;margin-bottom:12px">'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;width:35%;font-weight:bold">Atleta</td><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">'+esc(a.cog+' '+a.nom)+'</td></tr>'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">Nato a</td><td style="border:1px solid #aaa;padding:5px 8px">CAMPOSAMPIERO (PD)</td></tr>'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">Il</td><td style="border:1px solid #aaa;padding:5px 8px">'+dnFmt+'</td></tr>'+
+      '<tr><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">Codice Fiscale</td><td style="border:1px solid #aaa;padding:5px 8px;font-weight:bold">'+esc(a.cf||"")+'</td></tr>'+
+    '</table>'+
+    '<p style="margin:8px 0 12px"><strong>Campodarsego, '+oggi+'</strong></p>'+
+    '<p style="font-size:10px;line-height:1.5;margin-bottom:10px">Altresì si dichiara che per tale somma si ha diritto ad usufruire di una detrazione d\'imposta IRPEF pari al 19% dell\'importo pagato fino ad un massimo di Euro 210,00 su base annua e complessivo per ciascuna persona che effettua il pagamento, ai sensi del\'art. 15, co 1, lett i-quinques, DPR 917/1986 e relativo decreto di attuazione.</p>'+
+    '<p style="font-size:10px;line-height:1.5;margin-bottom:4px">Prestazione sportiva dilettantistica non soggetta ad IVA per mancanza dei presupposti di cui all\'art 4, DPR 633/1972.</p>'+
+    '<p style="font-size:10px;line-height:1.5;margin-bottom:16px">Riepilogo esente da imposta di bollo ai sensi della Tabella art 7, ultimo comma, allegata al DPR 642/1972</p>'+
+    '<div style="text-align:right;margin-bottom:4px">'+
+      '<div style="font-size:11px">Il presidente</div>'+
+      '<div style="font-size:11px;font-style:italic">Alberto Scarin</div>'+
+      (true?'<img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA0JCgsKCA0LCgsODg0PEyAVExISEyccHhcgLikxMC4pLSwzOko+MzZGNywtQFdBRkxOUlNSMj5aYVpQYEpRUk//wAALCACiAZABAREA/8QAGgABAQADAQEAAAAAAAAAAAAAAAECBQYEA//EADsQAAIBAwIEAwUHAwMEAwAAAAABAgMEEQUhBhIxQRNRYSJxgZGhFDJCscHR4RUjUjNi8BZjkvEkJUP/2gAIAQEAAD8A34IwQrMVkMgBUgR4W5QMD1bwhs1lboDYjIAhncAgKQpAMEKRgAe8qKACgzKMDuQgMcke76s8t5qNtZ7Vpty/xiss+1rcUrqhGtQnzQl0Z9ydyevkMhvzBp9frVJU/stLpKOamH64S+L/ACNpa0vAtKNFfggl9D6MZIx2GTF5x7PXtkyyT3gpGAGCFBAMDogAZBAFQ7n0GSZIM7EIDx6heRtaajHEq09oR/U+NlpkY0pzuf7lasnzN9k+x8NDg7StXs1nkj7Uc+m37G6RGRvY8N5fulUjQt4+JWl268p5no9W7rRrX13VeOkIPCMtKnVo6jc6fKbnCnFTi31WW/4PDTcr/iGSzmFOedvTZfRfU6VsmSE7go28iNAbADJCjABAEUgYKCgFyDPsCbgLqQjPjc3ELahKrUeEvq/I8OnW8q9WV9crM5P2E+yNo/I0lrKa4nrxkmoOL5d+uybN4Rmt1fUVZUlTpe1cVWo04Lrv3MtP0xUOStXfNcdW+yZsW1FZbwl1bNJpFRVbvU9SzmHNywfpFZ/Y8fB8ZVvGupPOXj4s6joYnxurmja0pVriooU4rds56prupXMKtxptinbUk251O+Dd6XeR1CwpXUVy8y9qPk11R6wQEKDxV9VsaEnGVeMpf4w9p/JHmra7b0oc7oV+XGcuHL+Z9tL1i01NYoycaiWXTntL+TYkIAB3ABQUhexQZgbDBiHuYtmp5Vqt7l72tF+z/ufmbfCSwkkgaOk88W4ysKlJ4+BvX1wfG6r07W2qVqsuWEI5ZpOH7ape3E9ZvE+abaoxf4V0ydCanX7x0reNpSTlXufZil2Xf9heUYaZwzc06axyUZZ9ZPr+ZhwnR8HQaL71G5fXH6G5JJpJtvCXc5NeJxLqz3cdPt5f+fr739EdHcU6dPT61OCUIKlJJJdFhng4UhyaJBPOXUllPt2NuwYtpddveOvTcp4r/UaVmuV+3UfSCfT3+RqktR1dN55aLTceqg/TzZuLTTre2hyxpx9/L0PpcRqRotWtOnKo9kpvY1enaNVhqD1C+qQlW/DGksRjtg3WwHYAELgAZ9CZKigoMwCMhGazWLmSdOyo71bjZ+kf56HttbeFtbwpQSWFvjzPsyM0lo41OKa8kt4Qw2b1nN65UqalqVDSaG8U+etvj4ZOipQjSpQpwSUYpJJdkj4315SsbWdes8Rj0Wd5PyRq9Fta13dS1e+WJz2ow/xXmOMLlUdFnST9qtJRS9M5ZsNFhyaPaR/7afzPazTcT3crfS5U6Tfi3D8OOOuO/wBPzPRpFlDTtOp0cJTS5qj/AN3f9jxa1rthRtK9GFdTryi0ow9o12na1dUtPp0LTTalSScm5SeFltvoj1J8T3TSUaVtF9+VfruZvQ9Wr73GrzXpHP6YJHhWnKWa9/cVPTJk+FrVNOndXUGvKfU8t5O90WcKdHUXcuWypVI5aPbp2kzqSV3qWZVXLKpdUvV+bN2kktlhIApCApAMAAgKigoMlko7k7EPlXqxoUZ1ajxGKy2azSLepWrVNRuv9So/YX+KNu8hhml0vlnr99OEOmzkbW9uIWlpVuKv3acXJmp4Xt5ytquo3G9a6k3nyj/z8jZ6hqNrp1B1bqpyr8MVvKT8kjS2lvda9dRvb6DpWUf9Gi+sl5v9zpMKKSWyWySOK4sr/aa83Ft06M40k+3Nu3+R19rHltKMV2pxX0PsaG4gtQ4op0pb0rKnzS8uZ7r9DWcSK+he5u6tR2M5ezGm8LHk/Ums6fYWen2kNPjmd3UXLPOXy47fFo7GhSjRoQpRSShFR+RmzF9iPoazVtThp9DK9qtPaET4aPpbyr+/TldT3Sl/+a8veblgjAHcYIUgAAICopClRn2IvUpHlkNVqDd3d07GLapp81Rr5pGzhGMIKMdklhIvYBvuclpOqULXVrz7RUUFKck5tPrk+nEutWdxp6tLS4VWdWa5+VPaK3/PB96OrXMraFpo9jOpyQUVVqfdXrg9NnoLnW+1axV+1V85UfwxN4tksHj1S8jZWNSu2uZLEV5y7HHa7QnRo6baRy61ZutUXnJ4S/M6fSNWV1J2t1B0byntKDWFLHdfsbKtUjRpTqzeIwi5P4Gq4dpSla1b2rnxLqo5PPl2PZq1mr7Ta1vj2nHMH5SXQ5DRZz1DUtOtaifLauUsfHP8HegxfUxfvOTsK1O44qrS1GThUp1HChTkttunxx0OsZG2Rddy5BACkADYICshUXIQKZAZJk8moXtOzoOUpLna9iPds+Gk2zpUHXqNupW9pt+psMmM6tOlFupOMF5ykka651/TLfKd0pyX4aa5v4PvaXzu6XiwtqtOlj71Rcv0NLwzbW96r6rWpQqxlVzHmjnzZ8v6baXHF32albwhRt6ac1FYy+v6o6+MVGOIxSS7LoVkOfuMavr0LdZdrZ+1PHSUvL/nqa7UGrvju2pdVS5E/rJm51+xVS3+20fYubf24zXXY+d9fO70KjKkl4l0408eT/EvobihSjQt4UYL2YRUUZ90cjwdSjPV9RrrDUG4x9zk/wBjsCN7MnYxfU8GpaRaaks1o8tRLapDaSNYtP1+y9izv6demuiqrdfPId/xFbrNbT6VWK2fhvd/JmK4lq08q50u4g/T/wBGcOLNPbxUhXp++KZsrXVrC8wqFzByf4W8P5M9mUlua641R+L4VnR8afTmcuWP8/A8N3ccR01GdK3oT39qEVn82bu2qutQhUlTlTk17UH2Z9iAJBgmQwUAqBmCdtiGlvbOOsXrhzyhCjFx54933PNPQdTi8UNVlCCWFFOSwRcPalUWK2r1GvJOR9KfCVq6inc3Fat5pvqzaWuk2Fp/oW0E1+JrL+p9b6fh2VeX+NOT+hpuCoNaRObWFOr+hjwtm4vtTvZbudZxT9Mv+DpjHOx4NXvlY2Tkn/dqPlpru2TR7F2NnyzeatR89R+vkc9w/m84uvLp/h539eVHW3SUrWspdHB5+RzGhJ3V1bUpLMLZ1KkvLmb2/I6s8mq3Ks9LubjO8Kbx73svqc/wOnGd3F9XGMs/FnWkl0Zg0CZIuo7YwRpM+VS1oVIuNSjTmn/lFM1V/wAOabVpucY/ZnFZc4PCXvXQ5601m7p056eqv2hTmo05Pyzj5HXabpsLSCnOTq1mt5vt6I9VWvSorNWpCC/3PB45a3psZ8ru6efie6nUhVpxqU5qUJLKknlMyBCkbCWM4I3utilQCKDMxB5b+48Gg+X78to/uZ2Fv9nt0n96XtM9I3yM4RGzV8Q1fC0S7lnDdPlXx2Ploa+y8MRqJb8k6n5/sfDgtf8A1M595VMv5I6FEnKMIOU5KMUstvsjQWNOpq2ry1CqsW1B8tGL8/8Am7+RuLytG3s61Z9KcHL6HO8DUm6V1cyX35KKePi/0Og1WoqWl3VRvHLSk/oarg+g/wCnzupr2q03h+iN+znOMas3aW1nT3ncVVt5pfy0Z8PUY0NY1KlBYjT5IfI6FPPToH0MWYk3C6lMe2yPPd31vZwbqyzLtCO8mairG61yHhTpulb5y0pPf3vuepcNWHgwiouNWCx4kXhn0paXdQpOlLUasovvy7khoNkpc9bxK0v+5Jv6E1S2sbTS69T7LSwoNJKC6voefhycbXRKPiyfNUlKUIdW0/JG8i20m1gM12mah9trXUUko0pqKWd/VmwMZThFZlKKXq8Hz+1W7ePHpZ8udH0jOMn7Mk/c8mRSoAoHvJOUYxcpNKMVlt9jVWFX+pXs7lp+FDCp+RtwCka2Od4vuEtL8DPtzqRTXotzb2dDl0ehbtY/sKL+K/k03Bc+Wzr20tp057rv5fodKc7qV7U1S9Wlac8xz/frdopdce78ze21vTtLaFCjHEILC/c1XFdfwdDqxXWq1BfH/wBH04Vt/A0ChtvUzP5v+DDi2t4XD9dZ3qOMF8Xv9Ee3RKDt9GtKTWGqab973/U9r6HLX3/zeNrSh1jbQUn7/vfse/QVz3+qV10nXcV8Gzd9iMxZiY9y+pr7nWrK3lyKo61X/CkuZ/HyNVU1HUdRmqdvF0YSeMU1zS+MuiPbZ6G21VvpZfVwi85977m5hCMIqMEopdkjIMh49TslqFnK3dSVPLT5kfHT9HtrGbqRcp1HspSecLyXkbEhzl5w1UdzO4067dCcpOWHnbPk0YR0DVZv+9qssd8OTPrDhWk1/fvK9R98YSPp/wBJ6ft7db/zMHwrQjvRu7im+zUkz6R0nVKLSo6vNxXaccm1tKdeFNK4reJJd8YPQACjsc1qurO8uZ6TaUqniuahKTWzj129DfWVrCztoUYfhW782fcdi5GR2PPdWNtecjuKfN4cuaLzjDPV1OZu9Pv9P1Spe6VBVIVXzSp+r6+9dxOHEOqx8GqoWVGX35R2b9PM3Wm6bb6ZbeDbxe+8pPrJnrfoctxtUbpWlunvObePhj9TprWkqFpRorGKcFH5I5viycrm90/TKe7qT55L6L9TqElGKiuiWEQ5fQGrniTVL6T2g3GL9M4/KJtuH4KGnuo0+apUlJt9zZtkZGfCtWp0ISqVZqEI7uTeEjS3HEVLpYUnXf8AnL2YL9zzRtdX1dKVerKNJ/heYQ+S3ZsbXh21oxxWk55W8Y+zH9/qbanThSgoU4qMV0SWEZ9gMghB2AYT3KGRjoAAAZEfQ81vZUKFaddQTrz2c8b48j05IXKyUj6FDKEXoiMjZymqpXnGVlbSWY01FtfOT/I615waX+mVqnFH9RquPg06aUFnfOMfqzdZMJvCOP4XmqWm6hWxmUpxil78nXWlJUbWnTXZH0IRmt1TSYalKm51HHkTxF7xfrgystGtLVxk4eLVj0nNdPcuiNiGxgncB9QydBgDsOwY3G4xsCepQAUPoACDuUNh7FwCoAmDxUtIow1mpqbnJ1Jxxyvotsfke9gdCM4S1tr2jf3Gl0KbXPcJyl5R3392Gd4kksLZDJGRkXUoAyAAQAE7gZKDEZGclAGSrAAI92C7AZLnYdC5CeX0Iy5LkN7kyAFhNvAbGQzBjuXIALkmcgAg3AIUIEb2IVbDIRQVF6Ie8ncndhZfXYMvcIoYRehGVdNx0GSPYZRMpPdpBNPo8lKSTwsmHVlSGQVBrJOwS2KwQFIAgC52McEBUslSAMuhHuCPOAnsOxSFRcjuAM5WV9CdykKOxGsjG+e5SZI93kJAYyUANbDAAAGCFQGCPoRepSY3BQOxk2TOESTfK+XGe2R7y4J3BcAYKGToFssLoCjIIVDuCMiL3AA7lIB2HRYRe4GSAAAhO5QAVBjsTsV4wO24BWRZzuUdiBgBIyIEAQAAAIo7gAAgBSMIJggZCvcmDJDuEGAwuhV2BB2HcMdgUALuB2AMSroR9QXuGTuZAAAAEMn0MQECPqCdyvoGF1P/2Q==" style="height:50px;opacity:0.9">':'')+'<br>'+
+    '</div>'+
+    '<div style="text-align:center;border-top:1px solid #ccc;padding-top:8px;font-size:10px">'+
+      (LOGO_B64?'<img src="'+LOGO_B64+'" style="width:30px;height:30px;object-fit:contain;vertical-align:middle"> ':'')+'<strong>A.S.D. BASKET CAMPODARSEGO</strong><br>'+
+      'Via Pioga 254 - 35011 CAMPODARSEGO (PD)<br>'+
+      'C.F. 92201430284 – P.IVA 04322580285 | Tel. 389.4759392<br>'+
+      'basketcampodarsego@gmail.com | basketcampodarsego@pec.it'+
+    '</div>'+
+  '</div>';
+  
+  g("ric-preview").innerHTML=html;
+  _ricNumeroCorrente=g("ric-numero").textContent;
+  openModal("modal-ric");
+}
+
 
 function renderPagamenti(){
   var cat=g("pag-cat").value;
@@ -1546,48 +1660,25 @@ function setRicTipo(t){
 function ricevutaHTML(){
   if(!_ricDati)return;
   var a=DB.atleti.find(function(x){return x.id===_ricDati.atletaId;});if(!a)return;
-  var pag=_ricDati.pag;
-  var det=_ricTipo==="detraibile";
+  // Registra ricevuta nel DB
   var num=_ricNumeroCorrente||nextNumRicevuta();
+  var det=_ricTipo==="detraibile";
+  var pags=_ricModoAnno?(DB.pagamenti[a.id]||[]).filter(function(p){
+    var annoRif=(_ricDati.pag&&_ricDati.pag.data)?_ricDati.pag.data.substring(0,4):new Date().getFullYear().toString();
+    return p.data&&p.data.startsWith(annoRif);
+  }):[_ricDati.pag];
+  var totale=pags.reduce(function(s,p){return s+(+p.importo||0);},0);
   var giaPresente=DB.ricevute.find(function(r){return r.numero===num;});
   if(!giaPresente){
-    DB.ricevute.push({numero:num,atletaId:a.id,atleta:a.cog+" "+a.nom,importo:pag.importo,data:pag.data,tipo:pag.tipo,detraibile:det,emessa:new Date().toISOString()});
+    DB.ricevute.push({numero:num,atletaId:a.id,atleta:a.cog+" "+a.nom,importo:totale,data:pags[0]?pags[0].data:"",tipo:_ricModoAnno?"Riepilogo anno":"Pagamento",detraibile:det,emessa:new Date().toISOString()});
     saveDB();
   }
-  var cfFisc=det&&a.cfTut?a.cfTut:a.cf;
-  var indFisc=det&&a.indTut?a.indTut:a.ind;
-  var html='<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Ricevuta '+num+'</title>'+
-    '<style>body{font-family:Arial,sans-serif;max-width:400px;margin:40px auto;padding:20px;border:2px solid #1a2a4a;border-radius:8px;}'+
-    'h1{text-align:center;font-size:18px;margin-bottom:4px;}'+
-    '.sub{text-align:center;font-size:11px;color:#555;margin-bottom:8px;}'+
-    '.num{text-align:center;font-size:13px;font-weight:bold;color:'+(det?"#1a2a4a":"#6a1a1a")+';margin-bottom:4px;}'+
-    '.tipo{text-align:center;font-size:14px;font-weight:bold;color:'+(det?"#1a2a4a":"#6a1a1a")+';margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #111;}'+
-    'table{width:100%;border-collapse:collapse;font-size:13px;}'+
-    'td{padding:5px 0;border-bottom:1px solid #eee;}td:first-child{font-weight:bold;width:45%;}'+
-    '.importo{text-align:center;font-size:20px;font-weight:bold;margin:16px 0;padding:12px;background:#f9f9f9;border-radius:4px;}'+
-    '.footer{font-size:9px;color:#888;margin-top:12px;font-style:italic;}'+
-    '.btn-print{display:block;margin:20px auto;padding:12px 30px;background:#1a2a4a;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer;}'+
-    '@media print{.btn-print{display:none;}}</style></head><body>'+
-    '<h1>ASD BASKET CAMPODARSEGO - FIP 52441</h1>'+
-    '<div class="sub">Stagione 2025/26</div>'+
-    '<div class="num">N. '+num+'</div>'+
-    '<div class="tipo">RICEVUTA '+(det?"DETRAIBILE":"NON DETRAIBILE")+'</div>'+
-    '<table>'+
-    '<tr><td>Atleta</td><td>'+a.cog+' '+a.nom+'</td></tr>'+
-    '<tr><td>C.F. Atleta</td><td>'+a.cf+'</td></tr>'+
-    (det?'<tr><td>C.F. Tutore</td><td>'+(a.cfTut||"&mdash;")+'</td></tr>':'')+
-    (det&&indFisc?'<tr><td>Ind. Tutore</td><td>'+indFisc+'</td></tr>':'')+
-    '<tr><td>Categoria</td><td>'+a.cat+'</td></tr>'+
-    '<tr><td>Tipo</td><td>'+esc(pag.tipo||"")+'</td></tr>'+
-    '<tr><td>Metodo</td><td>'+esc(pag.metodo||"")+'</td></tr>'+
-    '<tr><td>Data</td><td>'+(pag.data?fmtData(pag.data):new Date().toLocaleDateString("it-IT"))+'</td></tr>'+
-    (pag.note?'<tr><td>Note</td><td>'+esc(pag.note)+'</td></tr>':'')+
-    '</table>'+
-    '<div class="importo">&#8364; '+Number(pag.importo||0).toFixed(2)+'</div>'+
-    (det?'<div class="footer">Ai sensi art. 15 TUIR, valida per detrazione fiscale 19%.</div>':'')+
-    '<button class="btn-print" onclick="window.print()">&#128424; Stampa / Salva PDF</button>'+
-    '</body></html>';
-  var blob=new Blob([html],{type:"text/html"});
+  // Genera HTML per download/stampa
+  var html=g("ric-preview").innerHTML;
+  var fullHtml='<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>Ricevuta '+num+'</title>'+
+    '<style>body{margin:20px;font-family:Arial,sans-serif;}@media print{button{display:none!important;}}</style></head><body>'+
+    html+'<div style="text-align:center;margin-top:16px"><button onclick="window.print()" style="padding:12px 30px;background:#1a2a4a;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer">&#128424; Stampa / Salva PDF</button></div></body></html>';
+  var blob=new Blob([fullHtml],{type:"text/html"});
   var url=URL.createObjectURL(blob);
   var link=document.createElement("a");
   link.href=url;link.download="Ricevuta_"+num+"_"+a.cog+".html";link.click();
