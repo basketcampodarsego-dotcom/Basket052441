@@ -16,6 +16,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 <style>
@@ -36,7 +37,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260316.9</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.4</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="doLogin()">Accedi</button>
@@ -118,11 +119,14 @@
 <div id="page-pagamenti" class="page">
   <div class="card"><div class="g3" id="pag-stats"></div></div>
   <div class="search-bar">
-    <select id="pag-cat" onchange="renderPagamenti()" style="max-width:150px">
+    <select id="pag-cat" onchange="renderPagamenti()" style="max-width:130px">
       <option value="">Tutte</option>
       <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
       <option>Esordienti</option><option>Special</option><option>AmaVolley</option><option>AmaBasket</option>
     </select>
+    <input type="date" id="pag-da" onchange="renderPagamenti()" title="Da data" style="max-width:130px">
+    <input type="date" id="pag-a" onchange="renderPagamenti()" title="A data" style="max-width:130px">
+    <button class="btn btn-orange btn-sm" onclick="generaRicevutePeriodo()" title="Genera ricevute per tutti i pagamenti nel periodo selezionato">&#128424; Ricevute periodo</button>
     <button class="btn btn-blue btn-sm" style="margin-left:auto" onclick="goPage('importa-banca')">&#127968; Import Banca</button>
   </div>
   <div class="card" style="padding:0;overflow:hidden">
@@ -495,15 +499,8 @@ var _fbConfig={
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 
 function fbSyncRitirato(){
-  var fipMap={};
-  ATLETI_FIP.forEach(function(a){fipMap[a.id]=a.ritirato;});
-  var changed=0;
-  DB.atleti.forEach(function(a){
-    if(fipMap[a.id]!==undefined && a.ritirato!==fipMap[a.id]){
-      a.ritirato=fipMap[a.id];changed++;
-    }
-  });
-  if(changed>0){saveDB();console.log("[SYNC] Corretti "+changed+" atleti dopo cloud load");}
+  // DISABILITATO: non sovrascrivere il flag ritirato da ATLETI_FIP
+  // Il flag ritirato viene gestito solo dall'utente via UI e salvato su Firebase
 }
 function fbInit(){
   try{
@@ -612,7 +609,20 @@ function loadDB(){
           if(data && data.v){
             try{
               var parsed=JSON.parse(data.v);
-              if(parsed!==undefined)DB[sez]=parsed;
+              if(parsed!==undefined){
+                // Non sovrascrivere con array vuoto se localStorage aveva dati
+                var cur=DB[sez];
+                var isArr=Array.isArray(parsed);
+                if(isArr && Array.isArray(cur) && cur.length>0 && parsed.length===0){
+                  // Firebase ha array vuoto ma locale ha dati: mantieni locale
+                  console.warn('[FB] '+sez+': Firebase vuoto, mantengo localStorage ('+cur.length+' elementi)');
+                } else if(isArr && Array.isArray(cur) && parsed.length<cur.length && sez==='allenamenti'){
+                  // Per allenamenti: mantieni il più completo
+                  console.warn('[FB] allenamenti: Firebase ha '+parsed.length+' vs locale '+cur.length+', mantengo locale');
+                } else {
+                  DB[sez]=parsed;
+                }
+              }
             }catch(ex){}
           }
         }
@@ -677,7 +687,7 @@ buildSearchIndex();
 // ── VERSIONE & CACHE CHECK ──────────────────────────────────────────────────
 // Se il browser ha in cache una versione vecchia, forza il reload
 (function(){
-  var BUILD='20260316.9';
+  var BUILD='20260318.4';
   var stored=sessionStorage.getItem('app_build');
   if(stored && stored!==BUILD){
     sessionStorage.setItem('app_build',BUILD);
@@ -1352,16 +1362,30 @@ var _pagAtletaId=null,_ricTipo="detraibile",_ricDati=null;
 
 function renderPagamenti(){
   var cat=g("pag-cat").value;
+  var da=g("pag-da")&&g("pag-da").value?g("pag-da").value:null;
+  var al=g("pag-a")&&g("pag-a").value?g("pag-a").value:null;
   var lista=DB.atleti.filter(function(a){return!a.ritirato&&(!cat||a.cat===cat);}).sort(function(a,b){return a.cog.localeCompare(b.cog);});
+  // Filtra pagamenti per periodo se specificato
+  function pagsFiltrati(id){
+    var pp=DB.pagamenti[id]||[];
+    if(!da&&!al)return pp;
+    return pp.filter(function(p){
+      if(!p.data)return false;
+      if(da&&p.data<da)return false;
+      if(al&&p.data>al)return false;
+      return true;
+    });
+  }
   var totTot=0,nPag=0;
-  DB.atleti.forEach(function(a){var p=DB.pagamenti[a.id]||[];totTot+=p.reduce(function(s,x){return s+(+x.importo||0);},0);nPag+=p.length;});
+  DB.atleti.forEach(function(a){var p=pagsFiltrati(a.id);totTot+=p.reduce(function(s,x){return s+(+x.importo||0);},0);nPag+=p.length;});
   g("pag-stats").innerHTML=
     '<div class="stat-card"><div style="font-size:18px;font-weight:bold;color:#4aaa6a">&#8364;'+totTot.toFixed(0)+'</div><div class="stat-lbl">Totale incassato</div></div>'+
     '<div class="stat-card"><div style="font-size:18px;font-weight:bold;color:var(--gold)">'+nPag+'</div><div class="stat-lbl">Transazioni</div></div>'+
     '<div class="stat-card"><div style="font-size:18px;font-weight:bold;color:#4a8aff">'+DB.ricevute.length+'</div><div class="stat-lbl">Ricevute emesse</div></div>';
   var h="";
   lista.forEach(function(a){
-    var pags=DB.pagamenti[a.id]||[];
+    var pags=pagsFiltrati(a.id);
+    if(da||al){if(!pags.length)return;} // nascondi atleti senza pagamenti nel periodo
     var tot=pags.reduce(function(s,p){return s+(+p.importo||0);},0);
     var ultimo=pags.length?pags[pags.length-1]:{};
     h+='<tr><td><strong>'+esc(a.cog)+'</strong> '+esc(a.nom)+'</td>';
@@ -1374,6 +1398,32 @@ function renderPagamenti(){
   g("pag-tbody").innerHTML=h||'<tr><td colspan="6" class="empty">Nessun atleta</td></tr>';
 }
 
+function generaRicevutePeriodo(){
+  var da=g("pag-da")&&g("pag-da").value?g("pag-da").value:null;
+  var al=g("pag-a")&&g("pag-a").value?g("pag-a").value:null;
+  if(!da&&!al){alert("Seleziona almeno una data DA o A per filtrare il periodo.");return;}
+  var count=0;
+  DB.atleti.filter(function(a){return !a.ritirato;}).forEach(function(a){
+    var pags=(DB.pagamenti[a.id]||[]).filter(function(p){
+      if(!p.data)return false;
+      if(da&&p.data<da)return false;
+      if(al&&p.data>al)return false;
+      return true;
+    });
+    pags.forEach(function(pag){
+      var num=nextNumRicevuta();
+      var gia=DB.ricevute.find(function(r){
+        return r.atletaId===a.id && r.importo===pag.importo && r.data===pag.data;
+      });
+      if(!gia){
+        DB.ricevute.push({numero:num,atletaId:a.id,atleta:a.cog+" "+a.nom,importo:pag.importo,data:pag.data,tipo:pag.tipo,detraibile:false,emessa:new Date().toISOString()});
+        count++;
+      }
+    });
+  });
+  if(count>0){saveDB();alert("Registrate "+count+" nuove ricevute per il periodo selezionato.\nLe ricevute sono visibili aprendo il pagamento di ogni atleta.");}
+  else{alert("Nessuna nuova ricevuta da generare (già tutte registrate o nessun pagamento nel periodo).");}
+}
 function openModalPag(id){
   _pagAtletaId=id;
   var a=DB.atleti.find(function(x){return x.id===id;});if(!a)return;
@@ -1568,9 +1618,11 @@ function renderPresenzeAtleti(){
       var on=stato===s;
       return '<button style="padding:6px 10px;border:1px solid '+(on?COLORI[s]:"var(--border)")+';border-radius:6px;font-size:11px;cursor:pointer;background:'+(on?COLORI[s]:"transparent")+';color:'+(on?"white":"var(--muted)")+';min-height:36px" onclick="setStato('+al.id+','+a.id+',\''+s+'\')">'+s+'</button>';
     }).join("");
+    var conv=a.convocabile!==false; // default true
+    var convBtn='<button title="'+(conv?'Convocabile':'Non convocabile')+'" style="padding:6px 8px;border:1px solid '+(conv?'#1a6a3a':'#6a1a1a')+';border-radius:6px;font-size:11px;cursor:pointer;background:'+(conv?'#0d2a1a':'#2a0d0d')+';color:'+(conv?'#4aaa6a':'#cc4444')+';min-height:36px" onclick="toggleConvocabile('+a.id+')">'+( conv?'&#10003;':'&#10060;')+'</button>';
     return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #1a2a3a;flex-wrap:wrap">'+
       '<span style="flex:1;min-width:100px;font-size:13px"><strong>'+esc(a.cog)+'</strong> '+esc(a.nom)+'</span>'+
-      '<div style="display:flex;gap:4px">'+btns+'</div></div>';
+      '<div style="display:flex;gap:4px">'+btns+convBtn+'</div></div>';
   }).join("")||'<div class="empty">Nessun atleta</div>';
 }
 function addAllenamento(){
@@ -1581,6 +1633,12 @@ function addAllenamento(){
 function setStato(aid,atid,stato){
   var idx=DB.presenze.findIndex(function(p){return p.aid===aid&&p.atid===atid;});
   if(idx>-1)DB.presenze[idx].stato=stato;else DB.presenze.push({aid:aid,atid:atid,stato:stato});
+  saveDB();renderPresenzeAtleti();
+}
+function toggleConvocabile(atid){
+  var a=DB.atleti.find(function(x){return x.id===atid;});
+  if(!a)return;
+  a.convocabile=(a.convocabile===false)?true:false;
   saveDB();renderPresenzeAtleti();
 }
 var LR_CONV={},LR_FILTRO="Tutti",LR_HTML="",LR_FILENAME="";
@@ -1721,20 +1779,28 @@ function lrScarica(){
   var a=document.createElement("a");a.href=url;a.download=LR_FILENAME;a.click();
 }
 function lrStampa(){
-  // Apre finestra di stampa diretta
-  var w=window.open('','_blank','width=900,height=700');
-  w.document.write(LR_HTML);
-  w.document.close();
-  w.focus();
-  setTimeout(function(){w.print();},500);
+  // iframe nascosto: evita popup blocker su mobile
+  var ifr=document.createElement('iframe');
+  ifr.style.cssText='position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;';
+  document.body.appendChild(ifr);
+  ifr.contentDocument.open();
+  ifr.contentDocument.write(LR_HTML);
+  ifr.contentDocument.close();
+  ifr.contentWindow.focus();
+  setTimeout(function(){
+    ifr.contentWindow.print();
+    setTimeout(function(){document.body.removeChild(ifr);},2000);
+  },400);
 }
 function lrSalvaPDF(){
-  // Su mobile apre il dialogo stampa → Salva come PDF
-  // Su desktop stessa cosa
-  var w=window.open('','_blank','width=900,height=700');
-  w.document.write(LR_HTML.replace('</body>',
-    '<script>window.onload=function(){setTimeout(function(){window.print();},300);}<\/script></body>'));
-  w.document.close();
+  // Blob URL: evita popup blocker, apre dialogo stampa → Salva PDF
+  var html=LR_HTML.replace('</body>','<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400);}<'+'/scr'+'ipt></body>');
+  var blob=new Blob([html],{type:'text/html'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.target='_blank';a.rel='noopener';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},3000);
 }
 function lrCondividi(){
   // Web Share API — funziona su mobile Chrome/Safari
@@ -2248,8 +2314,8 @@ if(!DB.atleti||DB.atleti.length===0){DB.atleti=ATLETI_FIP;saveDB();}
   });
   if(changed>0){saveDB();console.log("[SYNC RITIRATO] Corretti "+changed+" atleti");}
 })();
-var _bancaAll={"19":[{"atleta_id":19,"data":"2026-03-13","importo":136.0,"tipo":"Quota (2a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET SARA F","fonte":"banca"},{"atleta_id":19,"data":"2025-12-03","importo":136.0,"tipo":"Quota (1a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET SARA F","fonte":"banca"},{"atleta_id":19,"data":"2025-03-11","importo":80.0,"tipo":"Quota annuale","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET FIORE ","fonte":"banca"}],"18":[{"atleta_id":18,"data":"2026-03-13","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - ALESSANDRO FI","fonte":"banca"},{"atleta_id":18,"data":"2025-12-03","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET ALESSA","fonte":"banca"},{"atleta_id":18,"data":"2025-03-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET ALESSA","fonte":"banca"}],"40":[{"atleta_id":40,"data":"2026-03-10","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - ZANELLA GIANCARLO - BASKET ALBA ZANELLA ZNLLBA17C","fonte":"banca"},{"atleta_id":40,"data":"2025-11-18","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - ZANELLA GIANCARLO - BASKET ALBA ZANELLA ZNLLBA17C","fonte":"banca"}],"21":[{"atleta_id":21,"data":"2026-03-10","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIACON DEVIS GRANATA ROBERTA - BASKET GIACON MARC","fonte":"banca"},{"atleta_id":21,"data":"2025-11-24","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIACON DEVIS GRANATA ROBERTA - BASKET GIACON MARC","fonte":"banca"},{"atleta_id":21,"data":"2025-03-12","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIACON DEVIS GRANATA ROBERTA - BASKET GIACON MARC","fonte":"banca"}],"5":[{"atleta_id":5,"data":"2026-03-05","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - BERNARDO DAVIDE, MION ALESSIA - BASKET BERNARDO A","fonte":"banca"},{"atleta_id":5,"data":"2025-11-24","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - BERNARDO DAVIDE, MION ALESSIA - BASKET BERNARDO A","fonte":"banca"}],"27":[{"atleta_id":27,"data":"2026-03-05","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - MASON DAVIDE TOMMASI CHIARA - BASKET NICOLO MASON","fonte":"banca"},{"atleta_id":27,"data":"2025-10-30","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - MASON DAVIDE TOMMASI CHIARA - BASKET NICOLO MASON","fonte":"banca"}],"34":[{"atleta_id":34,"data":"2026-03-04","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FASSINA ALESSANDRA PACE MERCURIO - basket Pace Ri","fonte":"banca"},{"atleta_id":34,"data":"2025-11-06","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - FASSINA ALESSANDRA PACE MERCURIO - BASKET PACE RICCARDO","fonte":"banca"}],"38":[{"atleta_id":38,"data":"2026-03-04","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - TOSARELLO ENRICO ANSELMI GIULIA - BASKET GABRIELE","fonte":"banca"},{"atleta_id":38,"data":"2025-11-21","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - TOSARELLO ENRICO ANSELMI GIULIA - BASKET GABRIELE","fonte":"banca"}],"12":[{"atleta_id":12,"data":"2026-03-03","importo":150.0,"tipo":"Saldo quota","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket saldo Nas","fonte":"banca"},{"atleta_id":12,"data":"2025-12-01","importo":150.0,"tipo":"Quota annuale","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket Nasim El ","fonte":"banca"}],"4":[{"atleta_id":4,"data":"2026-03-03","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - GRIGGIO YLENIA, BELLO YARI - 2 rata C.F. BLLSMN14","fonte":"banca"},{"atleta_id":4,"data":"2025-11-20","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - GRIGGIO YLENIA, BELLO YARI - 1 rata C.F. BLLSMN14","fonte":"banca"}],"26":[{"atleta_id":26,"data":"2026-03-03","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"},{"atleta_id":26,"data":"2025-11-12","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"}],"25":[{"atleta_id":25,"data":"2026-03-03","importo":80.0,"tipo":"Saldo quota","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"},{"atleta_id":25,"data":"2025-11-13","importo":80.0,"tipo":"Quota (1a rata)","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"}],"20":[{"atleta_id":20,"data":"2026-03-02","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - FURLAN CLAUDIO - Furlan Lorenzo FRLLNZ15D25B563O ","fonte":"banca"},{"atleta_id":20,"data":"2025-11-24","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - FURLAN CLAUDIO - Basket Lorenzo Furlan FRLLNZ15D2","fonte":"banca"},{"atleta_id":20,"data":"2025-03-10","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FURLAN CLAUDIO - Basket Lorenzo Furlan FRLLNZ15D2","fonte":"banca"}],"24":[{"atleta_id":24,"data":"2026-02-24","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - MARTELLATO MATTEO ROSSO SERENA - BASKET FILIPPO M","fonte":"banca"},{"atleta_id":24,"data":"2025-11-04","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MARTELLATO MATTEO ROSSO SERENA - BASKET FILIPPO M","fonte":"banca"}],"2":[{"atleta_id":2,"data":"2026-02-04","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - TONIOLO SILVIA - Basket Barbetta Tommaso BRBTMS15","fonte":"banca"},{"atleta_id":2,"data":"2025-10-30","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - TONIOLO SILVIA - Basket Barbetta Tommaso BRBTMS15","fonte":"banca"}],"1":[{"atleta_id":1,"data":"2026-02-03","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - ANCILOTTO NICOLA, SCATTOLIN GIULIA - BASKET ANCIL","fonte":"banca"},{"atleta_id":1,"data":"2025-11-24","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - ANCILOTTO NICOLA, SCATTOLIN GIULIA - BASKET ANCIL","fonte":"banca"},{"atleta_id":1,"data":"2025-03-05","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - ANCILOTTO NICOLA, SCATTOLIN GIULIA - BASKET ANCIL","fonte":"banca"}],"33":[{"atleta_id":33,"data":"2025-12-23","importo":250.0,"tipo":"Quota annuale","note":"Bonifico - OSAZEE SAMSON OMERE - BASKET BLOSSOM OMERE MROBSS","fonte":"banca"}],"17":[{"atleta_id":17,"data":"2025-11-24","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CARRERE LILIANA - basket Giorgio Fattore FTTGRG14","fonte":"banca"},{"atleta_id":17,"data":"2025-03-10","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CARRERE LILIANA - Basket GIORGIO FATTORE FTTGRG14","fonte":"banca"},{"atleta_id":17,"data":"2026-03-09","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - CARRERE LILIANA - Basket FATTORE GIORGIOsaldo","fonte":"banca"}],"29":[{"atleta_id":29,"data":"2025-11-21","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MASCHIO SELENA, MILAN EMANUELE - BASKET MILAN DEN","fonte":"banca"}],"28":[{"atleta_id":28,"data":"2025-11-17","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MEKHMAR EL HOUSSINE - BASKET MEKHMAR SOHAIL MKHSH","fonte":"banca"},{"atleta_id":28,"data":"2025-03-04","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MEKHMAR EL HOUSSINE MEKHMAR RADOUANE - BASKET MEK","fonte":"banca"}],"23":[{"atleta_id":23,"data":"2025-11-13","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - HAROCH YOUSSEF, BEN CHARKI KHADIJA - Basket rayan","fonte":"banca"},{"atleta_id":23,"data":"2026-01-05","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - HAROCH YOUSSEF, BEN CHARKI KHADIJA - basket campo","fonte":"banca"}],"8":[{"atleta_id":8,"data":"2025-11-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - BRUGNOLO ANDREA DEMO RAFFAELA - BASKET LARA BRUGN","fonte":"banca"},{"atleta_id":8,"data":"2025-03-21","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - BRUGNOLO ANDREA DEMO RAFFAELA - BASKET LARA BRUGN","fonte":"banca"}],"3":[{"atleta_id":3,"data":"2025-11-07","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - STEFAN ERICA - BASKET BARISON ANGELO BRSNGL14M20B","fonte":"banca"},{"atleta_id":3,"data":"2025-04-09","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - STEFAN ERICA Saldo seconda rata iscrizione annual","fonte":"banca"}],"7":[{"atleta_id":7,"data":"2025-11-06","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - BOTTA FABIO LUIGI, BRAGHETTO MELANIA - BASKET MAT","fonte":"banca"}],"10":[{"atleta_id":10,"data":"2025-11-04","importo":340.0,"tipo":"Saldo quota","note":"Bonifico - DEMO MAURIZIO, DALLE FRATTE LUANA - BASKET DEMO E","fonte":"banca"}],"32":[{"atleta_id":32,"data":"2025-11-04","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - RISCHIGLIAN LAURA NARDETTO CRISTIANO - BASKET ALE","fonte":"banca"},{"atleta_id":32,"data":"2026-03-04","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - RISCHIGLIAN LAURA NARDETTO CRISTIANO - BASKET ALE","fonte":"banca"}],"22":[{"atleta_id":22,"data":"2025-10-31","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIORA NICOLA - BASKET GIORA BIAGIO GRIBGI18A05B56","fonte":"banca"},{"atleta_id":22,"data":"2026-02-04","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - GIORA NICOLA - BASKET GIORA BIAGIO GRIBG118A05B56","fonte":"banca"}],"49":[{"atleta_id":49,"data":"2025-03-17","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CASTAGNA FRANCESCO MORABITO FRANCES - BASKET CAST","fonte":"banca"}],"65":[{"atleta_id":65,"data":"2025-03-11","importo":100.0,"tipo":"Quota annuale","note":"Bonifico - BONOTTO AURORA STEFAN FABIO - BASKET GIACOMO STFG","fonte":"banca"}],"50":[{"atleta_id":50,"data":"2025-03-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CUCCO NUNZIA ANGELICA - BASKET ELENA CEOL CLELNE1","fonte":"banca"}],"43":[{"atleta_id":43,"data":"2025-03-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - ILEANA MENEGAZZO - BASKET RAFFAELE BEDIN BDNRFL13","fonte":"banca"}],"66":[{"atleta_id":66,"data":"2025-03-06","importo":100.0,"tipo":"Quota annuale","note":"Bonifico - ALESSANDRA UFFICI - BASKET TAMBURELLO NICOLO TMBN","fonte":"banca"}],"14":[{"atleta_id":14,"data":"2025-03-11","importo":180.0,"tipo":"Quota annuale","note":"Bonifico - FABRIS LORENZO GURIAN SILVIA BASKET LEONARDO/SEBA","fonte":"banca"},{"atleta_id":14,"data":"2026-03-05","importo":306.0,"tipo":"Quota annuale","note":"Bonifico - FABRIS LORENZO GURIAN SILVIA - BASKET LEONARDO/SE","fonte":"banca"},{"atleta_id":14,"data":"2025-11-12","importo":306.0,"tipo":"Quota (1a rata)","note":"Bonifico - FABRIS LORENZO GURIAN SILVIA - BASKET LEONARDO/SE","fonte":"banca"}],"6":[{"atleta_id":6,"data":"2026-03-11","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - Alberto Bertan, Alessia Pilli - Seconda rata Bert","fonte":"banca"},{"atleta_id":6,"data":"2025-11-20","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - BERTAN ALBERTO, PILLI ALESSIA - BASKET BERTAN MAT","fonte":"banca"}],"31":[{"atleta_id":31,"data":"2026-03-03","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MUSTAFAI EMIR - Basket scarin Alberto","fonte":"banca"},{"atleta_id":31,"data":"2025-11-17","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MUSTAFAI EMIR - Basket Rejan Mustafai","fonte":"banca"}],"11":[{"atleta_id":11,"data":"2026-03-03","importo":136.0,"tipo":"Saldo quota","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket saldo Ham","fonte":"banca"},{"atleta_id":11,"data":"2025-12-01","importo":136.0,"tipo":"Quota annuale","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket Hamza El ","fonte":"banca"}],"39":[{"atleta_id":39,"data":"2026-03-02","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - VISENTINI ALESSANDRO ZAMPIERI FRANCESCA - BASKET ","fonte":"banca"},{"atleta_id":39,"data":"2025-11-13","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - VISENTINI ALESSANDRO ZAMPIERI FRANCESCA - BASKET ","fonte":"banca"}],"362":[{"atleta_id":362,"data":"2026-03-02","importo":150.0,"tipo":"Quota (2a rata)","note":"Bonifico - TONIOLO PAOLO, ZABEO CHIARA - BASKET TONIOLO GIAC","fonte":"banca"},{"atleta_id":362,"data":"2025-10-28","importo":150.0,"tipo":"Quota (1a rata)","note":"Bonifico - TONIOLO PAOLO, ZABEO CHIARA - BASKET TONIOLO GIAC","fonte":"banca"},{"atleta_id":362,"data":"2025-03-03","importo":150.0,"tipo":"Quota (2a rata)","note":"Bonifico - TONIOLO PAOLO, ZABEO CHIARA - BASKET TONIOLO GIAC","fonte":"banca"}],"364":[{"atleta_id":364,"data":"2025-12-09","importo":300.0,"tipo":"Quota annuale","note":"Bonifico - DE GASPARI MARINA, TON GIANNI - SPECIAL BASKET OL","fonte":"banca"}],"16":[{"atleta_id":16,"data":"2025-11-21","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FASOLO INES - RETTA DI FANTON ALESSIO","fonte":"banca"},{"atleta_id":16,"data":"2025-04-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FASOLO INES, FANTON ANDREA - RETTA DI ALESSIO FAN","fonte":"banca"}],"13":[{"atleta_id":13,"data":"2025-10-29","importo":100.0,"tipo":"Assicurazione","note":"Bonifico - ENNAJI SALAH - Assicurazione atleta basket Ennaki","fonte":"banca"}],"53":[{"atleta_id":53,"data":"2025-07-01","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FAVARETTO MARCO - MINI BASKET FAVARETTO SEBASTIAN","fonte":"banca"}],"67":[{"atleta_id":67,"data":"2025-04-18","importo":130.0,"tipo":"Quota annuale","note":"Bonifico - TONELLO MAURO - BASKET DAVIDE TONELLO","fonte":"banca"}],"41":[{"atleta_id":41,"data":"2025-04-15","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - PAOLA PANNITTI - saldo seconda rata Alberto Alaim","fonte":"banca"}],"69":[{"atleta_id":69,"data":"2025-04-15","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - VIEIRA GERALDO HENRIQUE - PAGAMENTO SEMESTRALE AD","fonte":"banca"}],"44":[{"atleta_id":44,"data":"2025-03-10","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - MASCHIO ELISA - Minibasket Annarita Benevento sec","fonte":"banca"}],"63":[{"atleta_id":63,"data":"2025-03-07","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - RUFFA MICHELE, SEMENZATO ELENA - 2 RATA BASKET PI","fonte":"banca"}],"358":[{"atleta_id":358,"data":"2025-03-05","importo":100.0,"tipo":"Quota annuale","note":"Bonifico - BERTELLI PIER LUIGI - BASKET GIOVANNI BERTELLI BR","fonte":"banca"}],"62":[{"atleta_id":62,"data":"2025-03-11","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - PELLEGRINO DIEGO Saldo Basket 2024-25 Andrea Pell","fonte":"banca"}],"366":[{"atleta_id":366,"data":"2026-02-24","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - COZZA MAURIZIO - BASKET DENGO FRANCESCO","fonte":"banca"}],"367":[{"atleta_id":367,"data":"2025-11-18","importo":70.0,"tipo":"Quota (1a rata)","note":"Bonifico - SAMARAPPERUMA ARACHCHIGE CHANDANA - PAGAMENTO PRIMA RATA","fonte":"banca"},{"atleta_id":367,"data":"2025-11-17","importo":100.0,"tipo":"Quota (1a rata)","note":"Bonifico - SAMARAPPERUMA ARACHCHIGE CHANDANA - PAGAMENTO 1 RATA","fonte":"banca"}],"35":[{"atleta_id":35,"data":"2025-11-21","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - TESTA DIANA - BASKET PALMERI MATTEO SALVATORE PLMMTS15P29B5","fonte":"banca"}]};
-var _bancaAllImportato=localStorage.getItem('banca_all_v2');
+var _bancaAll={"19":[{"atleta_id":19,"data":"2026-03-13","importo":136.0,"tipo":"Quota (2a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET SARA F","fonte":"banca"},{"atleta_id":19,"data":"2025-12-03","importo":136.0,"tipo":"Quota (1a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET SARA F","fonte":"banca"},{"atleta_id":19,"data":"2025-03-11","importo":80.0,"tipo":"Quota annuale","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET FIORE ","fonte":"banca"}],"18":[{"atleta_id":18,"data":"2026-03-13","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - ALESSANDRO FI","fonte":"banca"},{"atleta_id":18,"data":"2025-12-03","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET ALESSA","fonte":"banca"},{"atleta_id":18,"data":"2025-03-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - PARCESEPE GIUSEPPINA FIORE DAVIDE - BASKET ALESSA","fonte":"banca"}],"40":[{"atleta_id":40,"data":"2026-03-10","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - ZANELLA GIANCARLO - BASKET ALBA ZANELLA ZNLLBA17C","fonte":"banca"},{"atleta_id":40,"data":"2025-11-18","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - ZANELLA GIANCARLO - BASKET ALBA ZANELLA ZNLLBA17C","fonte":"banca"}],"21":[{"atleta_id":21,"data":"2026-03-10","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIACON DEVIS GRANATA ROBERTA - BASKET GIACON MARC","fonte":"banca"},{"atleta_id":21,"data":"2025-11-24","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIACON DEVIS GRANATA ROBERTA - BASKET GIACON MARC","fonte":"banca"},{"atleta_id":21,"data":"2025-03-12","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIACON DEVIS GRANATA ROBERTA - BASKET GIACON MARC","fonte":"banca"}],"5":[{"atleta_id":5,"data":"2026-03-05","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - BERNARDO DAVIDE, MION ALESSIA - BASKET BERNARDO A","fonte":"banca"},{"atleta_id":5,"data":"2025-11-24","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - BERNARDO DAVIDE, MION ALESSIA - BASKET BERNARDO A","fonte":"banca"},{"atleta_id":5,"data":"2025-02-25","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"27":[{"atleta_id":27,"data":"2026-03-05","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - MASON DAVIDE TOMMASI CHIARA - BASKET NICOLO MASON","fonte":"banca"},{"atleta_id":27,"data":"2025-10-30","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - MASON DAVIDE TOMMASI CHIARA - BASKET NICOLO MASON","fonte":"banca"},{"atleta_id":27,"data":"2025-02-17","importo":40.0,"tipo":"Quota Annuale","note":"Rata","fonte":"banca"}],"34":[{"atleta_id":34,"data":"2026-03-04","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FASSINA ALESSANDRA PACE MERCURIO - basket Pace Ri","fonte":"banca"},{"atleta_id":34,"data":"2025-11-06","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - FASSINA ALESSANDRA PACE MERCURIO - BASKET PACE RICCARDO","fonte":"banca"}],"38":[{"atleta_id":38,"data":"2026-03-04","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - TOSARELLO ENRICO ANSELMI GIULIA - BASKET GABRIELE","fonte":"banca"},{"atleta_id":38,"data":"2025-11-21","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - TOSARELLO ENRICO ANSELMI GIULIA - BASKET GABRIELE","fonte":"banca"},{"atleta_id":38,"data":"2025-02-28","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"12":[{"atleta_id":12,"data":"2026-03-03","importo":150.0,"tipo":"Saldo quota","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket saldo Nas","fonte":"banca"},{"atleta_id":12,"data":"2025-12-01","importo":150.0,"tipo":"Quota annuale","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket Nasim El ","fonte":"banca"}],"4":[{"atleta_id":4,"data":"2026-03-03","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - GRIGGIO YLENIA, BELLO YARI - 2 rata C.F. BLLSMN14","fonte":"banca"},{"atleta_id":4,"data":"2025-11-20","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - GRIGGIO YLENIA, BELLO YARI - 1 rata C.F. BLLSMN14","fonte":"banca"},{"atleta_id":4,"data":"2025-02-24","importo":290.0,"tipo":"Quota Annuale","note":"Saldo quota annuale","fonte":"banca"}],"26":[{"atleta_id":26,"data":"2026-03-03","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"},{"atleta_id":26,"data":"2025-11-12","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"},{"atleta_id":26,"data":"2025-02-11","importo":170.0,"tipo":"Quota Annuale","note":"Prima rata","fonte":"banca"}],"25":[{"atleta_id":25,"data":"2026-03-03","importo":80.0,"tipo":"Saldo quota","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"},{"atleta_id":25,"data":"2025-11-13","importo":80.0,"tipo":"Quota (1a rata)","note":"Bonifico - ZANELLA ELISA MARTELLATO ANDREA - BASKET MARTELLA","fonte":"banca"},{"atleta_id":25,"data":"2025-02-11","importo":80.0,"tipo":"Quota Annuale","note":"Prima rata","fonte":"banca"}],"20":[{"atleta_id":20,"data":"2026-03-02","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - FURLAN CLAUDIO - Furlan Lorenzo FRLLNZ15D25B563O ","fonte":"banca"},{"atleta_id":20,"data":"2025-11-24","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - FURLAN CLAUDIO - Basket Lorenzo Furlan FRLLNZ15D2","fonte":"banca"},{"atleta_id":20,"data":"2025-03-10","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FURLAN CLAUDIO - Basket Lorenzo Furlan FRLLNZ15D2","fonte":"banca"}],"24":[{"atleta_id":24,"data":"2026-02-24","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - MARTELLATO MATTEO ROSSO SERENA - BASKET FILIPPO M","fonte":"banca"},{"atleta_id":24,"data":"2025-11-04","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MARTELLATO MATTEO ROSSO SERENA - BASKET FILIPPO M","fonte":"banca"}],"2":[{"atleta_id":2,"data":"2026-02-04","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - TONIOLO SILVIA - Basket Barbetta Tommaso BRBTMS15","fonte":"banca"},{"atleta_id":2,"data":"2025-10-30","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - TONIOLO SILVIA - Basket Barbetta Tommaso BRBTMS15","fonte":"banca"}],"1":[{"atleta_id":1,"data":"2026-02-03","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - ANCILOTTO NICOLA, SCATTOLIN GIULIA - BASKET ANCIL","fonte":"banca"},{"atleta_id":1,"data":"2025-11-24","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - ANCILOTTO NICOLA, SCATTOLIN GIULIA - BASKET ANCIL","fonte":"banca"},{"atleta_id":1,"data":"2025-03-05","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - ANCILOTTO NICOLA, SCATTOLIN GIULIA - BASKET ANCIL","fonte":"banca"},{"atleta_id":1,"data":"2025-01-08","importo":35.0,"tipo":"Quota Annuale","note":"Divisa","fonte":"banca"}],"33":[{"atleta_id":33,"data":"2025-12-23","importo":250.0,"tipo":"Quota annuale","note":"Bonifico - OSAZEE SAMSON OMERE - BASKET BLOSSOM OMERE MROBSS","fonte":"banca"}],"17":[{"atleta_id":17,"data":"2025-11-24","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CARRERE LILIANA - basket Giorgio Fattore FTTGRG14","fonte":"banca"},{"atleta_id":17,"data":"2025-03-10","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CARRERE LILIANA - Basket GIORGIO FATTORE FTTGRG14","fonte":"banca"},{"atleta_id":17,"data":"2026-03-09","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - CARRERE LILIANA - Basket FATTORE GIORGIOsaldo","fonte":"banca"},{"atleta_id":17,"data":"2025-11-22","importo":170.0,"tipo":"Quota Annuale","note":"Prima rata","fonte":"banca"}],"29":[{"atleta_id":29,"data":"2025-11-21","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MASCHIO SELENA, MILAN EMANUELE - BASKET MILAN DEN","fonte":"banca"},{"atleta_id":29,"data":"2025-03-10","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"28":[{"atleta_id":28,"data":"2025-11-17","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MEKHMAR EL HOUSSINE - BASKET MEKHMAR SOHAIL MKHSH","fonte":"banca"},{"atleta_id":28,"data":"2025-03-04","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MEKHMAR EL HOUSSINE MEKHMAR RADOUANE - BASKET MEK","fonte":"banca"}],"23":[{"atleta_id":23,"data":"2025-11-13","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - HAROCH YOUSSEF, BEN CHARKI KHADIJA - Basket rayan","fonte":"banca"},{"atleta_id":23,"data":"2026-01-05","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - HAROCH YOUSSEF, BEN CHARKI KHADIJA - basket campo","fonte":"banca"}],"8":[{"atleta_id":8,"data":"2025-11-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - BRUGNOLO ANDREA DEMO RAFFAELA - BASKET LARA BRUGN","fonte":"banca"},{"atleta_id":8,"data":"2025-03-21","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - BRUGNOLO ANDREA DEMO RAFFAELA - BASKET LARA BRUGN","fonte":"banca"}],"3":[{"atleta_id":3,"data":"2025-11-07","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - STEFAN ERICA - BASKET BARISON ANGELO BRSNGL14M20B","fonte":"banca"},{"atleta_id":3,"data":"2025-04-09","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - STEFAN ERICA Saldo seconda rata iscrizione annual","fonte":"banca"}],"7":[{"atleta_id":7,"data":"2025-11-06","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - BOTTA FABIO LUIGI, BRAGHETTO MELANIA - BASKET MAT","fonte":"banca"},{"atleta_id":7,"data":"2025-02-26","importo":100.0,"tipo":"Quota Annuale","note":"Saldo quota","fonte":"banca"}],"10":[{"atleta_id":10,"data":"2025-11-04","importo":340.0,"tipo":"Saldo quota","note":"Bonifico - DEMO MAURIZIO, DALLE FRATTE LUANA - BASKET DEMO E","fonte":"banca"}],"32":[{"atleta_id":32,"data":"2025-11-04","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - RISCHIGLIAN LAURA NARDETTO CRISTIANO - BASKET ALE","fonte":"banca"},{"atleta_id":32,"data":"2026-03-04","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - RISCHIGLIAN LAURA NARDETTO CRISTIANO - BASKET ALE","fonte":"banca"}],"22":[{"atleta_id":22,"data":"2025-10-31","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - GIORA NICOLA - BASKET GIORA BIAGIO GRIBGI18A05B56","fonte":"banca"},{"atleta_id":22,"data":"2026-02-04","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - GIORA NICOLA - BASKET GIORA BIAGIO GRIBG118A05B56","fonte":"banca"}],"49":[{"atleta_id":49,"data":"2025-03-17","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CASTAGNA FRANCESCO MORABITO FRANCES - BASKET CAST","fonte":"banca"}],"65":[{"atleta_id":65,"data":"2025-03-11","importo":100.0,"tipo":"Quota annuale","note":"Bonifico - BONOTTO AURORA STEFAN FABIO - BASKET GIACOMO STFG","fonte":"banca"}],"50":[{"atleta_id":50,"data":"2025-03-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - CUCCO NUNZIA ANGELICA - BASKET ELENA CEOL CLELNE1","fonte":"banca"}],"43":[{"atleta_id":43,"data":"2025-03-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - ILEANA MENEGAZZO - BASKET RAFFAELE BEDIN BDNRFL13","fonte":"banca"}],"66":[{"atleta_id":66,"data":"2025-03-06","importo":100.0,"tipo":"Quota annuale","note":"Bonifico - ALESSANDRA UFFICI - BASKET TAMBURELLO NICOLO TMBN","fonte":"banca"}],"14":[{"atleta_id":14,"data":"2025-03-11","importo":180.0,"tipo":"Quota annuale","note":"Bonifico - FABRIS LORENZO GURIAN SILVIA BASKET LEONARDO/SEBA","fonte":"banca"},{"atleta_id":14,"data":"2026-03-05","importo":306.0,"tipo":"Quota annuale","note":"Bonifico - FABRIS LORENZO GURIAN SILVIA - BASKET LEONARDO/SE","fonte":"banca"},{"atleta_id":14,"data":"2025-11-12","importo":306.0,"tipo":"Quota (1a rata)","note":"Bonifico - FABRIS LORENZO GURIAN SILVIA - BASKET LEONARDO/SE","fonte":"banca"}],"6":[{"atleta_id":6,"data":"2026-03-11","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - Alberto Bertan, Alessia Pilli - Seconda rata Bert","fonte":"banca"},{"atleta_id":6,"data":"2025-11-20","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - BERTAN ALBERTO, PILLI ALESSIA - BASKET BERTAN MAT","fonte":"banca"},{"atleta_id":6,"data":"2025-01-31","importo":100.0,"tipo":"Quota Annuale","note":"Prima rata","fonte":"banca"}],"31":[{"atleta_id":31,"data":"2026-03-03","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MUSTAFAI EMIR - Basket scarin Alberto","fonte":"banca"},{"atleta_id":31,"data":"2025-11-17","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - MUSTAFAI EMIR - Basket Rejan Mustafai","fonte":"banca"}],"11":[{"atleta_id":11,"data":"2026-03-03","importo":136.0,"tipo":"Saldo quota","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket saldo Ham","fonte":"banca"},{"atleta_id":11,"data":"2025-12-01","importo":136.0,"tipo":"Quota annuale","note":"Bonifico - EL HATTABI ADIL, EL GANA HAYAT - Basket Hamza El ","fonte":"banca"},{"atleta_id":11,"data":"2025-11-20","importo":170.0,"tipo":"Quota Annuale","note":"Prima rata","fonte":"banca"}],"39":[{"atleta_id":39,"data":"2026-03-02","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - VISENTINI ALESSANDRO ZAMPIERI FRANCESCA - BASKET ","fonte":"banca"},{"atleta_id":39,"data":"2025-11-13","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - VISENTINI ALESSANDRO ZAMPIERI FRANCESCA - BASKET ","fonte":"banca"}],"362":[{"atleta_id":362,"data":"2026-03-02","importo":150.0,"tipo":"Quota (2a rata)","note":"Bonifico - TONIOLO PAOLO, ZABEO CHIARA - BASKET TONIOLO GIAC","fonte":"banca"},{"atleta_id":362,"data":"2025-10-28","importo":150.0,"tipo":"Quota (1a rata)","note":"Bonifico - TONIOLO PAOLO, ZABEO CHIARA - BASKET TONIOLO GIAC","fonte":"banca"},{"atleta_id":362,"data":"2025-03-03","importo":150.0,"tipo":"Quota (2a rata)","note":"Bonifico - TONIOLO PAOLO, ZABEO CHIARA - BASKET TONIOLO GIAC","fonte":"banca"}],"364":[{"atleta_id":364,"data":"2025-12-09","importo":300.0,"tipo":"Quota annuale","note":"Bonifico - DE GASPARI MARINA, TON GIANNI - SPECIAL BASKET OL","fonte":"banca"}],"16":[{"atleta_id":16,"data":"2025-11-21","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FASOLO INES - RETTA DI FANTON ALESSIO","fonte":"banca"},{"atleta_id":16,"data":"2025-04-11","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FASOLO INES, FANTON ANDREA - RETTA DI ALESSIO FAN","fonte":"banca"},{"atleta_id":16,"data":"2025-01-20","importo":35.0,"tipo":"Quota Annuale","note":"Divisa","fonte":"banca"},{"atleta_id":16,"data":"2025-02-23","importo":100.0,"tipo":"Quota Annuale","note":"Seconda rata","fonte":"banca"}],"13":[{"atleta_id":13,"data":"2025-10-29","importo":100.0,"tipo":"Assicurazione","note":"Bonifico - ENNAJI SALAH - Assicurazione atleta basket Ennaki","fonte":"banca"}],"53":[{"atleta_id":53,"data":"2025-07-01","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - FAVARETTO MARCO - MINI BASKET FAVARETTO SEBASTIAN","fonte":"banca"}],"67":[{"atleta_id":67,"data":"2025-04-18","importo":130.0,"tipo":"Quota annuale","note":"Bonifico - TONELLO MAURO - BASKET DAVIDE TONELLO","fonte":"banca"}],"41":[{"atleta_id":41,"data":"2025-04-15","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - PAOLA PANNITTI - saldo seconda rata Alberto Alaim","fonte":"banca"}],"69":[{"atleta_id":69,"data":"2025-04-15","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - VIEIRA GERALDO HENRIQUE - PAGAMENTO SEMESTRALE AD","fonte":"banca"}],"44":[{"atleta_id":44,"data":"2025-03-10","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - MASCHIO ELISA - Minibasket Annarita Benevento sec","fonte":"banca"}],"63":[{"atleta_id":63,"data":"2025-03-07","importo":170.0,"tipo":"Quota (2a rata)","note":"Bonifico - RUFFA MICHELE, SEMENZATO ELENA - 2 RATA BASKET PI","fonte":"banca"}],"358":[{"atleta_id":358,"data":"2025-03-05","importo":100.0,"tipo":"Quota annuale","note":"Bonifico - BERTELLI PIER LUIGI - BASKET GIOVANNI BERTELLI BR","fonte":"banca"}],"62":[{"atleta_id":62,"data":"2025-03-11","importo":170.0,"tipo":"Saldo quota","note":"Bonifico - PELLEGRINO DIEGO Saldo Basket 2024-25 Andrea Pell","fonte":"banca"}],"366":[{"atleta_id":366,"data":"2026-02-24","importo":170.0,"tipo":"Quota annuale","note":"Bonifico - COZZA MAURIZIO - BASKET DENGO FRANCESCO","fonte":"banca"}],"367":[{"atleta_id":367,"data":"2025-11-18","importo":70.0,"tipo":"Quota (1a rata)","note":"Bonifico - SAMARAPPERUMA ARACHCHIGE CHANDANA - PAGAMENTO PRIMA RATA","fonte":"banca"},{"atleta_id":367,"data":"2025-11-17","importo":100.0,"tipo":"Quota (1a rata)","note":"Bonifico - SAMARAPPERUMA ARACHCHIGE CHANDANA - PAGAMENTO 1 RATA","fonte":"banca"}],"35":[{"atleta_id":35,"data":"2025-11-21","importo":170.0,"tipo":"Quota (1a rata)","note":"Bonifico - TESTA DIANA - BASKET PALMERI MATTEO SALVATORE PLMMTS15P29B5","fonte":"banca"}],"61":[{"atleta_id":61,"data":"2025-02-12","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"52":[{"atleta_id":52,"data":"2025-02-13","importo":100.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"360":[{"atleta_id":360,"data":"2025-02-17","importo":150.0,"tipo":"Quota Annuale","note":"Saldo quota","fonte":"banca"}],"58":[{"atleta_id":58,"data":"2025-02-17","importo":100.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"47":[{"atleta_id":47,"data":"2025-02-18","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"51":[{"atleta_id":51,"data":"2025-02-18","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"9":[{"atleta_id":9,"data":"2025-02-19","importo":100.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"70":[{"atleta_id":70,"data":"2025-02-19","importo":100.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"30":[{"atleta_id":30,"data":"2025-02-20","importo":100.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"37":[{"atleta_id":37,"data":"2025-02-21","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"57":[{"atleta_id":57,"data":"2025-02-24","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"64":[{"atleta_id":64,"data":"2025-02-25","importo":125.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"56":[{"atleta_id":56,"data":"2025-02-25","importo":100.0,"tipo":"Quota Annuale","note":"Prima rata","fonte":"banca"},{"atleta_id":56,"data":"2025-02-27","importo":100.0,"tipo":"Quota Annuale","note":"Seconda rata","fonte":"banca"}],"45":[{"atleta_id":45,"data":"2025-02-25","importo":170.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"359":[{"atleta_id":359,"data":"2025-02-27","importo":150.0,"tipo":"Quota Annuale","note":"Quota annuale","fonte":"banca"}],"54":[{"atleta_id":54,"data":"2025-02-28","importo":170.0,"tipo":"Quota Annuale","note":"Saldo quota","fonte":"banca"}],"55":[{"atleta_id":55,"data":"2025-02-28","importo":100.0,"tipo":"Quota Annuale","note":"Saldo iscrizione","fonte":"banca"}],"363":[{"atleta_id":363,"data":"2025-11-27","importo":150.0,"tipo":"Quota Annuale","note":"Special Olympics 2025/26","fonte":"banca"}]};
+var _bancaAllImportato=localStorage.getItem('banca_all_v3');
 if(!_bancaAllImportato){
   Object.keys(DB.pagamenti).forEach(function(id){
     if(Array.isArray(DB.pagamenti[id])){
@@ -2266,7 +2332,7 @@ if(!_bancaAllImportato){
     });
   });
   saveDB();
-  localStorage.setItem('banca_all_v2','1');
+  localStorage.setItem('banca_all_v3','1');
   ['banca_importato','banca_pdf_importato','banca_ex_importato','banca_dengo_importato','pace_extra_importato','onesh_importato'].forEach(function(k){localStorage.removeItem(k);});
 }
 DB.atleti.forEach(function(a){
