@@ -37,7 +37,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260319.2</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260319.3</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="
@@ -50,6 +50,11 @@
       else{err.textContent='Errore JS: ricarica la pagina (F5)';this.disabled=false;}
     ">Accedi</button>
     <div id="login-err"></div>
+    <div id="login-diag" style="margin-top:14px;text-align:left;background:#060e1c;border:1px solid #243555;border-radius:8px;padding:10px;font-size:11px;font-family:monospace;color:#8899aa;max-height:160px;overflow-y:auto;display:none">
+      <div style="color:#c8a84b;font-weight:bold;margin-bottom:6px">&#128269; Diagnostica login</div>
+      <div id="login-diag-log"></div>
+    </div>
+    <button onclick="var d=document.getElementById('login-diag');d.style.display=d.style.display==='none'?'block':'none'" style="margin-top:8px;background:none;border:none;color:#556677;font-size:11px;cursor:pointer;font-family:Georgia,serif">&#128269; mostra/nascondi diagnostica</button>
   </div>
 </div>
 <div id="topbar">
@@ -521,25 +526,41 @@ function fbSyncRitirato(){
   // DISABILITATO: non sovrascrivere il flag ritirato da ATLETI_FIP
   // Il flag ritirato viene gestito solo dall'utente via UI e salvato su Firebase
 }
+
+function _diagLog(msg, color){
+  var el=document.getElementById('login-diag-log');
+  if(!el)return;
+  var ts=new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  var row=document.createElement('div');
+  row.style.cssText='padding:2px 0;border-bottom:1px solid #1a2a3a;color:'+(color||'#8899aa');
+  row.textContent='['+ts+'] '+msg;
+  el.appendChild(row);
+  el.scrollTop=el.scrollHeight;
+  // Mostra automaticamente il pannello
+  var d=document.getElementById('login-diag');
+  if(d)d.style.display='block';
+  console.log('[DIAG] '+msg);
+}
 function fbInit(){
+  _diagLog('fbInit() avviato');
   try{
-    if(!firebase.apps.length){_fbApp=firebase.initializeApp(_fbConfig);}
-    else{_fbApp=firebase.app();}
+    _diagLog('Firebase SDK: '+(typeof firebase!=='undefined'?'OK':'NON TROVATO'),'#c8a84b');
+    if(!firebase.apps.length){_fbApp=firebase.initializeApp(_fbConfig);_diagLog('App Firebase inizializzata','#4aaa6a');}
+    else{_fbApp=firebase.app();_diagLog('App Firebase gia\' attiva','#4aaa6a');}
     _db=firebase.firestore();
     _fbReady=true;
-    console.log("[FB] Firestore pronto");
-    // ── INIT AUTH ──
+    _diagLog('Firestore pronto','#4aaa6a');
     var auth=firebase.auth();
+    _diagLog('Auth Firebase pronto, in attesa stato utente...','#c8a84b');
     auth.onAuthStateChanged(function(user){
       if(user){
-        // Utente autenticato — mostra app
+        _diagLog('Utente autenticato: '+user.email,'#4aaa6a');
         document.getElementById("login-screen").classList.add("hidden");
-        // Mostra email utente nella topbar
         var badge=document.getElementById("auth-user-badge");
         if(badge){badge.textContent="👤 "+user.email;badge.style.display="inline-block";}
         loadDB();
       } else {
-        // Non autenticato — mostra login, blocca app
+        _diagLog('Nessun utente attivo - mostra login','#8899aa');
         document.getElementById("login-screen").classList.remove("hidden");
         var badge=document.getElementById("auth-user-badge");
         if(badge){badge.style.display="none";}
@@ -560,7 +581,7 @@ function fbInit(){
         _appHidden=false;
       }
     });
-  }catch(e){console.error("[FB] Errore init:",e);_fbReady=false;}
+  }catch(e){_diagLog('ERRORE fbInit: '+e.message,'#cc4444');console.error("[FB] Errore init:",e);_fbReady=false;}
 }
 function doLogin(){
   var email=(document.getElementById("login-email")||{}).value||"";
@@ -569,20 +590,23 @@ function doLogin(){
   var err=document.getElementById("login-err");
   if(!email||!pwd){if(err)err.textContent="Inserire email e password.";return;}
   // Se Firebase non e' pronto, riprova tra 1 secondo
+  _diagLog('Tentativo login: '+email);
   if(!_fbReady){
-    if(err)err.textContent="Connessione in corso, riprova tra un secondo...";
-    setTimeout(function(){if(err)err.textContent="";},2000);
-    // Prova a reinizializzare
-    try{fbInit();}catch(ex){}
+    _diagLog('Firebase NON pronto - _fbReady=false','#cc4444');
+    if(err)err.textContent="Firebase non pronto, riprova tra 2 secondi.";
+    setTimeout(function(){try{fbInit();}catch(ex){_diagLog('Retry fbInit errore: '+ex.message,'#cc4444');}},1000);
     return;
   }
+  _diagLog('Firebase pronto, chiamo signInWithEmailAndPassword...','#c8a84b');
   if(btn)btn.disabled=true;
   if(err)err.textContent="";
   firebase.auth().signInWithEmailAndPassword(email,pwd)
     .then(function(){
+      _diagLog('signIn OK - in attesa onAuthStateChanged','#4aaa6a');
       if(btn)btn.disabled=false;
     })
     .catch(function(e){
+      _diagLog('Errore signIn: '+e.code,'#cc4444');
       if(btn)btn.disabled=false;
       var msg="Credenziali non valide.";
       if(e.code==="auth/user-not-found"||e.code==="auth/wrong-password"||e.code==="auth/invalid-credential")msg="Email o password errati.";
@@ -722,7 +746,7 @@ buildSearchIndex();
 
 // ── VERSIONE ─────────────────────────────────────────────────────────────────
 // Nessun reload automatico - evita loop e blocchi JS
-var _APP_BUILD='20260319.2';
+var _APP_BUILD='20260319.3';
 
 var ATLETI_FIP=[
 {id:1,cog:"ANCILOTTO",nom:"EDOARDO",sex:"M",dn:"26/09/2014",cf:"NCLDRD14P26B563N",cs:"",mag:"",cat:"Esordienti",naz:"Italia",gen:"ANCILOTTO NICOLA",tel:"",cfTut:"NCLNCL73T26F241Q",indTut:"VIA CALTANA 264/B, VILLANOVA DI CAMPOSAMPIERO (PD)",email:"",ind:"",note:"",scheda:{},ritirato:false},
