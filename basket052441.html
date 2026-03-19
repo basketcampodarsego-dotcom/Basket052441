@@ -37,7 +37,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.8</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.9</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="doLogin()">Accedi</button>
@@ -537,11 +537,19 @@ function fbInit(){
         if(badge){badge.style.display="none";}
       }
     });
-    // ── LOGOUT AUTOMATICO solo alla chiusura effettiva della finestra ──
-    window.addEventListener("pagehide",function(e){
-      if(!e.persisted){
-        firebase.auth().signOut();
-        _clearAppCache();
+    // ── LOGOUT AUTOMATICO: solo su beforeunload reale (non su navigazione mobile) ──
+    // pagehide con persisted=false puo scattare anche su back/forward cache mobile
+    // Usiamo visibilitychange + un flag per distinguere chiusura vera da navigazione
+    var _appHidden=false;
+    document.addEventListener('visibilitychange',function(){
+      if(document.visibilityState==='hidden'){
+        _appHidden=true;
+        setTimeout(function(){
+          // Se dopo 30 secondi app ancora nascosta, considera chiusura
+          if(_appHidden){firebase.auth().signOut();}
+        },30000);
+      } else {
+        _appHidden=false;
       }
     });
   }catch(e){console.error("[FB] Errore init:",e);_fbReady=false;}
@@ -696,16 +704,18 @@ function nextNumRicevuta(){
 buildSearchIndex();
 
 // ── VERSIONE & CACHE CHECK ──────────────────────────────────────────────────
-// Se il browser ha in cache una versione vecchia, forza il reload
 (function(){
-  var BUILD='20260318.8';
+  var BUILD='20260318.9';
   var stored=sessionStorage.getItem('app_build');
-  if(stored && stored!==BUILD){
+  // Reload solo se NON è già stato fatto in questa sessione (evita loop)
+  if(stored && stored!==BUILD && !sessionStorage.getItem('app_reloaded')){
     sessionStorage.setItem('app_build',BUILD);
+    sessionStorage.setItem('app_reloaded','1');
     window.location.reload(true);
     return;
   }
   sessionStorage.setItem('app_build',BUILD);
+  sessionStorage.removeItem('app_reloaded');
 })();
 
 var ATLETI_FIP=[
