@@ -37,7 +37,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.9</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260319.1</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="doLogin()">Accedi</button>
@@ -560,6 +560,14 @@ function doLogin(){
   var btn=document.getElementById("login-btn");
   var err=document.getElementById("login-err");
   if(!email||!pwd){if(err)err.textContent="Inserire email e password.";return;}
+  // Se Firebase non e' pronto, riprova tra 1 secondo
+  if(!_fbReady){
+    if(err)err.textContent="Connessione in corso, riprova tra un secondo...";
+    setTimeout(function(){if(err)err.textContent="";},2000);
+    // Prova a reinizializzare
+    try{fbInit();}catch(ex){}
+    return;
+  }
   if(btn)btn.disabled=true;
   if(err)err.textContent="";
   firebase.auth().signInWithEmailAndPassword(email,pwd)
@@ -572,6 +580,7 @@ function doLogin(){
       if(e.code==="auth/user-not-found"||e.code==="auth/wrong-password"||e.code==="auth/invalid-credential")msg="Email o password errati.";
       else if(e.code==="auth/too-many-requests")msg="Troppi tentativi. Riprova tra qualche minuto.";
       else if(e.code==="auth/network-request-failed")msg="Errore di rete. Verifica la connessione.";
+      else msg="Errore: "+e.code;
       if(err)err.textContent=msg;
     });
 }
@@ -705,7 +714,7 @@ buildSearchIndex();
 
 // ── VERSIONE & CACHE CHECK ──────────────────────────────────────────────────
 (function(){
-  var BUILD='20260318.9';
+  var BUILD='20260319.1';
   var stored=sessionStorage.getItem('app_build');
   // Reload solo se NON è già stato fatto in questa sessione (evita loop)
   if(stored && stored!==BUILD && !sessionStorage.getItem('app_reloaded')){
@@ -2629,8 +2638,13 @@ function resetDB(){
   DB={atleti:[],pagamenti:{},allenamenti:[],presenze:[],ricevute:[],listar:[]};
   saveDB();alert("Cancellato.");renderImpostazioni();
 }
-fbInit();
-// loadDB() è ora chiamato da onAuthStateChanged dopo login
+// Esegui fbInit quando DOM e SDK Firebase sono pronti
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',function(){fbInit();});
+} else {
+  fbInit();
+}
+// loadDB() e' ora chiamato da onAuthStateChanged dopo login
 // ── DEDUP BOOT v1.0 ── rimuove duplicati per CF (mantiene record con ID più basso) ──
 (function(){
   if(!DB.atleti||DB.atleti.length===0) return;
