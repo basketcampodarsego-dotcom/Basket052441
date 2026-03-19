@@ -37,10 +37,18 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260319.1</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260319.2</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <button id="login-btn" onclick="doLogin()">Accedi</button>
+    <button id="login-btn" onclick="
+      var e=document.getElementById('login-email').value;
+      var p=document.getElementById('login-pwd').value;
+      var err=document.getElementById('login-err');
+      if(!e||!p){err.textContent='Inserire email e password.';return;}
+      this.disabled=true;err.textContent='Accesso in corso...';
+      if(typeof doLogin==='function'){doLogin();}
+      else{err.textContent='Errore JS: ricarica la pagina (F5)';this.disabled=false;}
+    ">Accedi</button>
     <div id="login-err"></div>
   </div>
 </div>
@@ -712,20 +720,9 @@ function nextNumRicevuta(){
 }
 buildSearchIndex();
 
-// ── VERSIONE & CACHE CHECK ──────────────────────────────────────────────────
-(function(){
-  var BUILD='20260319.1';
-  var stored=sessionStorage.getItem('app_build');
-  // Reload solo se NON è già stato fatto in questa sessione (evita loop)
-  if(stored && stored!==BUILD && !sessionStorage.getItem('app_reloaded')){
-    sessionStorage.setItem('app_build',BUILD);
-    sessionStorage.setItem('app_reloaded','1');
-    window.location.reload(true);
-    return;
-  }
-  sessionStorage.setItem('app_build',BUILD);
-  sessionStorage.removeItem('app_reloaded');
-})();
+// ── VERSIONE ─────────────────────────────────────────────────────────────────
+// Nessun reload automatico - evita loop e blocchi JS
+var _APP_BUILD='20260319.2';
 
 var ATLETI_FIP=[
 {id:1,cog:"ANCILOTTO",nom:"EDOARDO",sex:"M",dn:"26/09/2014",cf:"NCLDRD14P26B563N",cs:"",mag:"",cat:"Esordienti",naz:"Italia",gen:"ANCILOTTO NICOLA",tel:"",cfTut:"NCLNCL73T26F241Q",indTut:"VIA CALTANA 264/B, VILLANOVA DI CAMPOSAMPIERO (PD)",email:"",ind:"",note:"",scheda:{},ritirato:false},
