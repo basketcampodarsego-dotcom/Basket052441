@@ -37,7 +37,7 @@
   <div class="login-box">
     <div style="font-size:40px;margin-bottom:12px">&#x1F3C0;</div>
     <div class="login-title">Basket 052441</div>
-    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.6</span></div>
+    <div class="login-sub">ASD Basket Campodarsego &middot; FIP 52441<br>Accesso riservato<br><span style="font-size:10px;color:#556677;margin-top:4px;display:inline-block">v2.1 &middot; build 20260318.8</span></div>
     <div class="login-field"><label>Email</label><input type="email" id="login-email" placeholder="email@esempio.it" autocomplete="username"></div>
     <div class="login-field"><label>Password</label><input type="password" id="login-pwd" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></div>
     <button id="login-btn" onclick="doLogin()">Accedi</button>
@@ -141,8 +141,12 @@
 <div id="page-importa-banca" class="page">
   <div class="card">
     <div class="card-title">&#127968; Import Estratto Conto Banca</div>
-    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Carica il file XLSX della banca. Il sistema cercherà il codice fiscale degli atleti nella colonna Descrizione e proporrà i bonifici da importare.</p>
-    <button class="btn btn-gold" onclick="g('banca-file').click()">&#128194; Carica file XLSX banca</button>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Carica il PDF o il file XLSX dell'estratto conto. Il sistema cerca il codice fiscale degli atleti nella descrizione e propone i bonifici da importare.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-gold" onclick="g('banca-file-pdf').click()">&#128196; Carica PDF banca (BCC)</button>
+      <button class="btn btn-gray" onclick="g('banca-file').click()">&#128194; Carica XLSX / CSV</button>
+    </div>
+    <input type="file" id="banca-file-pdf" accept=".pdf" style="display:none" onchange="parsaBancaPDF(this)">
     <input type="file" id="banca-file" accept=".xlsx,.xls,.csv" style="display:none" onchange="parsaBanca(this)">
   </div>
   <div id="banca-risultati" style="display:none">
@@ -285,6 +289,9 @@
     <div style="display:flex;flex-direction:column;gap:10px">
       <button class="btn btn-gold" onclick="csvExport('atleti')">&#11015; Atleti.csv</button>
       <button class="btn btn-gold" onclick="csvExport('pagamenti')">&#11015; Pagamenti.csv</button>
+      <button class="btn btn-green" onclick="xlsxExportPagamenti()">&#11015; Pagamenti.xlsx</button>
+      <button class="btn btn-blue" onclick="g('import-pag-xlsx').click()">&#11014; Importa Pagamenti.xlsx</button>
+      <input type="file" id="import-pag-xlsx" accept=".xlsx,.xls,.csv" style="display:none" onchange="xlsxImportPagamenti(this)">
       <button class="btn btn-gold" onclick="csvExport('presenze')">&#11015; Presenze.csv</button>
       <button class="btn btn-gold" onclick="csvExport('listar')">&#11015; ListaR.csv</button>
       <button class="btn btn-blue" onclick="csvExport('tutto')">&#11015; Esporta TUTTO</button>
@@ -305,6 +312,7 @@
   </div>
   <div class="card">
     <div class="card-title">&#9888; Zona Pericolosa</div>
+    <button class="btn btn-orange" onclick="reimportaBanca()" style="margin-bottom:10px;display:block">&#128260; Reimporta pagamenti banca</button>
     <button class="btn btn-red" onclick="resetDB()">&#128465; Cancella tutti i dati</button>
   </div>
   <div class="card">
@@ -690,7 +698,7 @@ buildSearchIndex();
 // ── VERSIONE & CACHE CHECK ──────────────────────────────────────────────────
 // Se il browser ha in cache una versione vecchia, forza il reload
 (function(){
-  var BUILD='20260318.6';
+  var BUILD='20260318.8';
   var stored=sessionStorage.getItem('app_build');
   if(stored && stored!==BUILD){
     sessionStorage.setItem('app_build',BUILD);
@@ -1998,6 +2006,132 @@ function parsaBanca(input){
   else reader.readAsArrayBuffer(file);
 }
 
+function parsaBancaPDF(input){
+  var file=input.files[0];if(!file)return;
+  // Carica PDF.js dinamicamente
+  function loadPdfJs(cb){
+    if(window.pdfjsLib){cb();return;}
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload=function(){
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      cb();
+    };
+    s.onerror=function(){alert('Impossibile caricare il lettore PDF. Verifica la connessione internet.');};
+    document.head.appendChild(s);
+  }
+  loadPdfJs(function(){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var typedArray=new Uint8Array(e.target.result);
+      pdfjsLib.getDocument(typedArray).promise.then(function(pdf){
+        var allText='';
+        var pages=[];
+        for(var p=1;p<=pdf.numPages;p++) pages.push(p);
+        var done=0;
+        var pageTexts=new Array(pdf.numPages);
+        pages.forEach(function(pNum){
+          pdf.getPage(pNum).then(function(page){
+            page.getTextContent().then(function(tc){
+              // Ricostruisce le righe per posizione Y
+              var items=tc.items;
+              // Raggruppa per Y approssimata (stesso ±3px = stessa riga)
+              var lines={};
+              items.forEach(function(item){
+                var y=Math.round(item.transform[5]/3)*3;
+                if(!lines[y])lines[y]=[];
+                lines[y].push({x:item.transform[4],txt:item.str});
+              });
+              // Ordina le righe per Y decrescente (top→bottom in PDF)
+              var ySorted=Object.keys(lines).map(Number).sort(function(a,b){return b-a;});
+              var pageText=ySorted.map(function(y){
+                var row=lines[y].sort(function(a,b){return a.x-b.x;});
+                return row.map(function(i){return i.txt;}).join(' ');
+              }).join('
+');
+              pageTexts[pNum-1]=pageText;
+              done++;
+              if(done===pdf.numPages){
+                parsaBancaPDFText(pageTexts.join('
+'));
+              }
+            });
+          });
+        });
+      }).catch(function(err){alert('Errore lettura PDF: '+err.message);});
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parsaBancaPDFText(txt){
+  // Parser BCC Roma: cerca righe che iniziano con data GG/MM/AA
+  var lines=txt.split('\n');
+  var rows=[];
+  lines.forEach(function(line){
+    line=line.trim();
+    // La riga deve iniziare con una data tipo 28/10/25 o 28/10/2025
+    var pt=line.split(' ');
+    if(pt.length<3)return;
+    var d1=pt[0];
+    if(!/^\d{2}\/\d{2}\/\d{2,4}$/.test(d1))return;
+    // Converti data
+    var dp=d1.split('/');
+    var anno=dp[2].length===2?'20'+dp[2]:dp[2];
+    var isoData=anno+'-'+dp[1]+'-'+dp[0];
+    // Cerca tutti i numeri con formato italiano (1.234,56)
+    var reN=/\d{1,3}(?:\.\d{3})*,\d{2}/g;
+    var importi=[];
+    var m;
+    while((m=reN.exec(line))!==null){
+      importi.push(parseFloat(m[0].replace(/\./g,'').replace(',','.')));
+    }
+    // Descrizione: testo rimanente (rimuovi date e importi)
+    var desc=line;
+    // Solo bonifici in entrata (BCC li chiama "Bonifico a vs favore" o "INSTANT")
+    var upper=desc.toUpperCase();
+    var isEntrata=(
+      upper.indexOf('BONIFICO A VS FAVORE')>-1||
+      (upper.indexOf('BONIFICO')>-1&&upper.indexOf('INSTANT')>-1&&upper.indexOf('A FAVORE DI')===-1)
+    );
+    if(!isEntrata)return;
+    var importo=importi.length>0?importi[0]:0;
+    if(importo<=0)return;
+    rows.push([isoData,'',importo,desc]);
+  });
+  if(!rows.length){
+    alert('Nessun bonifico in entrata trovato nel PDF.\nVerifica che sia un estratto conto BCC Roma con testo selezionabile.');
+    return;
+  }
+  parsaBancaRowsPDF(rows);
+}
+function parsaBancaRowsPDF(rows){
+  // Stessa logica di parsaBancaRows ma con formato già normalizzato [data,valuta,importo,desc]
+  BANCA_DATA=[];
+  BANCA_SEL={};
+  var atleti=DB.atleti.filter(function(a){return!a.ritirato;});
+  rows.forEach(function(row){
+    var isoData=row[0],importo=row[2],desc=row[3];
+    if(!importo||importo<=0)return;
+    // Cerca CF atleta nella descrizione
+    var match=null;
+    atleti.forEach(function(a){
+      if(!a.cf||match)return;
+      if(desc.toUpperCase().indexOf(a.cf.toUpperCase())>-1)match=a;
+    });
+    // Cerca per cognome+nome se non trovato CF
+    if(!match){
+      atleti.forEach(function(a){
+        if(match)return;
+        var cog=a.cog.toUpperCase(),nom=a.nom.split(' ')[0].toUpperCase();
+        if(cog.length>3&&desc.toUpperCase().indexOf(cog)>-1&&nom.length>2&&desc.toUpperCase().indexOf(nom)>-1)match=a;
+      });
+    }
+    BANCA_DATA.push({data:isoData,importo:importo,desc:desc,atleta:match,tipo:'Quota annuale',fonte:'banca'});
+  });
+  bancaRender();
+}
+
 function parsaBancaCSV(txt){
   var rows=txt.split("\n").map(function(r){return r.split(";").map(function(c){return c.replace(/^"|"$/g,"").trim();});});
   parsaBancaRows(rows);
@@ -2116,6 +2250,76 @@ function csvDownload(content,filename){
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");a.href=url;a.download=filename;a.click();
 }
+
+// ── EXPORT/IMPORT XLSX PAGAMENTI ──────────────────────────────────────────────
+function xlsxExportPagamenti(){
+  if(typeof XLSX==='undefined'){
+    alert('Per esportare XLSX apri in Chrome con connessione internet (richiede libreria SheetJS).');
+    return;
+  }
+  var oggi=new Date().toISOString().split('T')[0];
+  var rows=[['IDAtleta','Cognome','Nome','CF','Categoria','Tipo','Importo','Data','Metodo','Note','Fonte']];
+  DB.atleti.forEach(function(a){
+    (DB.pagamenti[a.id]||[]).forEach(function(p){
+      rows.push([a.id,a.cog,a.nom,a.cf||'',a.cat||'',p.tipo||'',+(p.importo||0),p.data||'',p.metodo||'',p.note||'',p.fonte||'']);
+    });
+  });
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  // Larghezze colonne
+  ws['!cols']=[{wch:8},{wch:20},{wch:16},{wch:18},{wch:12},{wch:20},{wch:10},{wch:12},{wch:12},{wch:40},{wch:8}];
+  var wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Pagamenti');
+  XLSX.writeFile(wb,'pagamenti_'+oggi+'.xlsx');
+}
+
+function xlsxImportPagamenti(input){
+  var file=input.files[0];if(!file)return;
+  if(typeof XLSX==='undefined'){
+    alert('Per importare XLSX apri in Chrome con connessione internet (richiede libreria SheetJS).');
+    input.value='';return;
+  }
+  if(!confirm('Importare pagamenti dal file XLSX? I pagamenti esistenti NON verranno cancellati, verranno aggiunti solo quelli mancanti.'))
+  {input.value='';return;}
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(rows.length<2){alert('File vuoto o non riconosciuto.');input.value='';return;}
+      // Intestazione attesa: IDAtleta,Cognome,Nome,CF,Categoria,Tipo,Importo,Data,Metodo,Note,Fonte
+      var importati=0,saltati=0;
+      for(var i=1;i<rows.length;i++){
+        var r=rows[i];
+        var id=+r[0];if(!id)continue;
+        var tipo=String(r[5]||'Quota annuale');
+        var importo=+(String(r[6]||'0').replace(',','.'));
+        var data=String(r[7]||'');
+        // Normalizza data: GG/MM/AAAA → AAAA-MM-GG
+        if(data.match(/^\d{2}\/\d{2}\/\d{4}$/)){
+          var dp=data.split('/');data=dp[2]+'-'+dp[1]+'-'+dp[0];
+        } else if(data.match(/^\d{2}\/\d{2}\/\d{2}$/)){
+          dp=data.split('/');data='20'+dp[2]+'-'+dp[1]+'-'+dp[0];
+        }
+        var metodo=String(r[8]||'');
+        var note=String(r[9]||'');
+        var fonte=String(r[10]||'');
+        if(!importo||importo<=0)continue;
+        if(!DB.pagamenti[id])DB.pagamenti[id]=[];
+        var dup=DB.pagamenti[id].some(function(p){return p.data===data&&+p.importo===importo;});
+        if(dup){saltati++;continue;}
+        DB.pagamenti[id].push({tipo:tipo,importo:importo,data:data,metodo:metodo,note:note,fonte:fonte||'import-xlsx'});
+        importati++;
+      }
+      saveDB();
+      alert('Importazione completata!\nAggiunti: '+importati+'\nGià presenti (saltati): '+saltati);
+      renderPagamenti();
+    }catch(ex){alert('Errore lettura file: '+ex.message);}
+    input.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
 function csvExport(tipo){
   var oggi=new Date().toISOString().split("T")[0];
   var hA=csvRow(["ID","Cognome","Nome","Sesso","DataNascita","CF","Categoria","Maglia","CertMedico","Nazionalita","Genitore","Telefono","CFTutore","IndTutore","Email","Indirizzo","Note","Ritirato"]);
@@ -2387,6 +2591,27 @@ function renderImpostazioni(){
     }).join("")+'</tbody></table>':
     '<div class="empty">Nessuna ricevuta emessa</div>';
   g("ricevute-registro").innerHTML=regH;
+}
+function reimportaBanca(){
+  if(!confirm("Reimportare tutti i pagamenti dal bonifico bancario?\nAttenzione: sovrascrive i pagamenti banca esistenti."))return;
+  localStorage.removeItem('banca_all_v3');
+  Object.keys(DB.pagamenti).forEach(function(id){
+    if(Array.isArray(DB.pagamenti[id])){
+      DB.pagamenti[id]=DB.pagamenti[id].filter(function(p){return p.fonte!=='banca'&&p.fonte!=='banca-ex';});
+    }
+  });
+  Object.keys(_bancaAll).forEach(function(id){
+    var nid=+id;
+    if(!DB.pagamenti[nid])DB.pagamenti[nid]=[];
+    _bancaAll[id].forEach(function(tx){
+      var dup=DB.pagamenti[nid].some(function(e){return e.data===tx.data&&+e.importo===+tx.importo;});
+      if(!dup)DB.pagamenti[nid].push(tx);
+    });
+  });
+  saveDB();
+  localStorage.setItem('banca_all_v3','1');
+  alert("Reimportazione completata! Pagamenti banca ripristinati.");
+  renderPagamenti();
 }
 function resetDB(){
   if(!confirm("ATTENZIONE: cancellare TUTTI i dati?"))return;
