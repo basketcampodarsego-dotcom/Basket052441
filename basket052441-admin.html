@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Basket052441 — Admin DB</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,sans-serif;background:#0d1a2a;color:#c8d8e8;min-height:100vh;padding:20px;}
+  h1{color:#c8a84b;font-size:22px;margin-bottom:4px;}
+  .subtitle{color:#6a8a9a;font-size:13px;margin-bottom:20px;}
+  .card{background:#1a2a3a;border:1px solid #2a3a4a;border-radius:8px;padding:16px;margin-bottom:16px;}
+  .card-title{color:#c8a84b;font-size:14px;font-weight:bold;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  label{font-size:12px;color:#8a9aaa;display:block;margin-bottom:4px;}
+  input,select,textarea{width:100%;padding:8px 10px;background:#0d1a2a;border:1px solid #2a3a4a;border-radius:5px;color:#c8d8e8;font-size:13px;margin-bottom:10px;}
+  textarea{height:160px;font-family:'Courier New',monospace;font-size:12px;resize:vertical;}
+  .btn{padding:9px 18px;border:none;border-radius:5px;cursor:pointer;font-size:13px;font-weight:bold;}
+  .btn-gold{background:#c8a84b;color:#0d1a2a;}
+  .btn-red{background:#8a2a2a;color:#ffaaaa;}
+  .btn-blue{background:#1a4a7a;color:#aad0ff;}
+  .btn-green{background:#1a4a1a;color:#aaffaa;}
+  .btn-gray{background:#2a3a4a;color:#8a9aaa;}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;}
+  .log{background:#060e18;border:1px solid #1a2a3a;border-radius:5px;padding:12px;font-family:'Courier New',monospace;font-size:12px;height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
+  .log .ok{color:#4aaa6a;}
+  .log .warn{color:#c8a84b;}
+  .log .err{color:#cc4444;}
+  .log .info{color:#4a9aaa;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .stat{background:#0d1a2a;border:1px solid #2a3a4a;border-radius:5px;padding:10px;text-align:center;}
+  .stat-n{font-size:28px;font-weight:bold;color:#c8a84b;}
+  .stat-l{font-size:11px;color:#6a8a9a;margin-top:2px;}
+  .sep{border:none;border-top:1px solid #2a3a4a;margin:14px 0;}
+  .op-list{display:flex;flex-direction:column;gap:8px;}
+  .op-row{display:flex;align-items:flex-start;gap:10px;padding:10px;background:#0d1a2a;border:1px solid #2a3a4a;border-radius:5px;}
+  .op-info{flex:1;}
+  .op-title{font-size:13px;font-weight:bold;color:#c8d8e8;margin-bottom:2px;}
+  .op-desc{font-size:11px;color:#6a8a9a;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:bold;}
+  .badge-warn{background:#4a3a00;color:#c8a84b;}
+  .badge-safe{background:#1a3a1a;color:#4aaa6a;}
+  .params{margin-top:8px;display:none;}
+  .params.show{display:block;}
+  #status-dot{width:10px;height:10px;border-radius:50%;background:#cc4444;display:inline-block;margin-right:6px;}
+  #status-dot.ok{background:#4aaa6a;}
+  #status-dot.loading{background:#c8a84b;}
+</style>
+</head>
+<body>
+
+<h1>⚙️ Basket052441 — Admin DB</h1>
+<p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
+
+<!-- CONNESSIONE -->
+<div class="card">
+  <div class="card-title"><span id="status-dot"></span> Connessione Firebase</div>
+  <div class="grid2">
+    <div class="stat"><div class="stat-n" id="s-atleti">—</div><div class="stat-l">Atleti</div></div>
+    <div class="stat"><div class="stat-n" id="s-pag">—</div><div class="stat-l">Pagamenti</div></div>
+  </div>
+  <hr class="sep">
+  <button class="btn btn-blue" onclick="connectDB()" id="btn-connect">Connetti Firebase</button>
+  &nbsp;
+  <button class="btn btn-gray" onclick="clearLog()">Pulisci log</button>
+</div>
+
+<!-- OPERAZIONI -->
+<div class="card">
+  <div class="card-title">🔧 Operazioni disponibili</div>
+  <div class="op-list">
+
+    <!-- OP 1: Ritirati → Ex -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Ritirati → categoria Ex <span class="badge badge-safe">SAFE</span></div>
+        <div class="op-desc">Imposta cat="Ex" su tutti gli atleti con ritirato=true che non sono già Ex.</div>
+      </div>
+      <button class="btn btn-green" onclick="runOp('ex')" id="btn-ex" disabled>Esegui</button>
+    </div>
+
+    <!-- OP 2: Cambio categoria -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Cambio categoria in blocco <span class="badge badge-warn">MODIFICA</span></div>
+        <div class="op-desc">Cambia categoria a tutti gli atleti di una categoria specifica.</div>
+        <div class="params show">
+          <div class="grid2">
+            <div>
+              <label>Da categoria</label>
+              <select id="op-cat-da">
+                <option value="">— seleziona —</option>
+                <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
+                <option>Esordienti</option><option>Special</option><option>AmaBasket</option>
+                <option>AmaVolley</option><option>Dirigente</option><option>Volontario</option><option>Ex</option>
+              </select>
+            </div>
+            <div>
+              <label>A categoria</label>
+              <select id="op-cat-a">
+                <option value="">— seleziona —</option>
+                <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
+                <option>Esordienti</option><option>Special</option><option>AmaBasket</option>
+                <option>AmaVolley</option><option>Dirigente</option><option>Volontario</option><option>Ex</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-gold" onclick="runOp('cat')" id="btn-cat" disabled>Esegui</button>
+    </div>
+
+    <!-- OP 3: Azzera certificati scaduti -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Azzera certificati medici scaduti <span class="badge badge-warn">MODIFICA</span></div>
+        <div class="op-desc">Svuota il campo cs (data certificato medico) per tutti gli atleti il cui certificato è scaduto prima della data indicata.</div>
+        <div class="params show">
+          <label>Scaduti prima del</label>
+          <input type="date" id="op-cs-data" value="">
+        </div>
+      </div>
+      <button class="btn btn-gold" onclick="runOp('cs')" id="btn-cs" disabled>Esegui</button>
+    </div>
+
+    <!-- OP 4: Imposta ritirato -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Segna come ritirati per categoria <span class="badge badge-warn">MODIFICA</span></div>
+        <div class="op-desc">Imposta ritirato=true su tutti gli atleti attivi di una categoria specificata.</div>
+        <div class="params show">
+          <label>Categoria</label>
+          <select id="op-rit-cat">
+            <option value="">— seleziona —</option>
+            <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
+            <option>Esordienti</option><option>Special</option><option>AmaBasket</option>
+            <option>AmaVolley</option><option>Dirigente</option><option>Volontario</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-red" onclick="runOp('rit')" id="btn-rit" disabled>Esegui</button>
+    </div>
+
+    <!-- OP 5: Script custom -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Script personalizzato <span class="badge badge-warn">AVANZATO</span></div>
+        <div class="op-desc">Esegui codice JS custom su DB.atleti o DB.pagamenti. Variabili disponibili: <code>DB</code>, <code>log()</code>. Restituisci true per salvare, false per simulare.</div>
+        <div class="params show">
+          <label>Codice JS</label>
+          <textarea id="op-script" placeholder="// Esempio: conta atleti senza CF
+var n=0;
+DB.atleti.forEach(function(a){ if(!a.cf) n++; });
+log('Atleti senza CF: '+n);
+return false; // non salvare"></textarea>
+        </div>
+      </div>
+      <button class="btn btn-red" onclick="runOp('script')" id="btn-script" disabled>Esegui</button>
+    </div>
+
+    <!-- OP 6: Backup JSON -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Backup completo DB <span class="badge badge-safe">SOLA LETTURA</span></div>
+        <div class="op-desc">Scarica un file JSON con tutto il contenuto del database Firebase.</div>
+      </div>
+      <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="card">
+  <div class="card-title">📋 Log operazioni</div>
+  <div class="log" id="log"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<script>
+var DB = null;
+var _db = null;
+var FB_COL = 'basket052441';
+var FB_SEZIONI = ['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
+var FB_CONFIG = {
+  apiKey: "AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",
+  authDomain: "basket052441.firebaseapp.com",
+  projectId: "basket052441",
+  storageBucket: "basket052441.appspot.com",
+  messagingSenderId: "708269881035",
+  appId: "1:708269881035:web:62a9d32bad5de2c68d0d4e"
+};
+
+// --- LOG ---
+function log(msg, tipo) {
+  var el = document.getElementById('log');
+  var ts = new Date().toLocaleTimeString('it-IT');
+  var cls = tipo || 'info';
+  el.innerHTML += '<span class="'+cls+'">['+ts+'] '+escLog(msg)+'</span>\n';
+  el.scrollTop = el.scrollHeight;
+}
+function escLog(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function clearLog(){ document.getElementById('log').innerHTML=''; }
+function setDot(s){ var d=document.getElementById('status-dot'); d.className=s; }
+function setBtns(on){
+  ['ex','cat','cs','rit','script','backup'].forEach(function(id){
+    var b=document.getElementById('btn-'+id);
+    if(b) b.disabled=!on;
+  });
+}
+
+// --- CONNESSIONE ---
+function connectDB() {
+  log('Connessione a Firebase...','info');
+  setDot('loading');
+  document.getElementById('btn-connect').disabled=true;
+
+  try {
+    if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+    _db = firebase.firestore();
+  } catch(e) {
+    log('Errore inizializzazione Firebase: '+e.message,'err');
+    setDot('');
+    document.getElementById('btn-connect').disabled=false;
+    return;
+  }
+
+  // Carica tutte le sezioni
+  var col = _db.collection(FB_COL);
+  var promises = FB_SEZIONI.map(function(sez){
+    return col.doc(sez).get().then(function(doc){
+      if(doc.exists && doc.data().v){
+        return { sez: sez, data: JSON.parse(doc.data().v) };
+      }
+      return { sez: sez, data: sez==='pagamenti'?{}:[] };
+    });
+  });
+
+  Promise.all(promises).then(function(results){
+    DB = {};
+    results.forEach(function(r){ DB[r.sez]=r.data; });
+    log('Firebase connesso. Atleti: '+DB.atleti.length+', Pagamenti: '+Object.keys(DB.pagamenti||{}).length,'ok');
+    setDot('ok');
+    document.getElementById('s-atleti').textContent = DB.atleti.length;
+    document.getElementById('s-pag').textContent = Object.keys(DB.pagamenti||{}).length;
+    setBtns(true);
+    // Imposta data default certificati
+    document.getElementById('op-cs-data').value = new Date().toISOString().split('T')[0];
+  }).catch(function(e){
+    log('Errore lettura Firebase: '+e.message,'err');
+    setDot('');
+    document.getElementById('btn-connect').disabled=false;
+  });
+}
+
+// --- SALVA ---
+function salvaSezione(sez, data, callback) {
+  _db.collection(FB_COL).doc(sez).set({ v: JSON.stringify(data) }).then(function(){
+    log('Firebase aggiornato: sezione "'+sez+'"','ok');
+    if(callback) callback();
+  }).catch(function(e){
+    log('Errore scrittura sezione "'+sez+'": '+e.message,'err');
+  });
+}
+
+// --- OPERAZIONI ---
+function runOp(op) {
+  if(!DB){ log('DB non caricato.','err'); return; }
+
+  if(op==='ex') {
+    var n=0;
+    var preview=[];
+    DB.atleti.forEach(function(a){
+      if(a.ritirato && a.cat!=='Ex'){ preview.push('['+a.id+'] '+a.cog+' '+a.nom+' ('+( a.cat||'—')+')'); n++; }
+    });
+    if(n===0){ log('Nessun atleta da aggiornare.','warn'); return; }
+    log('Atleti da impostare come Ex: '+n,'warn');
+    preview.slice(0,20).forEach(function(r){ log('  '+r,'info'); });
+    if(preview.length>20) log('  ... e altri '+(preview.length-20),'info');
+    if(!confirm('Impostare cat="Ex" per '+n+' atleti ritirati?\nL\'operazione è irreversibile.')) return;
+    DB.atleti.forEach(function(a){ if(a.ritirato&&a.cat!=='Ex'){ a.cat='Ex'; } });
+    salvaSezione('atleti', DB.atleti, function(){ log('Operazione completata: '+n+' atleti → Ex.','ok'); });
+    return;
+  }
+
+  if(op==='cat') {
+    var da=document.getElementById('op-cat-da').value;
+    var a2=document.getElementById('op-cat-a').value;
+    if(!da||!a2){ log('Seleziona entrambe le categorie.','warn'); return; }
+    if(da===a2){ log('Le due categorie sono uguali.','warn'); return; }
+    var n2=0;
+    DB.atleti.forEach(function(a){ if(a.cat===da) n2++; });
+    if(n2===0){ log('Nessun atleta con categoria "'+da+'".','warn'); return; }
+    if(!confirm('Cambiare categoria da "'+da+'" a "'+a2+'" per '+n2+' atleti?')) return;
+    DB.atleti.forEach(function(a){ if(a.cat===da){ a.cat=a2; } });
+    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n2+' atleti da "'+da+'" a "'+a2+'".','ok'); });
+    return;
+  }
+
+  if(op==='cs') {
+    var limite=document.getElementById('op-cs-data').value;
+    if(!limite){ log('Inserisci una data limite.','warn'); return; }
+    var n3=0;
+    DB.atleti.forEach(function(a){
+      if(a.cs){
+        // Normalizza formato
+        var cs=a.cs;
+        if(cs.indexOf('/')>-1){ var p=cs.split('/'); cs=p[2]+'-'+p[1]+'-'+p[0]; }
+        if(cs<limite) n3++;
+      }
+    });
+    if(n3===0){ log('Nessun certificato scaduto prima del '+limite+'.','warn'); return; }
+    if(!confirm('Azzerare il campo certificato medico per '+n3+' atleti (scaduto prima del '+limite+')?')) return;
+    DB.atleti.forEach(function(a){
+      if(a.cs){
+        var cs=a.cs;
+        if(cs.indexOf('/')>-1){ var p=cs.split('/'); cs=p[2]+'-'+p[1]+'-'+p[0]; }
+        if(cs<limite) a.cs='';
+      }
+    });
+    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n3+' certificati azzerati.','ok'); });
+    return;
+  }
+
+  if(op==='rit') {
+    var cat=document.getElementById('op-rit-cat').value;
+    if(!cat){ log('Seleziona una categoria.','warn'); return; }
+    var n4=0;
+    DB.atleti.forEach(function(a){ if(a.cat===cat&&!a.ritirato) n4++; });
+    if(n4===0){ log('Nessun atleta attivo con categoria "'+cat+'".','warn'); return; }
+    if(!confirm('Segnare come RITIRATI '+n4+' atleti della categoria "'+cat+'"?\nQuesta operazione è difficilmente reversibile.')) return;
+    DB.atleti.forEach(function(a){ if(a.cat===cat&&!a.ritirato) a.ritirato=true; });
+    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n4+' atleti segnati come ritirati.','ok'); });
+    return;
+  }
+
+  if(op==='script') {
+    var codice=document.getElementById('op-script').value.trim();
+    if(!codice){ log('Inserisci il codice da eseguire.','warn'); return; }
+    if(!confirm('Eseguire lo script personalizzato?\nAssicurati di aver riletto il codice prima di procedere.')) return;
+    try {
+      var logLines=[];
+      var logFn=function(m){ logLines.push(m); };
+      var fn=new Function('DB','log',codice);
+      var salva=fn(DB, logFn);
+      logLines.forEach(function(m){ log(m,'info'); });
+      if(salva===true){
+        log('Script richiede salvataggio. Aggiorno Firebase...','warn');
+        var sezioniDaSalvare=['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
+        var ps=sezioniDaSalvare.map(function(s){
+          return _db.collection(FB_COL).doc(s).set({v:JSON.stringify(DB[s])});
+        });
+        Promise.all(ps).then(function(){ log('Firebase aggiornato con successo.','ok'); });
+      } else {
+        log('Script eseguito (return false = nessun salvataggio).','warn');
+      }
+    } catch(e) {
+      log('Errore script: '+e.message,'err');
+    }
+    return;
+  }
+
+  if(op==='backup') {
+    log('Generazione backup...','info');
+    var json=JSON.stringify(DB, null, 2);
+    var blob=new Blob([json],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    var oggi=new Date().toISOString().split('T')[0];
+    a.href=url; a.download='backup_basket052441_'+oggi+'.json';
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a); URL.revokeObjectURL(url);
+    log('Backup scaricato: backup_basket052441_'+oggi+'.json','ok');
+    return;
+  }
+}
+</script>
+</body>
+</html>
