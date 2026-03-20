@@ -52,7 +52,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.85</div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.86</div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -68,7 +68,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB</h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.85</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.86</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -428,6 +428,11 @@ function runOp(op) {
     if(typeof window.jspdf==='undefined'||typeof JSZip==='undefined'){
       log('Librerie PDF/ZIP non ancora caricate, attendi e riprova.','err'); return;
     }
+    // Attendi che le immagini siano pronte (max 3 secondi)
+    var _waitImg=0;
+    var _runZip=function(){
+      if(!_LOGO_READY&&_waitImg<30){_waitImg++;setTimeout(_runZip,100);return;}
+      if(!_LOGO_READY) log('Attenzione: logo non caricato','warn');
     var annoSel=document.getElementById('op-anno-pdf').value;
     var detSel=document.getElementById('op-det-pdf').value;
     log('Analisi pagamenti '+annoSel+'...','info');
@@ -463,6 +468,7 @@ function runOp(op) {
       URL.revokeObjectURL(url);
       log('ZIP scaricato: ricevute_'+detSel+'_'+annoSel+'.zip ('+count+' files)','ok');
     });
+    }; _runZip();
     return;
   }
 
