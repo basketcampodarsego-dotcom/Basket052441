@@ -2383,14 +2383,14 @@ function renderPresenze(){
     var np=DB.presenze.filter(function(p){return p.aid===al.id&&p.stato==="P";}).length;
     var nr=DB.presenze.filter(function(p){return p.aid===al.id&&p.stato==="R";}).length;
     return '<div style="background:'+(_allSel===al.id?"#1a2a4a":"var(--bg3)")+';border-radius:8px;margin-bottom:8px;border:2px solid '+(_allSel===al.id?"#c8a84b":"var(--border)")+';overflow:hidden">'+
-      '<div style="padding:12px;cursor:pointer;-webkit-tap-highlight-color:rgba(200,168,75,0.3)" onclick="selAll('+al.id+')">'+
+      '<div style="padding:12px;cursor:pointer;-webkit-tap-highlight-color:rgba(200,168,75,0.3)" data-allid="'+al.id+'" onclick="selAll(this.dataset.allid*1)">'+
         '<div style="font-weight:bold;font-size:14px">'+fmtData(al.data)+'</div>'+
         '<div style="font-size:12px;color:var(--muted);margin-top:3px"><span class="badge '+al.cat+'">'+al.cat+'</span>'+(al.note?' · '+al.note:'')+'</div>'+
         '<div style="font-size:12px;margin-top:3px"><span style="color:#4aaa6a">'+np+' P</span>'+(nr?' <span style="color:#c8a84b">'+nr+' R</span>':'')+'</div>'+
       '</div>'+
       '<div style="display:flex;gap:6px;padding:6px 10px;border-top:1px solid var(--border)">'+
-        '<button class="btn btn-blue btn-sm" onclick="editAllenamento('+al.id+')" style="flex:1">&#9998; Modifica</button>'+
-        '<button class="btn btn-red btn-sm" onclick="delAllenamento('+al.id+')" style="flex:1">&#128465; Elimina</button>'+
+        '<button class="btn btn-blue btn-sm" onclick="editAllenamento('+al.id+'*1)" style="flex:1">&#9998; Modifica</button>'+
+        '<button class="btn btn-red btn-sm" onclick="delAllenamento('+al.id+'*1)" style="flex:1">&#128465; Elimina</button>'+
       '</div></div>';
   }).join(""):'<div class="empty">Nessun allenamento</div>';
   renderPresenzeAtleti();
