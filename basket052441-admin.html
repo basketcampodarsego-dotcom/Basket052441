@@ -529,7 +529,7 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var oggi=new Date().toLocaleDateString("it-IT");
 
   // Logo 48mm centrato, alzato di 5mm
-  doc.addImage('data:image/jpeg;base64,'+_LOGO_B64,'JPEG',ML+PW/2-24,y+5,48,48);catch(e){}
+  try{doc.addImage('data:image/jpeg;base64,'+_LOGO_B64,'JPEG',ML+PW/2-24,y+5,48,48);}catch(e){}
   y+=49;
 
   doc.setFont(HV,"bold"); doc.setFontSize(12);
@@ -567,7 +567,7 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var tx=ML+98;
   doc.setFont(HV,"normal"); doc.setFontSize(10); doc.text("Il presidente",tx,y+4); y+=5;
   doc.setFont(HV,"italic"); doc.text("Alberto Scarin",tx,y+4);
-  doc.addImage('data:image/png;base64,'+_FIRMA_B64,'PNG',tx-6,y-14,58,22,undefined,'FAST');catch(e){}
+  try{doc.addImage('data:image/png;base64,'+_FIRMA_B64,'PNG',tx-6,y-14,58,22,undefined,'FAST');}catch(e){}
   y+=20;
   doc.setFont(HV,"bold"); doc.setFontSize(12);
   doc.text("A.S.D. BASKET CAMPODARSEGO",ML+PW/2,y+4,{align:"center"}); y+=5;
@@ -579,6 +579,6 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
 }
 </script>
 </div><!-- /main-scr -->
-<!-- build 20260319.69 -->
+<!-- build 20260319.70 -->
 </body>
 </html>
