@@ -52,7 +52,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.82</div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.83</div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -68,7 +68,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB</h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.82</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.83</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -534,8 +534,17 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var natoStr=(a.natoA||"")+(a.natoProv?" ("+a.natoProv+")":"");
   var oggi=new Date().toLocaleDateString("it-IT");
 
-  // Logo centrato 48mm
-  try{doc.addImage(_LOGO_B64,'JPEG',ML+PW/2-24,y,48,48);}catch(e){console.warn('Logo:',e);}
+    // Logo centrato 48mm
+  (function(){
+    try{
+      var c=document.createElement('canvas'); c.width=200; c.height=200;
+      var ctx=c.getContext('2d'); var img=new Image();
+      img.onload=function(){};
+      img.src='data:image/jpeg;base64,'+_LOGO_B64;
+      ctx.drawImage(img,0,0,200,200);
+      doc.addImage(c.toDataURL('image/jpeg'),'JPEG',ML+PW/2-24,y,48,48);
+    }catch(e){console.warn('Logo:',e);}
+  })();
   y+=49;
 
   doc.setFont(HV,"bold"); doc.setFontSize(12);
@@ -573,7 +582,13 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var tx=ML+98;
   doc.setFont(HV,"normal"); doc.setFontSize(10); doc.text("Il presidente",tx,y+3.5); y+=5;
   doc.setFont(HV,"italic"); doc.text("Alberto Scarin",tx,y+3.5);
-  try{doc.addImage(_FIRMA_B64,'PNG',tx-6,y-18,58,22);}catch(e){console.warn('Firma:',e);}
+  (function(){
+    var c=document.createElement('canvas'); c.width=400; c.height=160;
+    var ctx=c.getContext('2d'); var img=new Image();
+    img.src='data:image/png;base64,'+_FIRMA_B64;
+    ctx.drawImage(img,0,0,400,160);
+    try{doc.addImage(c.toDataURL('image/png'),'PNG',tx-6,y-18,58,22);}catch(e){console.warn('Firma:',e);}
+  })();
   y+=20;
   doc.setFont(HV,"bold"); doc.setFontSize(12);
   doc.text("A.S.D. BASKET CAMPODARSEGO",ML+PW/2,y+3.5,{align:"center"}); y+=5;
