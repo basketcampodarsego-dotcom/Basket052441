@@ -52,7 +52,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.79</div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.80</div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -68,7 +68,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB</h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.79</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.80</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -535,7 +535,7 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var oggi=new Date().toLocaleDateString("it-IT");
 
   // Logo centrato 48mm
-  try{doc.addImage('data:image/jpeg;base64,'+_LOGO_B64,'JPEG',ML+PW/2-24,y,48,48)}catch(e){console.warn("Logo:",e);}
+  try{var _ld='data:image/jpeg;base64,'+_LOGO_B64; doc.addImage(_ld,'JPEG',ML+PW/2-24,y,48,48);}catch(e){console.warn('Logo:',e);}
   y+=49;
 
   doc.setFont(HV,"bold"); doc.setFontSize(12);
@@ -573,7 +573,7 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var tx=ML+98;
   doc.setFont(HV,"normal"); doc.setFontSize(10); doc.text("Il presidente",tx,y+3.5); y+=5;
   doc.setFont(HV,"italic"); doc.text("Alberto Scarin",tx,y+3.5);
-  try{doc.addImage('data:image/png;base64,'+_FIRMA_B64,'PNG',tx-6,y-18,58,22,undefined,'FAST')}catch(e){console.warn("Firma:",e);}
+  try{var _fd='data:image/png;base64,'+_FIRMA_B64; doc.addImage(_fd,'PNG',tx-6,y-18,58,22);}catch(e){console.warn('Firma:',e);}
   y+=20;
   doc.setFont(HV,"bold"); doc.setFontSize(12);
   doc.text("A.S.D. BASKET CAMPODARSEGO",ML+PW/2,y+3.5,{align:"center"}); y+=5;
