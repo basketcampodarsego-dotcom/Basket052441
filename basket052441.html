@@ -2382,12 +2382,15 @@ function renderPresenze(){
   g("all-lista").innerHTML=DB.allenamenti.length?DB.allenamenti.slice().reverse().map(function(al){
     var np=DB.presenze.filter(function(p){return p.aid===al.id&&p.stato==="P";}).length;
     var nr=DB.presenze.filter(function(p){return p.aid===al.id&&p.stato==="R";}).length;
-    return '<div style="padding:10px;background:'+(_allSel===al.id?"#1a2a4a":"var(--bg3)")+';border-radius:8px;margin-bottom:8px;border:1px solid '+(_allSel===al.id?"var(--gold)":"var(--border)")+';display:flex;justify-content:space-between;align-items:center;min-height:52px" onclick="selAll(\'+al.id+\')">'+
-      '<div style="flex:1;cursor:pointer" onclick="selAll('+al.id+')"><div style="font-weight:bold;font-size:13px">'+fmtData(al.data)+'</div><div style="font-size:11px;color:var(--muted)"><span class="badge '+al.cat+'">'+al.cat+'</span>'+(al.note?' - '+al.note:'')+'</div></div>'+
-      '<div style="display:flex;align-items:center;gap:6px">'+
-        '<div style="text-align:right;font-size:12px"><div style="color:#4aaa6a">'+np+' P</div>'+(nr?'<div style="color:var(--gold)">'+nr+' R</div>':'')+'</div>'+
-        '<button class="btn btn-blue btn-sm" onclick="event.stopPropagation();editAllenamento('+al.id+')" title="Modifica">&#9998;</button>'+
-        '<button class="btn btn-red btn-sm" onclick="event.stopPropagation();delAllenamento('+al.id+')" title="Elimina">&#128465;</button>'+
+    return '<div style="background:'+(_allSel===al.id?"#1a2a4a":"var(--bg3)")+';border-radius:8px;margin-bottom:8px;border:2px solid '+(_allSel===al.id?"#c8a84b":"var(--border)")+';overflow:hidden">'+
+      '<div style="padding:12px;cursor:pointer;-webkit-tap-highlight-color:rgba(200,168,75,0.3)" onclick="selAll('+al.id+')">'+
+        '<div style="font-weight:bold;font-size:14px">'+fmtData(al.data)+'</div>'+
+        '<div style="font-size:12px;color:var(--muted);margin-top:3px"><span class="badge '+al.cat+'">'+al.cat+'</span>'+(al.note?' · '+al.note:'')+'</div>'+
+        '<div style="font-size:12px;margin-top:3px"><span style="color:#4aaa6a">'+np+' P</span>'+(nr?' <span style="color:#c8a84b">'+nr+' R</span>':'')+'</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:6px;padding:6px 10px;border-top:1px solid var(--border)">'+
+        '<button class="btn btn-blue btn-sm" onclick="editAllenamento('+al.id+')" style="flex:1">&#9998; Modifica</button>'+
+        '<button class="btn btn-red btn-sm" onclick="delAllenamento('+al.id+')" style="flex:1">&#128465; Elimina</button>'+
       '</div></div>';
   }).join(""):'<div class="empty">Nessun allenamento</div>';
   renderPresenzeAtleti();
@@ -2457,7 +2460,7 @@ function editAllenamento(id){
   _setAllCat(al.cat);
   g("all-note").value=al.note||"";
   if(g("all-edit-id"))g("all-edit-id").value=id;
-  if(g("all-add-btn"))g("all-add-btn").textContent="&#10004; Salva modifica";
+  if(g("all-add-btn"))g("all-add-btn").innerHTML="&#10004; Salva modifica";
   window.scrollTo(0,0);
 }
 
