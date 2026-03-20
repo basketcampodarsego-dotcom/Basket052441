@@ -52,7 +52,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.77</div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.79</div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -68,7 +68,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB</h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.77</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.79</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -494,32 +494,29 @@ function _parseCF(cf){
 
 function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
 
-  var ML=18,MR=18,PW=174;
-  var H=297, MT=8;
-  var y=H-MT;  // parte dal fondo del foglio, si muove verso l'alto
+  var ML=18,MR=18,PW=174,MT=8;
+  var y=MT;
   var HV="Helvetica";
+  var RH=6;  // altezza riga standard mm
 
-  // Riga 2 colonne: y=bordo INFERIORE della riga
   function R2(yr,c1,c2,lbl,val){
-    var rh=6;
     doc.setLineWidth(0.5); doc.setDrawColor(0,0,0);
-    doc.rect(ML,yr-rh,c1,rh); doc.rect(ML+c1,yr-rh,c2,rh);
+    doc.rect(ML,yr,c1,RH); doc.rect(ML+c1,yr,c2,RH);
     doc.setFont(HV,"bold"); doc.setFontSize(11); doc.setTextColor(0,0,0);
-    doc.text(String(lbl||""),ML+1.5,yr-1.8);
-    doc.text(String(val||""),ML+c1+1.5,yr-1.8);
-    return yr-rh;
+    doc.text(String(lbl||""),ML+1.5,yr+4.2);
+    doc.text(String(val||""),ML+c1+1.5,yr+4.2);
+    return yr+RH;
   }
-  // Riga N colonne
   function RR(yr,cols,vals){
-    var rh=6; doc.setLineWidth(0.5); doc.setDrawColor(0,0,0);
+    doc.setLineWidth(0.5); doc.setDrawColor(0,0,0);
     var cx=ML;
     for(var i=0;i<cols.length;i++){
-      doc.rect(cx,yr-rh,cols[i],rh);
+      doc.rect(cx,yr,cols[i],RH);
       doc.setFont(HV,"bold"); doc.setFontSize(11); doc.setTextColor(0,0,0);
-      doc.text(String(vals[i]||""),cx+1.5,yr-1.8);
+      doc.text(String(vals[i]||""),cx+1.5,yr+4.2);
       cx+=cols[i];
     }
-    return yr-rh;
+    return yr+RH;
   }
 
   var totale=pagsAnno.reduce(function(s,p){return s+(+p.importo||0);},0);
@@ -537,51 +534,51 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var natoStr=(a.natoA||"")+(a.natoProv?" ("+a.natoProv+")":"");
   var oggi=new Date().toLocaleDateString("it-IT");
 
-  // Logo centrato 48mm — posizionato in cima (y decresce)
-  try{ doc.addImage('data:image/jpeg;base64,'+_LOGO_B64,'JPEG',ML+PW/2-24,y-48,48,48) }catch(e){console.warn("Logo:",e);}
-  y-=49;
+  // Logo centrato 48mm
+  try{doc.addImage('data:image/jpeg;base64,'+_LOGO_B64,'JPEG',ML+PW/2-24,y,48,48)}catch(e){console.warn("Logo:",e);}
+  y+=49;
 
   doc.setFont(HV,"bold"); doc.setFontSize(12);
-  doc.text("RIEPILOGO PAGAMENTI ANNO "+anno,ML+PW/2,y-3,{align:"center"}); y-=9;
+  doc.text("RIEPILOGO PAGAMENTI ANNO "+anno,ML+PW/2,y+5,{align:"center"}); y+=9;
   doc.setFont(HV,"normal"); doc.setFontSize(10);
-  doc.text("Con la presente si attesta di aver ricevuto la somma di",ML,y-2); y-=8;
+  doc.text("Con la presente si attesta di aver ricevuto la somma di",ML,y+3.5); y+=8;
 
   var C1R=32,C2R=28,C3R=33;
   if(pagsAnno.length===1){
-    y=RR(y,[C1R,C2R+C3R],["EURO",Number(pagsAnno[0].importo||0).toFixed(2).replace('.',',')]); y-=12;
+    y=RR(y,[C1R,C2R+C3R],["EURO",Number(pagsAnno[0].importo||0).toFixed(2).replace('.',',')]); y+=12;
   }else{
     pagsAnno.forEach(function(p,i){
       var dt=p.data?p.data.split("-").reverse().join("/"):"";
       y=RR(y,[C1R,C2R,C3R],["RATA "+(i+1),Number(p.importo||0).toFixed(2).replace('.',','),dt]);
     });
-    doc.setLineWidth(0.5); doc.line(ML,y,ML+C1R+C2R+C3R,y); y-=3.5;
-    y=RR(y,[C1R,C2R,C3R],["TOTALE",totale.toFixed(2).replace('.',','),""]); y-=12;
+    doc.setLineWidth(0.5); doc.line(ML,y,ML+C1R+C2R+C3R,y); y+=3.5;
+    y=RR(y,[C1R,C2R,C3R],["TOTALE",totale.toFixed(2).replace('.',','),""]); y+=12;
   }
 
   var C1=44,C2=PW-C1;
   [["Dal sig./sig.ra",nomeFisc.toUpperCase()],["Residente in",addrResid],["Via",addrVia],["Codice Fiscale",cfFisc||""]].forEach(function(r){y=R2(y,C1,C2,r[0],r[1]);});
-  y-=9; y=R2(y,C1,C2,"Causale",causale); y-=7;
+  y+=9; y=R2(y,C1,C2,"Causale",causale); y+=7;
   doc.setFont(HV,"bold"); doc.setFontSize(10);
-  doc.text("Per l'esercizio dell'attivita' sportiva di basket di:",ML,y-2); y-=8;
+  doc.text("Per l'esercizio dell'attivita' sportiva di basket di:",ML,y+3.5); y+=8;
   var righeAtl=[["Atleta",a.cog+" "+a.nom]];
   if(natoStr) righeAtl.push(["Nato a",natoStr]);
   if(dnFmt) righeAtl.push(["Il",dnFmt]);
   righeAtl.push(["Codice Fiscale",a.cf||""]);
-  righeAtl.forEach(function(r){y=R2(y,C1,C2,r[0],r[1]);}); y-=7;
+  righeAtl.forEach(function(r){y=R2(y,C1,C2,r[0],r[1]);}); y+=7;
   doc.setFont(HV,"bold"); doc.setFontSize(10);
-  doc.text("Campodarsego, "+oggi,ML,y-2); y-=12;
+  doc.text("Campodarsego, "+oggi,ML,y+3.5); y+=12;
   doc.setFont(HV,"normal"); doc.setFontSize(10);
   var noteT=["Altresi si dichiara che per tale somma si ha diritto ad usufruire di una detrazione d'imposta IRPEF pari al 19% dell'importo pagato fino ad un massimo di Euro 210,00 su base annua e complessivo per ciascuna persona che effettua il pagamento, ai sensi dell'art. 15, co 1, lett i-quinques, DPR 917/1986 e relativo decreto di attuazione.","Prestazione sportiva dilettantistica non soggetta ad IVA per mancanza dei presupposti di cui all'art 4, DPR 633/1972.","Riepilogo esente da imposta di bollo ai sensi della Tabella art 7, ultimo comma, allegata al DPR 642/1972"];
-  noteT.forEach(function(nt){var lines=doc.splitTextToSize(nt,PW); doc.text(lines,ML,y-2,{align:"justify",maxWidth:PW}); y-=lines.length*5+4;}); y-=4;
+  noteT.forEach(function(nt){var lines=doc.splitTextToSize(nt,PW); doc.text(lines,ML,y+3.5,{align:"justify",maxWidth:PW}); y+=lines.length*5+4;}); y+=4;
   var tx=ML+98;
-  doc.setFont(HV,"normal"); doc.setFontSize(10); doc.text("Il presidente",tx,y-2); y-=5;
-  doc.setFont(HV,"italic"); doc.text("Alberto Scarin",tx,y-2);
-  try{ doc.addImage('data:image/png;base64,'+_FIRMA_B64,'PNG',tx-6,y+4,58,22,undefined,'FAST') }catch(e){console.warn("Firma:",e);}
-  y-=20;
+  doc.setFont(HV,"normal"); doc.setFontSize(10); doc.text("Il presidente",tx,y+3.5); y+=5;
+  doc.setFont(HV,"italic"); doc.text("Alberto Scarin",tx,y+3.5);
+  try{doc.addImage('data:image/png;base64,'+_FIRMA_B64,'PNG',tx-6,y-18,58,22,undefined,'FAST')}catch(e){console.warn("Firma:",e);}
+  y+=20;
   doc.setFont(HV,"bold"); doc.setFontSize(12);
-  doc.text("A.S.D. BASKET CAMPODARSEGO",ML+PW/2,y-2,{align:"center"}); y-=5;
+  doc.text("A.S.D. BASKET CAMPODARSEGO",ML+PW/2,y+3.5,{align:"center"}); y+=5;
   doc.setFont(HV,"normal"); doc.setFontSize(7);
-  ["Via Pioga 254 - 35011 CAMPODARSEGO (PD)","C.F. 92201430284 \u2013 P.IVA 04322580285","Segreteria Tel. 389.4759392","basketcampodarsego@gmail.com | basketcampodarsego@pec.it"].forEach(function(l){doc.text(l,ML+PW/2,y-2,{align:"center"});y-=3.5;});
+  ["Via Pioga 254 - 35011 CAMPODARSEGO (PD)","C.F. 92201430284 – P.IVA 04322580285","Segreteria Tel. 389.4759392","basketcampodarsego@gmail.com | basketcampodarsego@pec.it"].forEach(function(l){doc.text(l,ML+PW/2,y+2.5,{align:"center"});y+=3.5;});
 
 }
 
