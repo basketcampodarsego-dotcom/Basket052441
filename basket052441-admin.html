@@ -174,6 +174,21 @@ return false; // non salvare"></textarea>
       <button class="btn btn-red" onclick="runOp('script')" id="btn-script" disabled>Esegui</button>
     </div>
 
+    <!-- OP 6 BIS: Genera ZIP ricevute PDF -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Genera ZIP ricevute PDF 2025 <span class="badge badge-safe">SOLA LETTURA</span></div>
+        <div class="op-desc">Genera un file ZIP con tutte le ricevute PDF detraibili dell'anno 2025. Nome file: annonascita_cognome_nome_25.pdf</div>
+        <div class="params show">
+          <div class="grid2">
+            <div><label>Anno solare</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
+            <div><label>Tipo</label><select id="op-det-pdf"><option value="det">Solo detraibili</option><option value="ndet">Solo N-DET</option><option value="tutti">Tutti</option></select></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-blue" onclick="runOp('ricevutePDF')" id="btn-ricevutePDF" disabled>Genera ZIP</button>
+    </div>
+
     <!-- OP 6: Backup JSON -->
     <div class="op-row">
       <div class="op-info">
@@ -196,6 +211,8 @@ return false; // non salvare"></textarea>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
 var DB = null;
@@ -398,6 +415,49 @@ function runOp(op) {
     } catch(e) {
       log('Errore script: '+e.message,'err');
     }
+    return;
+  }
+
+  if(op==='ricevutePDF') {
+    if(typeof window.jspdf==='undefined'||typeof JSZip==='undefined'){
+      log('Librerie PDF/ZIP non ancora caricate, attendi e riprova.','err'); return;
+    }
+    var annoSel=document.getElementById('op-anno-pdf').value;
+    var detSel=document.getElementById('op-det-pdf').value;
+    log('Analisi pagamenti '+annoSel+'...','info');
+    var zip=new JSZip();
+    var jsPDF=window.jspdf.jsPDF;
+    var count=0;
+    DB.atleti.forEach(function(a){
+      if(a.ritirato) return;
+      var pags=(DB.pagamenti[a.id]||[]).filter(function(p){
+        if(!p.data||!p.data.startsWith(annoSel)) return false;
+        if(detSel==='det') return p.det!==false;
+        if(detSel==='ndet') return p.det===false;
+        return true;
+      });
+      if(!pags.length) return;
+      var det=detSel!=='ndet';
+      var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+      var num='PDF/'+annoSel+'/'+(String(count+1).padStart(3,'0'));
+      _generaRicevutaPDF(doc,a,pags,num,det);
+      var cf=a.dn||a.cf||'';
+      var annoNasc=cf.length>=16?(_parseCF(a.cf).data||'').substring(0,4):(a.dn?(a.dn.indexOf('/')>-1?a.dn.split('/').pop():a.dn.substring(0,4)):'0000');
+      var fname=annoNasc+'_'+a.cog.replace(/[^A-Z0-9]/gi,'_').toUpperCase()+'_'+a.nom.replace(/[^A-Z0-9]/gi,'_').toUpperCase().replace(/_+/g,'_').replace(/_$/,'')+'_'+annoSel.slice(-2)+'.pdf';
+      zip.file(fname, doc.output('arraybuffer'));
+      log('  '+fname,'info');
+      count++;
+    });
+    if(count===0){log('Nessun atleta con pagamenti '+detSel+' nel '+annoSel+'.','warn');return;}
+    log('Generazione ZIP con '+count+' ricevute...','info');
+    zip.generateAsync({type:'blob'}).then(function(blob){
+      var url=URL.createObjectURL(blob);
+      var a=document.createElement('a');
+      a.href=url; a.download='ricevute_'+detSel+'_'+annoSel+'.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      log('ZIP scaricato: ricevute_'+detSel+'_'+annoSel+'.zip ('+count+' files)','ok');
+    });
     return;
   }
 
