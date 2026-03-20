@@ -52,7 +52,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.72</div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260319.73</div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -68,8 +68,8 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB</h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.72</span></p>
-<div style="text-align:right;margin:8px 0 0"><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">build 20260319.73</span></p>
+<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
 <div class="card">
@@ -259,9 +259,12 @@ function doLogin() {
   if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
   btn.disabled=true; err.textContent='';
   firebase.auth().signInWithEmailAndPassword(email,pwd)
-    .then(function(){
+    .then(function(cred){
       document.getElementById('login-scr').style.display='none';
       document.getElementById('main-scr').style.display='block';
+      var uEmail=cred.user?cred.user.email:email;
+      var uEl=document.getElementById('admin-user-label');
+      if(uEl) uEl.textContent=uEmail;
       connectDB();
     })
     .catch(function(e){
@@ -581,7 +584,7 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
 
 function doLogout(){
   if(!confirm("Esci dall'area admin?")) return;
-  _auth.signOut().then(function(){
+  firebase.auth().signOut().then(function(){
     document.getElementById("main-scr").style.display="none";
     document.getElementById("login-scr").style.display="";
     document.getElementById("login-email").value="";
