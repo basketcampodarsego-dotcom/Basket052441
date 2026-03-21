@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v6.2 · 21/03/2026 16:45<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v6.5 · 21/03/2026 17:28<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v6.2 · 21/03/2026 16:45</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v6.5 · 21/03/2026 17:28</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -212,6 +212,15 @@ return false; // non salvare"></textarea>
       <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
     </div>
 
+    <!-- OP 7: Normalizza CAP/Comune -->
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Normalizza CAP / Comune <span class="badge badge-mod">MODIFICA</span></div>
+        <div class="op-desc">Corregge gli atleti dove il campo Comune contiene il CAP (es. "30035 Mirano" → CAP "30035", Comune "Mirano"). Agisce su atleta e tutore.</div>
+      </div>
+      <button class="btn btn-gold" onclick="normalizzaCAP()" id="btn-normcap" disabled>Esegui</button>
+    </div>
+
   </div>
 </div>
 
@@ -239,6 +248,13 @@ return false; // non salvare"></textarea>
       <div class="op-desc">Aggiunge iscrizione CSI per adulti e atleti Special Olympics presenti negli elenchi tesserati.</div>
     </div>
     <button class="btn btn-blue" onclick="importaIscrizioniCSI()" style="min-height:44px;white-space:nowrap">📋 CSI</button>
+  </div>
+  <div class="op-row" style="margin-top:8px">
+    <div class="op-info">
+      <div class="op-title">Rigenera iscrizioni da file <span class="badge badge-mod">MODIFICA</span></div>
+      <div class="op-desc">Azzera tutte le iscrizioni e le ricostruisce da statini_fip.json + elenco_csi.json. I pagamenti non vengono toccati.</div>
+    </div>
+    <button class="btn btn-gold" onclick="rigeneraIscrizioni()" style="min-height:44px;white-space:nowrap;background:#c0392b">🔄 Rigenera</button>
   </div>
 </div>
 <div class="card">
@@ -337,7 +353,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v6.2 · 21/03/2026 16:45";
+var BUILD_VERSION = "v6.5 · 21/03/2026 17:28";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -546,10 +562,15 @@ function arricchisciDaCF(a){
 
 function _parseIndVia(indLegacy,via,nr,cap,comune,prov){
   // Se ha gia' i campi separati usali, altrimenti parsa il legacy
+  // Fix: se comune contiene CAP iniziale (es. "30035 Mirano"), separa
+  if(comune&&/^\d{5}\s+/.test(comune)){
+    var mCap=comune.match(/^(\d{5})\s+(.+)$/);
+    if(mCap){if(!cap)cap=mCap[1];comune=mCap[2];}
+  }
   if(via||comune||nr||cap){return{via:via||"",nr:nr||"",cap:cap||"",comune:comune||"",prov:prov||""};}
   if(!indLegacy)return{via:"",nr:"",cap:"",comune:"",prov:""};
   indLegacy=indLegacy.trim();
-  // Legacy: "VIA ROMA 10, CAMPODARSEGO (PD)" o "VIA ROMA 10, CAMPODARSEGO"
+  // Legacy: "VIA ROMA 10, 30035 CAMPODARSEGO (PD)" o "VIA ROMA 10, CAMPODARSEGO (PD)"
   var comma=indLegacy.lastIndexOf(",");
   if(comma>0){
     var viaPart=indLegacy.substring(0,comma).trim();
@@ -557,22 +578,30 @@ function _parseIndVia(indLegacy,via,nr,cap,comune,prov){
     var mProv=comunePart.match(/\(([A-Z]{2})\)$/);
     var provStr=mProv?mProv[1]:"";
     var comuneStr=mProv?comunePart.replace(/\s*\([A-Z]{2}\)$/,"").trim():comunePart;
+    // Estrai CAP se presente all'inizio del comune
+    var capStr="";
+    var mCapComune=comuneStr.match(/^(\d{5})\s+(.+)$/);
+    if(mCapComune){capStr=mCapComune[1];comuneStr=mCapComune[2];}
     var vParts=viaPart.split(/\s+/);
     var nrStr="";
     if(vParts.length>1&&/^[\d\/]+[a-zA-Z]?$/.test(vParts[vParts.length-1])){
       nrStr=vParts.pop();
     }
-    return{via:vParts.join(" "),nr:nrStr,cap:"",comune:comuneStr,prov:provStr};
+    return{via:vParts.join(" "),nr:nrStr,cap:capStr,comune:comuneStr,prov:provStr};
   }
   // Senza virgola: se sembra solo un comune (no numeri civici) mettilo in comune
   var mProvSolo=indLegacy.match(/^(.+?)\s*\(([A-Z]{2})\)$/);
   if(mProvSolo){
-    // "CAMPODARSEGO (PD)" → comune
-    return{via:"",nr:"",cap:"",comune:mProvSolo[1].trim(),prov:mProvSolo[2]};
+    var comuneSolo=mProvSolo[1].trim();
+    var capSolo="";
+    var mCapSolo=comuneSolo.match(/^(\d{5})\s+(.+)$/);
+    if(mCapSolo){capSolo=mCapSolo[1];comuneSolo=mCapSolo[2];}
+    return{via:"",nr:"",cap:capSolo,comune:comuneSolo,prov:mProvSolo[2]};
   }
   // Altrimenti metti in via
   return{via:indLegacy,nr:"",cap:"",comune:"",prov:""};
 }
+
 
 function _parseTut(a){
   if(!a)return{cog:"",nom:"",cf:"",email:"",cell1:"",cell2:"",dn:"",natoA:"",natoProv:"",via:"",nr:"",cap:"",comune:"",prov:""};
@@ -1298,7 +1327,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v6.2 · 21/03/2026 16:45";
+var BUILD_VERSION="v6.5 · 21/03/2026 17:28";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1319,7 +1348,7 @@ function escLog(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 function clearLog(){ document.getElementById('log').innerHTML=''; }
 function setDot(s){ var d=document.getElementById('status-dot'); d.className=s; }
 function setBtns(on){
-  ['ex','cat','cs','rit','script','backup','ricevutePDF'].forEach(function(id){
+  ['ex','cat','cs','rit','script','backup','ricevutePDF','normcap'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b) b.disabled=!on;
   });
@@ -2036,6 +2065,116 @@ function importaIscrizioniCSI(){
   inp.click();
 }
 
+function rigeneraIscrizioni(){
+  if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
+  if(!confirm("ATTENZIONE: questa operazione azzera TUTTE le iscrizioni di tutti gli atleti\ne le ricostruisce da statini_fip.json + elenco_csi.json.\n\nI pagamenti NON vengono toccati.\n\nProcedere?"))return;
+
+  // Step 1: carica statini_fip.json
+  var inp1=document.createElement('input'); inp1.type='file'; inp1.accept='.json';
+  log('Passo 1/2 — Seleziona statini_fip.json...','info');
+  inp1.onchange=function(e1){
+    var f1=e1.target.files[0]; if(!f1)return;
+    var r1=new FileReader();
+    r1.onload=function(ev1){
+      var fip;
+      try{ fip=JSON.parse(ev1.target.result); }
+      catch(err){ log('Errore parsing statini_fip.json: '+err.message,'err'); return; }
+      if(!fip||typeof fip!=='object'){ log('statini_fip.json non valido.','err'); return; }
+
+      // Step 2: carica elenco_csi.json
+      var inp2=document.createElement('input'); inp2.type='file'; inp2.accept='.json';
+      log('Passo 2/2 — Seleziona elenco_csi.json...','info');
+      inp2.onchange=function(e2){
+        var f2=e2.target.files[0]; if(!f2)return;
+        var r2=new FileReader();
+        r2.onload=function(ev2){
+          var csiData;
+          try{ csiData=JSON.parse(ev2.target.result); }
+          catch(err){ log('Errore parsing elenco_csi.json: '+err.message,'err'); return; }
+          if(!csiData||!csiData.elenco||!csiData.dateRilascio){ log('elenco_csi.json non valido.','err'); return; }
+
+          // ── AZZERA tutte le iscrizioni ──
+          DB.atleti.forEach(function(a){ a.iscrizioni=[]; });
+          log('Iscrizioni azzerate su '+DB.atleti.length+' atleti.','info');
+
+          // ── REIMPORTA FIP ──
+          var fipNuove=0, fipNonTrovati=[];
+          Object.keys(fip).sort().forEach(function(stagione){
+            var cfs=fip[stagione];
+            Object.keys(cfs).forEach(function(cf){
+              var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===cf.toUpperCase();});
+              if(!a){fipNonTrovati.push(cf+' ('+stagione+')');return;}
+              a.iscrizioni.push({anno:stagione,fed:'FIP',fonte:'statino',dataIscrizione:cfs[cf]||''});
+              fipNuove++;
+            });
+          });
+          log('FIP: '+fipNuove+' iscrizioni reimportate'+(fipNonTrovati.length?' ('+fipNonTrovati.length+' CF non trovati)':''),'info');
+
+          // ── REIMPORTA CSI ──
+          var ELENCO=csiData.elenco, DATE=csiData.dateRilascio;
+          var csiNuove=0, csiNonTrovati=[];
+          Object.keys(ELENCO).sort().forEach(function(stagione){
+            ELENCO[stagione].forEach(function(t){
+              var cf=(t.cf||'').toUpperCase();
+              var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===cf;});
+              if(!a){csiNonTrovati.push(cf+' '+t.cog+' '+t.nom+' ('+stagione+')');return;}
+              a.iscrizioni.push({
+                anno:stagione,fed:'CSI',attivita:t.attivita||'',fonte:'elenco',
+                dataIscrizione:(DATE[stagione]&&DATE[stagione][cf])?DATE[stagione][cf]:''
+              });
+              csiNuove++;
+            });
+          });
+          log('CSI: '+csiNuove+' iscrizioni reimportate'+(csiNonTrovati.length?' ('+csiNonTrovati.length+' non trovati)':''),'info');
+
+          // ── SALVA ──
+          saveDB();
+          log('RIGENERA OK — Tot: '+(fipNuove+csiNuove)+' iscrizioni. Salvo...','ok');
+          if(typeof _initReportStagioni==='function')_initReportStagioni();
+        };
+        r2.readAsText(f2,'utf-8');
+      };
+      inp2.click();
+    };
+    r1.readAsText(f1,'utf-8');
+  };
+  inp1.click();
+}
+
+function normalizzaCAP(){
+  if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
+  var fixati=0, lista=[];
+  function _fixComuneCAP(cap, comune){
+    // Se comune inizia con 5 cifre (es. "30035 Mirano") e CAP è vuoto
+    if(comune&&/^\d{5}\s+/.test(comune)){
+      var m=comune.match(/^(\d{5})\s+(.+)$/);
+      if(m){return{cap:cap||m[1], comune:m[2]};}
+    }
+    return null;
+  }
+  DB.atleti.forEach(function(a){
+    var dirty=false;
+    // Atleta
+    var fixInd=_fixComuneCAP(a.indCap||'', a.indComune||'');
+    if(fixInd){
+      lista.push('['+a.id+'] '+a.cog+' '+a.nom+': indComune "'+a.indComune+'" → CAP "'+fixInd.cap+'", Comune "'+fixInd.comune+'"');
+      a.indCap=fixInd.cap; a.indComune=fixInd.comune; dirty=true;
+    }
+    // Tutore
+    var fixTut=_fixComuneCAP(a.tutCap||'', a.tutComune||'');
+    if(fixTut){
+      lista.push('['+a.id+'] '+a.cog+' '+a.nom+' (tutore): tutComune "'+a.tutComune+'" → CAP "'+fixTut.cap+'", Comune "'+fixTut.comune+'"');
+      a.tutCap=fixTut.cap; a.tutComune=fixTut.comune; dirty=true;
+    }
+    if(dirty)fixati++;
+  });
+  if(fixati===0){log('Nessun record da correggere.','ok');return;}
+  log(fixati+' atleti corretti:','info');
+  lista.forEach(function(s){log('  '+s,'info');});
+  saveDB();
+  log('Normalizzazione CAP/Comune completata.','ok');
+}
+
 </script>
 <script>
 window.addEventListener("load",function(){if(typeof _diagShow==="function")_diagShow();if(typeof fbInit==="function")setTimeout(fbInit,200);});
@@ -2043,7 +2182,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v6.2 · 21/03/2026 16:45";
+var BUILD_VERSION = "v6.5 · 21/03/2026 17:28";
 
 // var DB = null; → core
 // var _db = null; → core
