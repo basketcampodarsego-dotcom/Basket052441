@@ -13,7 +13,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
-var BUILD_VERSION = "v5.1 · 21/03/2026 12:22";
+var BUILD_VERSION = "v5.2 · 21/03/2026 12:44";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
