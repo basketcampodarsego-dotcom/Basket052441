@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Basket052441 — Admin DB v5.4</title>
+<title>Basket052441 — Admin DB v6.0</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:Arial,sans-serif;background:#0d1a2a;color:#c8d8e8;min-height:100vh;padding:20px;}
@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v5.9 · 21/03/2026 15:43<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v6.1 · 21/03/2026 16:31<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v5.9 · 21/03/2026 15:43</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v6.1 · 21/03/2026 16:31</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -337,7 +337,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v5.2 · 21/03/2026 12:44";
+var BUILD_VERSION = "v6.1 · 21/03/2026 16:31";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -808,7 +808,7 @@ function loadDB(){
     if(!DB.ricevute)DB.ricevute=[];
     if(!DB.listar)DB.listar=[];
   }catch(e){}
-  diag("loadDB: localStorage — atleti="+DB.atleti.length+", pag="+Object.keys(DB.pagamenti||{}).length);
+  diag("loadDB: localStorage — atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pag="+Object.keys(DB.pagamenti||{}).length);
   // 2. Scarica da Firebase le sezioni aggiornate
   if(_fbReady){
     syncStatus(true);
@@ -847,7 +847,7 @@ function loadDB(){
       if(typeof window._onDBLoaded === 'function'){ window._onDBLoaded(); }
       else if(typeof renderDashboard === 'function'){ renderDashboard(); }
       syncStatus(false);
-      console.log("[FB] DB caricato dal cloud"); diag("Firebase OK: atleti="+DB.atleti.length+", pagamenti="+Object.keys(DB.pagamenti||{}).length,"ok");
+      console.log("[FB] DB caricato dal cloud"); diag("Firebase OK: atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pagamenti="+Object.keys(DB.pagamenti||{}).length,"ok");
     }).catch(function(e){
       syncStatus(false);
       console.error("[FB] Errore lettura sezioni:",e);
@@ -1297,7 +1297,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v5.9 · 21/03/2026 15:43";
+var BUILD_VERSION="v6.1 · 21/03/2026 16:31";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1663,7 +1663,7 @@ window._onAuthOK = function(user){
     if(DB&&DB.atleti&&DB.atleti.length>0){ if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); }
     else { log('DB vuoto.','warn'); setDot('warn'); setBtns(true); }
   },3000);
-  window._onDBLoaded=function(){ clearTimeout(_t); window._onDBLoaded=null; if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); };
+  window._onDBLoaded=function(){ clearTimeout(_t); window._onDBLoaded=null; if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+((DB&&DB.atleti)?DB.atleti.length:0)+' atleti.','ok'); setDot('ok'); setBtns(true); };
 };
 window._onAuthLogout=function(){
   log('Sessione terminata.','warn');
@@ -1929,495 +1929,110 @@ function esportaReportSociCSV(){
 }
 
 
-// ── IMPORT ISCRIZIONI DA STATINO FIP ──
-var STATINI_FIP = {"2025-26": {"DMLGLI18H01B563P": "11/10/2025", "GRIBGI18A05B563U": "11/10/2025", "MRTNCL19D15B563F": "11/10/2025", "MSNNCL17P02B563X": "11/10/2025", "BRTMTT18R15B563D": "11/10/2025", "BRSNGL14M20B563Q": "11/10/2025", "ZNLLBA17C55G224Z": "11/10/2025", "MLNDNL14A14B563V": "24/01/2026", "BTTMTT18A24B563V": "11/10/2025", "PCARCR18R13A001S": "11/10/2025", "GCNMRC14E14G224A": "11/10/2025", "TSRGRL14E05B563O": "11/10/2025", "BRNLSN14E06F241L": "11/10/2025", "LHTNSM16B28B563M": "11/10/2025", "LHTHMZ16B28B563Z": "11/10/2025", "FNTLSS14A08B563C": "11/10/2025", "BRBTMS15H12B563X": "11/10/2025", "MNCMRA19T09G224S": "11/10/2025", "FRILSN17C29G224M": "11/10/2025", "NRDLSN17M15G224L": "24/01/2026", "MSTRJN17B13B563N": "11/10/2025", "VSNMTT17A24B563J": "11/10/2025", "NNJYMN14P44B563A": "11/10/2025", "FBRLRD18H25B563H": "11/10/2025", "BRGLRA17C50B563S": "11/10/2025", "PSTMTT19B02B563R": "11/10/2025", "DMERKE17P29B563H": "11/10/2025", "MRTRCR15R25G224I": "11/10/2025", "NCLDRD14P26B563N": "11/10/2025", "MROBSS15P10G224F": "24/01/2026", "MRTFPP17E23B563U": "11/10/2025", "PLMMTS15P29B563E": "24/01/2026", "TRRTTR15M10B563L": "11/10/2025", "FRLLNZ15D25B563O": "11/10/2025", "HRCRYN15T09C352W": "11/10/2025", "FTTGRG14E30B563G": "11/10/2025", "FRISRA18M48G224Q": "11/10/2025", "BLLSMN14L10B563X": "11/10/2025", "FBRSST18H25B563I": "11/10/2025", "MKHSHL15B10B563V": "24/01/2026"}, "2024-25": {"DMLGLI18H01B563P": "01/09/2024", "FBRNCL18E19B563N": "01/09/2024", "VSNLMI18R28B563T": "01/09/2024", "MMJRJN14P08Z100Y": "01/09/2024", "MRTNCL19D15B563F": "01/09/2024", "PPDJLO17A30B563N": "01/09/2024", "MSNNCL17P02B563X": "01/09/2024", "BRTMTT18R15B563D": "01/09/2024", "BRSNGL14M20B563Q": "01/09/2024", "RFFPTR13T11B563N": "01/09/2024", "CLELNE13P68G224J": "01/09/2024", "BDNRFL13S16A001S": "01/09/2024", "BTTMTT18A24B563V": "01/09/2024", "PCARCR18R13A001S": "01/09/2024", "GCNMRC14E14G224A": "01/09/2024", "PLLNDR13C04B563V": "01/09/2024", "TSRGRL14E05B563O": "01/09/2024", "MRRDNL18D11G224L": "01/09/2024", "BRNLSN14E06F241L": "01/09/2024", "LHTNSM16B28B563M": "01/09/2024", "BBLLNZ13A30B563S": "01/09/2024", "FNTLSS14A08B563C": "01/09/2024", "TMBNCL19P06B563F": "01/09/2024", "SROKRM16R10G224E": "01/09/2024", "LNGNNA13T70B563N": "01/09/2024", "NMTDSN16E06B563B": "01/09/2024", "VRIDRL13D05L736H": "01/09/2024", "MNCMRA19T09G224S": "01/09/2024", "LMALRT13S05G224B": "01/09/2024", "FRILSN17C29G224M": "01/09/2024", "DCHGSI13D04B563U": "01/09/2024", "BSNLRD14C05G224A": "01/09/2024", "LMNFPP18R11G224U": "01/09/2024", "FBRSST18H25B563I": "01/09/2024", "BRTGNN19T28B563L": "01/09/2024", "NNJYMN14P44B563A": "01/09/2024", "FBRLRD18H25B563H": "01/09/2024", "BRGLRA17C50B563S": "01/09/2024", "PSTMTT19B02B563R": "01/09/2024", "STFGCM18A26B563Q": "01/09/2024", "MRTRCR15R25G224I": "01/09/2024", "TNLDVD16A29B563A": "01/09/2024", "BGNCST13P27D325F": "01/09/2024", "BNARCE18A01B563Y": "01/09/2024", "BNVNRT16D42B563I": "01/09/2024", "GRGMTT13B28B563N": "01/09/2024", "PLMMTS15P29B563E": "01/09/2024", "TRRTTR15M10B563L": "01/09/2024", "FRLLNZ15D25B563O": "01/09/2024", "CLLLSN13A14B563T": "01/09/2024", "LSPNCL18L19B563L": "01/09/2024", "FVRSST13S07B563U": "01/09/2024", "CNATMS15B01B563C": "01/09/2024", "CSTGNN13H26G224F": "01/09/2024", "FTTGRG14E30B563G": "01/09/2024", "FRISRA18M48G224Q": "01/09/2024", "BLLSMN14L10B563X": "01/09/2024", "TNLMTT13L15B563U": "01/09/2024", "NCLDRD14P26B563N": "01/09/2024", "MKHSHL15B10B563V": "01/09/2024"}, "2023-24": {"FBRNCL18E19B563N": "01/09/2023", "LGGTMS13C24G224R": "01/09/2023", "PPDJLO17A30B563N": "01/09/2023", "MRRMTT12H12C627T": "01/09/2023", "BRSNGL14M20B563Q": "01/09/2023", "RFFPTR13T11B563N": "01/09/2023", "TRRNHL12M15B563L": "01/09/2023", "ZNNGNI17C21B563B": "01/09/2023", "BRTLRT13M07B563E": "01/09/2023", "GCNMRC14E14G224A": "01/09/2023", "TSRGRL14E05B563O": "01/09/2023", "MRRDNL18D11G224L": "01/09/2023", "BRNLSN14E06F241L": "01/09/2023", "PZZXLA14E15B563C": "01/09/2023", "FNTLSS14A08B563C": "01/09/2023", "FRLTMS18L31B563B": "01/09/2023", "LNGNNA13T70B563N": "01/09/2023", "NMTDSN16E06B563B": "01/09/2023", "FRILSN17C29G224M": "01/09/2023", "ZNNGLI14M04B563C": "01/09/2023", "DCHGSI13D04B563U": "01/09/2023", "DZNGCM12C26B563W": "01/09/2023", "BRGLRA17C50B563S": "01/09/2023", "TNLDVD16A29B563A": "01/09/2023", "BLGTMF12B15B563H": "01/09/2023", "BGNCST13P27D325F": "01/09/2023", "GRGMTT13B28B563N": "01/09/2023", "TRRTTR15M10B563L": "01/09/2023", "CLLLSN13A14B563T": "01/09/2023", "FVRSST13S07B563U": "01/09/2023", "CSTGNN13H26G224F": "01/09/2023", "GRCMTN17H30B563B": "01/09/2023", "FTTGRG14E30B563G": "01/09/2023", "VLPLEI15C25B563A": "01/09/2023", "BLLSMN14L10B563X": "01/09/2023", "TNLMTT13L15B563U": "01/09/2023", "NCLDRD14P26B563N": "01/09/2023"}, "2022-23": {"ZMPLCU12L30G224C": "01/09/2022", "TRBNDR15B24B563H": "01/09/2022", "MRRMTT12H12C627T": "01/09/2022", "BRTLRT13M07B563E": "01/09/2022", "TRBMGT11S45B563E": "01/09/2022", "GCNMRC14E14G224A": "01/09/2022", "GRILCU11L01F241C": "01/09/2022", "TTOSML13A23B563B": "01/09/2022", "TSRGRL14E05B563O": "01/09/2022", "VLPGSI13M30B563Y": "01/09/2022", "CLTTTR13D03B563U": "01/09/2022", "FNTLSS14A08B563C": "01/09/2022", "TLTLXA11L06B563S": "01/09/2022", "LNGNNA13T70B563N": "01/09/2022", "MRRTMS14C27G224S": "01/09/2022", "NMTDSN16E06B563B": "01/09/2022", "VRIDRL13D05L736H": "01/09/2022", "ZNNLRD16C11B563N": "01/09/2022", "DCHGSI13D04B563U": "01/09/2022", "CSTRCR11T09B563J": "01/09/2022", "BRGLRA17C50B563S": "01/09/2022", "BLGTMF12B15B563H": "01/09/2022", "BGNCST13P27D325F": "01/09/2022", "BNVNRT16D42B563I": "01/09/2022", "GRGMTT13B28B563N": "01/09/2022", "GNALGB17R16G224F": "01/09/2022", "CLLLSN13A14B563T": "01/09/2022", "HSRZZA14L04B563F": "01/09/2022", "FVRSST13S07B563U": "01/09/2022", "SGRMTT11H29B563J": "01/09/2022", "CMPGNN13C18G224F": "01/09/2022", "TNLMTT13L15B563U": "01/09/2022"}, "2021-22": {"MRRMTT12H12C627T": "01/09/2021", "DLSMHL14D65B519G": "01/09/2021", "SCPTRN11M11B563A": "01/09/2021", "GCNMRC14E14G224A": "01/09/2021", "LBRRCR13E09G224D": "01/09/2021", "TSRGRL14E05B563O": "01/09/2021", "BSCFPP16T01B563P": "01/09/2021", "STFNCL13L09B563Y": "01/09/2021", "VLPGSI13M30B563Y": "01/09/2021", "CLTTTR13D03B563U": "01/09/2021", "FNTLSS14A08B563C": "01/09/2021", "CNCGLI12E62B563M": "01/09/2021", "MTTZRR16C45B563A": "01/09/2021", "MRRTMS14C27G224S": "01/09/2021", "DLPLSN16C24B563C": "01/09/2021", "BSSFPP15C16B563C": "01/09/2021", "BSNNCL16L18B563U": "01/09/2021", "DCHGSI13D04B563U": "01/09/2021", "TNLFNC14E19B563Q": "01/09/2021", "DLPPFR13L23B563F": "01/09/2021", "BNVNRT16D42B563I": "01/09/2021", "GRGMTT13B28B563N": "01/09/2021", "FVRSST13S07B563U": "01/09/2021", "CNATMS15B01B563C": "01/09/2021", "CMPGNN13C18G224F": "01/09/2021"}, "2020-21": {"BNAGRL09A17B563R": "01/09/2020", "MRRMTT12H12C627T": "01/09/2020", "CNCGLI12E62B563M": "01/09/2020"}, "2019-20": {"RSTLRT09S08C743T": "01/09/2019", "MCHRNN11R62B563E": "01/09/2019", "SLVMTT09H29B563Z": "01/09/2019", "LNIFNC09R21G224B": "01/09/2019", "MRRMTT12H12C627T": "01/09/2019", "FBANNA09R55F241U": "01/09/2019", "NCANGB12H07B563L": "01/09/2019", "BNAGRL09A17B563R": "01/09/2019", "NRDLRT10L17B563B": "01/09/2019", "STORCR09T30B563G": "01/09/2019", "BSSMLN10T01B563W": "01/09/2019", "MRNPTR09S05B563H": "01/09/2019", "RLFNRO12P46B563O": "01/09/2019", "BNLLVS11H02F241P": "01/09/2019", "SCPTRN11M11B563A": "01/09/2019", "BCCDVD09H17B563R": "01/09/2019", "GRILCU11L01F241C": "01/09/2019", "SCPCRL11B15B563C": "01/09/2019", "LVTBRC09S70B563D": "01/09/2019", "SLVMYA09C43B563S": "01/09/2019", "VLPGSI13M30B563Y": "01/09/2019", "CNCGLI12E62B563M": "01/09/2019", "TRTDVD10T05C743O": "01/09/2019", "FBAGRG12R41B563Y": "01/09/2019", "GNTLSN11M02C743C": "01/09/2019", "PSTSML09L04B563C": "01/09/2019", "STCNCL13B08B563K": "01/09/2019", "MRLNCL12L13B563F": "01/09/2019", "SKLRSA09E05A001K": "01/09/2019", "DLZLSS11C64F241N": "01/09/2019", "SKLKNE12R41A001X": "01/09/2019", "RZZTTR14P02B563P": "01/09/2019", "DLPPFR13L23B563F": "01/09/2019", "GLZLCU12A10G224I": "01/09/2019", "SCNLRD11B14F861T": "01/09/2019", "FNTTMS10B10G224P": "01/09/2019", "MLLSNT10M56G224U": "01/09/2019", "BNAMRC11H23B563M": "01/09/2019", "ZNNLNZ09C24G224E": "01/09/2019", "BRNDRN09E21B563F": "01/09/2019", "MNTDRD13A15L840I": "01/09/2019", "CLLLSN13A14B563T": "01/09/2019", "DMERCR12S27B563X": "01/09/2019", "FVRSST13S07B563U": "01/09/2019", "MRLJCP09S25B563C": "01/09/2019", "CRRLNZ12E29F241E": "01/09/2019", "ZMPNDR10C17B563V": "01/09/2019", "BSTRRA09A48F241Y": "01/09/2019", "NVLSRA09D65G224Z": "01/09/2019", "MLNNGL09H53G224T": "01/09/2019", "ZMPSMN12D02B563Y": "01/09/2019"}, "2018-19": {"RSTLRT09S08C743T": "01/09/2018", "MCHRNN11R62B563E": "01/09/2018", "SLVMTT09H29B563Z": "01/09/2018", "DRIMSM12D07Z154O": "01/09/2018", "LNIFNC09R21G224B": "01/09/2018", "MRRMTT12H12C627T": "01/09/2018", "FBANNA09R55F241U": "01/09/2018", "RMPLCA11T42B563M": "01/09/2018", "BNAGRL09A17B563R": "01/09/2018", "NRDLRT10L17B563B": "01/09/2018", "STORCR09T30B563G": "01/09/2018", "BRZMHL10H07B563L": "01/09/2018", "BSSMLN10T01B563W": "01/09/2018", "DVCGNN12T11B563M": "01/09/2018", "BNLLVS11H02F241P": "01/09/2018", "MRNPTR09S05B563H": "01/09/2018", "BCCDVD09H17B563R": "01/09/2018", "MDTFPP10P06B563Z": "01/09/2018", "TMMGAI09E54B563P": "01/09/2018", "FRNPLA13C02B563F": "01/09/2018", "LVTBRC09S70B563D": "01/09/2018", "SLVMYA09C43B563S": "01/09/2018", "GSTFNC13L19B563A": "01/09/2018", "BRZGNN11S04B563Y": "01/09/2018", "CNCGLI12E62B563M": "01/09/2018", "TRTDVD10T05C743O": "01/09/2018", "FBAGRG12R41B563Y": "01/09/2018", "LNGLRD13A21G224E": "01/09/2018", "MSCCRS09B25B563R": "01/09/2018", "STCNCL13B08B563K": "01/09/2018", "PSTSML09L04B563C": "01/09/2018", "TLTLXA11L06B563S": "01/09/2018", "MRLNCL12L13B563F": "01/09/2018", "PZZRFL11C04B563E": "01/09/2018", "SKLRSA09E05A001K": "01/09/2018", "CVNJPR09T23B180O": "01/09/2018", "BRTNLC12P54F241F": "01/09/2018", "FRLRCR10P18G224O": "01/09/2018", "SKLKNE12R41A001X": "01/09/2018", "RVZCHR10S65G224L": "01/09/2018", "GLZLCU12A10G224I": "01/09/2018", "SCNLRD11B14F861T": "01/09/2018", "BLZFNC11A16G224X": "01/09/2018", "TRMNNI10T06L840Y": "01/09/2018", "ZNRMTT11E27B563P": "01/09/2018", "BBLCRS10A21L736E": "01/09/2018", "ZNNLNZ09C24G224E": "01/09/2018", "CCCPTR12L11B563O": "01/09/2018", "MRCRFL10C22B563Q": "01/09/2018", "DMERCR12S27B563X": "01/09/2018", "FVRSST13S07B563U": "01/09/2018", "MRLJCP09S25B563C": "01/09/2018", "RFFLSN10S12B563D": "01/09/2018", "CRRLNZ12E29F241E": "01/09/2018", "ZMPNDR10C17B563V": "01/09/2018", "BSTRRA09A48F241Y": "01/09/2018", "BNANMO11R70B563Z": "01/09/2018", "NVLSRA09D65G224Z": "01/09/2018", "MLNNGL09H53G224T": "01/09/2018", "ZMPSMN12D02B563Y": "01/09/2018"}, "2017-18": {"BRCDNL06P28Z140N": "01/09/2017", "RSTLRT09S08C743T": "01/09/2017", "SBBMTT08S09B563X": "01/09/2017", "LBRMTT09T10B563H": "01/09/2017", "RAIDRH09R57G224D": "01/09/2017", "LNIFNC09R21G224B": "01/09/2017", "SRTGFL09M09A001T": "01/09/2017", "FBANNA09R55F241U": "01/09/2017", "MZZGAI10L54G224R": "01/09/2017", "BNAGRL09A17B563R": "01/09/2017", "NRDLRT10L17B563B": "01/09/2017", "STORCR09T30B563G": "01/09/2017", "BRZMHL10H07B563L": "01/09/2017", "BSSMLN10T01B563W": "01/09/2017", "DCHCLL10T18B563A": "01/09/2017", "NNJKVN09R09G224S": "01/09/2017", "PRDFNC08A24B563Y": "01/09/2017", "RCCTMS11B22B563B": "01/09/2017", "SNDTMS07H27B563C": "01/09/2017", "CNVLSN07L18B563T": "01/09/2017", "BCCDVD09H17B563R": "01/09/2017", "MDTFPP10P06B563Z": "01/09/2017", "TMMGAI09E54B563P": "01/09/2017", "DNNRCR11P15A001U": "01/09/2017", "GHTLND08D28B563E": "01/09/2017", "LVTBRC09S70B563D": "01/09/2017", "SLVMYA09C43B563S": "01/09/2017", "MDNRCR06M12G224D": "01/09/2017", "BRZGNN11S04B563Y": "01/09/2017", "LNIVTR11D16G224E": "01/09/2017", "NDRNRC08T24B563L": "01/09/2017", "MSCCRS09B25B563R": "01/09/2017", "NDRDNN10T19B563A": "01/09/2017", "TLTLXA11L06B563S": "01/09/2017", "NZZDRD10R26B563E": "01/09/2017", "PSTSML09L04B563C": "01/09/2017", "TGUGLN06E42G224C": "01/09/2017", "NVLSRA09D65G224Z": "01/09/2017", "RMPTMS06L21G224J": "01/09/2017", "SKLRSA09E05A001K": "01/09/2017", "CVNJPR09T23B180O": "01/09/2017", "SLMLSS06T50B563G": "01/09/2017", "FRLRCR10P18G224O": "01/09/2017", "CLNRCR08H29B563V": "01/09/2017", "BRLMRA06R19G224W": "01/09/2017", "GRCRRT06L08B563I": "01/09/2017", "BNAGNN10P26B563W": "01/09/2017", "RVZCHR10S65G224L": "01/09/2017", "PRACHR07L57B563O": "01/09/2017", "LIAMTT06L25G224C": "01/09/2017", "SCNLRD11B14F861T": "01/09/2017", "SRTGMR06D01A001V": "01/09/2017", "BCALRD11P26B563V": "01/09/2017", "PRDDNL07S10B563G": "01/09/2017", "BRHDRA09T09B563N": "01/09/2017", "TRMNNI10T06L840Y": "01/09/2017", "ZNRMTT11E27B563P": "01/09/2017", "BBLCRS10A21L736E": "01/09/2017", "FRNRCR06M02G224L": "01/09/2017", "NTNNDR10R11B563C": "01/09/2017", "BZZMCL06R20E410F": "01/09/2017", "DTGRCR10M14B563R": "01/09/2017", "CCCPTR12L11B563O": "01/09/2017", "MRCRFL10C22B563Q": "01/09/2017", "ZNNLNZ09C24G224E": "01/09/2017", "RFFLSN10S12B563D": "01/09/2017", "VSNGMC10D07B563S": "01/09/2017", "SCPCLL10S29G224N": "01/09/2017", "ZMPNDR10C17B563V": "01/09/2017", "BSTRRA09A48F241Y": "01/09/2017", "RSTLSS07S49B563X": "01/09/2017", "ZMPSMN12D02B563Y": "01/09/2017"}, "2016-17": {"RMINDR06A03B563O": "01/09/2016", "NNJHRY05R26H620T": "01/09/2016", "SHHMUA08D50B563J": "01/09/2016", "TRVNLS10L22G224F": "01/09/2016", "PGRLSS05S65B563S": "01/09/2016", "SRTGFL09M09A001T": "01/09/2016", "MZZGAI10L54G224R": "01/09/2016", "BNAGRL09A17B563R": "01/09/2016", "RMNMTN05C50B563T": "01/09/2016", "LIURKE08T16B563N": "01/09/2016", "CNVLSN07L18B563T": "01/09/2016", "TMMGAI09E54B563P": "01/09/2016", "GNDSMA06D41B563M": "01/09/2016", "VGNLCU09E28B563J": "01/09/2016", "LDDBRC05T42G224Y": "01/09/2016", "GNDMRO09T03B563X": "01/09/2016", "TGUGLN06E42G224C": "01/09/2016", "FRGNNG09B16A001H": "01/09/2016", "CVNJPR09T23B180O": "01/09/2016", "RMBNZE10B18C743G": "01/09/2016", "LIAMTT06L25G224C": "01/09/2016", "ZMNMTT08R25B563D": "01/09/2016", "STFGIO07A68B563O": "01/09/2016", "BZZMCL06R20E410F": "01/09/2016", "DNOLSN08L19B563Z": "01/09/2016", "LNZMGL08M56G224R": "01/09/2016", "BLNMNL05L07G224T": "01/09/2016", "RSTLSS07S49B563X": "01/09/2016", "FLPGRL07S01B563V": "01/09/2016", "MRTTMS08L18D325G": "01/09/2016", "GMBSFO07B60A001O": "01/09/2016", "DBRMLN07T71Z129S": "01/09/2016", "STORCR09T30B563G": "01/09/2016", "NNJKVN09R09G224S": "01/09/2016", "RCCTMS11B22B563B": "01/09/2016", "SNDTMS07H27B563C": "01/09/2016", "DLLMME06S65B563R": "01/09/2016", "TKKBRR07B20B563M": "01/09/2016", "ZLIRRA05P53G224R": "01/09/2016", "SMBSML06T21B563R": "01/09/2016", "NVLCSR09R14B563B": "01/09/2016", "NDRNRC08T24B563L": "01/09/2016", "MSCCRS09B25B563R": "01/09/2016", "SCZNMR08E49B563Z": "01/09/2016", "PZZRFL11C04B563E": "01/09/2016", "SKLRSA09E05A001K": "01/09/2016", "ZRBRCC09L48A001Y": "01/09/2016", "LHJSFN07E24B563B": "01/09/2016", "BRLMRA06R19G224W": "01/09/2016", "MRCCST06A25B563T": "01/09/2016", "SLVMDL08P59B563Y": "01/09/2016", "LMNSRA06H69B563K": "01/09/2016", "FRNRCR06M02G224L": "01/09/2016", "NTNNDR10R11B563C": "01/09/2016", "HDAMMM05D23Z330R": "01/09/2016", "ZNNGRG05E58G224H": "01/09/2016", "DTGRCR10M14B563R": "01/09/2016", "ZNNLNZ09C24G224E": "01/09/2016", "MRLJCP09S25B563C": "01/09/2016", "RSTLRT09S08C743T": "01/09/2016", "RSNTMS10M17F241V": "01/09/2016", "NRDLRT10L17B563B": "01/09/2016", "PRDFNC08A24B563Y": "01/09/2016", "GHTLND08D28B563E": "01/09/2016", "KRMYBA08H19G224B": "01/09/2016", "LIXSMN07B03D325W": "01/09/2016", "DDMMRC07D22B563V": "01/09/2016", "HBLMRN07E12G224X": "01/09/2016", "MDNRCR06M12G224D": "01/09/2016", "NDRDNN10T19B563A": "01/09/2016", "RMPTMS06L21G224J": "01/09/2016", "SBSMHS09R10B563P": "01/09/2016", "VTTGDI06P62B563I": "01/09/2016", "PRACHR07L57B563O": "01/09/2016", "FRGLSN11L25A001Y": "01/09/2016", "SRTGMR06D01A001V": "01/09/2016", "MRCRFL10C22B563Q": "01/09/2016", "BRBMTC07T15H224A": "01/09/2016", "VSNGMC10D07B563S": "01/09/2016", "BSTRRA09A48F241Y": "01/09/2016", "SHHMYA06P46B563Y": "01/09/2016", "NVLSRA09D65G224Z": "01/09/2016", "LDDSRA08M44G224Y": "01/09/2016", "SCNLSN07L23D325M": "01/09/2016", "BRCDNL06P28Z140N": "01/09/2016", "HOIDTN08T19B563W": "01/09/2016", "ZHNQAO08B11B563O": "01/09/2016", "BRTNRC07R16L407T": "01/09/2016", "TNLMLD05M43G224D": "01/09/2016", "DCHCLL10T18B563A": "01/09/2016", "HBCSFN05S30G224H": "01/09/2016", "LWNNDR08C14B563E": "01/09/2016", "MRNNTA11C58B563J": "01/09/2016", "LVTBRC09S70B563D": "01/09/2016", "BSCGPP07M11F241K": "01/09/2016", "NZZDRD10R26B563E": "01/09/2016", "LMNMIA10A67B563O": "01/09/2016", "MNLDSM06A13B563B": "01/09/2016", "GRCRRT06L08B563I": "01/09/2016", "PRDDNL07S10B563G": "01/09/2016", "RSSFRC08P11D612M": "01/09/2016", "ZMPNDR10C17B563V": "01/09/2016"}, "2015-16": {"BRCDNL06P28Z140N": "01/09/2015", "RMINDR06A03B563O": "01/09/2015", "PCCTMS04L23B563G": "01/09/2015", "TRVNLS10L22G224F": "01/09/2015", "BNAMTT04E05B563J": "01/09/2015", "CLNDNT06M66G224Q": "01/09/2015", "CRRNNG04P16G224L": "01/09/2015", "BRTNRC07R16L407T": "01/09/2015", "DLCMTT04T03B563R": "01/09/2015", "PGRLSS05S65B563S": "01/09/2015", "PPVDNI05H61B563L": "01/09/2015", "NCHDNS06D23G224V": "01/09/2015", "PPVRCR06E05B563T": "01/09/2015", "MDNLNZ04A20G224Y": "01/09/2015", "BNAGRL09A17B563R": "01/09/2015", "NRDLRT10L17B563B": "01/09/2015", "PRAFPP04E11B563I": "01/09/2015", "TNLMLD05M43G224D": "01/09/2015", "CLNGVR10A69G224P": "01/09/2015", "GDDMMD04E13B563D": "01/09/2015", "PVSMRC09L04B563E": "01/09/2015", "PRDFNC08A24B563Y": "01/09/2015", "SNDTMS07H27B563C": "01/09/2015", "ZHNQAO08B11B563O": "01/09/2015", "DLLMME06S65B563R": "01/09/2015", "CNVLSN07L18B563T": "01/09/2015", "TMMGAI09E54B563P": "01/09/2015", "NLSLRD10S20B563D": "01/09/2015", "VGNLCU09E28B563J": "01/09/2015", "LDDBRC05T42G224Y": "01/09/2015", "KRMYBA08H19G224B": "01/09/2015", "LVTBRC09S70B563D": "01/09/2015", "CCCSFN06T15G224J": "01/09/2015", "MDNRCR06M12G224D": "01/09/2015", "NVLCSR09R14B563B": "01/09/2015", "NDRNRC08T24B563L": "01/09/2015", "MSCCRS09B25B563R": "01/09/2015", "DMRMLD06L41G224F": "01/09/2015", "RMPTMS06L21G224J": "01/09/2015", "RMNSRA06R44B563R": "01/09/2015", "SBSMHS09R10B563P": "01/09/2015", "PPVNMR08S66B563P": "01/09/2015", "BRLMRA06R19G224W": "01/09/2015", "GRCRRT06L08B563I": "01/09/2015", "MCHSMN04R28B563R": "01/09/2015", "TLGDDC06T13B563E": "01/09/2015", "CCCLRD05E23G224C": "01/09/2015", "VTTGDI06P62B563I": "01/09/2015", "SPSGLI07C71F205W": "01/09/2015", "LIAMTT06L25G224C": "01/09/2015", "PRACHR07L57B563O": "01/09/2015", "ZTISFN09B02G224M": "01/09/2015", "SRTGMR06D01A001V": "01/09/2015", "PRDDNL07S10B563G": "01/09/2015", "PCCMME04R52G224L": "01/09/2015", "SLVMDL08P59B563Y": "01/09/2015", "FSLLSN09M14B563G": "01/09/2015", "PRNNCL09P29F382A": "01/09/2015", "BRTFRC06D61B563P": "01/09/2015", "BRSLRD04H26G224I": "01/09/2015", "HDAMMM05D23Z330R": "01/09/2015", "BZZMCL06R20E410F": "01/09/2015", "LNZMGL08M56G224R": "01/09/2015", "BRBMTC07T15H224A": "01/09/2015", "BLNMNL05L07G224T": "01/09/2015", "ZMPNDR10C17B563V": "01/09/2015", "TTONIA09L16B563D": "01/09/2015", "NVLSRA09D65G224Z": "01/09/2015", "LDDSRA08M44G224Y": "01/09/2015"}, "2014-15": {"BRCDNL06P28Z140N": "01/09/2014", "CLLLCU08P04B563A": "01/09/2014", "NVLCRL05L11B563A": "01/09/2014", "HOIDTN08T19B563W": "01/09/2014", "PCCTMS04L23B563G": "01/09/2014", "PZZMLY07P52G224E": "01/09/2014", "RSSLGR04R59B563R": "01/09/2014", "BNAMTT04E05B563J": "01/09/2014", "DLCMTT04T03B563R": "01/09/2014", "SVARCR07D03B563S": "01/09/2014", "SHHMUA08D50B563J": "01/09/2014", "TRTGNN08A19B563N": "01/09/2014", "ZHNQAO08B11B563O": "01/09/2014", "NCHDNS06D23G224V": "01/09/2014", "MDNLNZ04A20G224Y": "01/09/2014", "BNAGRL09A17B563R": "01/09/2014", "PRAFPP04E11B563I": "01/09/2014", "RMBMRC04C25G224L": "01/09/2014", "GDDMMD04E13B563D": "01/09/2014", "CVNNCL06S18B563L": "01/09/2014", "SNDTMS07H27B563C": "01/09/2014", "DBGRYN04M13G224A": "01/09/2014", "CNVLSN07L18B563T": "01/09/2014", "MDASFO06B61G224Y": "01/09/2014", "LDDBRC05T42G224Y": "01/09/2014", "KRMYBA08H19G224B": "01/09/2014", "RZZLRT06T29G224E": "01/09/2014", "CCCSFN06T15G224J": "01/09/2014", "DMRGPP08H07G224M": "01/09/2014", "GBBGLI04R65B563P": "01/09/2014", "MDNRCR06M12G224D": "01/09/2014", "NVLCSR09R14B563B": "01/09/2014", "NDRNRC08T24B563L": "01/09/2014", "PZZNMO07M53B563F": "01/09/2014", "MSCCRS09B25B563R": "01/09/2014", "SLVFPP08P29B563O": "01/09/2014", "VTTNGL05E53B563G": "01/09/2014", "RMPTMS06L21G224J": "01/09/2014", "RMNSRA06R44B563R": "01/09/2014", "DCZSFO08E70B563A": "01/09/2014", "LHJSFN07E24B563B": "01/09/2014", "SNCRCR09A02B563I": "01/09/2014", "GBBGAI07A41B563T": "01/09/2014", "SVACST08E07B563Z": "01/09/2014", "MCHSMN04R28B563R": "01/09/2014", "PVNMTT09D04B563M": "01/09/2014", "TLGDDC06T13B563E": "01/09/2014", "CCCLRD05E23G224C": "01/09/2014", "PRACHR07L57B563O": "01/09/2014", "RJBZDE08S02B563C": "01/09/2014", "SRTGMR06D01A001V": "01/09/2014", "GLNLSS05S53B563O": "01/09/2014", "PSTVSL04E11Z140U": "01/09/2014", "PRDDNL07S10B563G": "01/09/2014", "BLLGLI05H42B563O": "01/09/2014", "FRNRCR06M02G224L": "01/09/2014", "BRTFRC06D61B563P": "01/09/2014", "BRSLRD04H26G224I": "01/09/2014", "HDAMMM05D23Z330R": "01/09/2014", "BZZMCL06R20E410F": "01/09/2014", "MVLVTR03H44B563A": "01/09/2014", "SNDNTN04R03B563P": "01/09/2014", "PZZDVD08L30B563H": "01/09/2014", "BLNMNL05L07G224T": "01/09/2014", "MNFSAI06E48B563H": "01/09/2014", "SHHMYA06P46B563Y": "01/09/2014", "NVLSRA09D65G224Z": "01/09/2014", "LDDSRA08M44G224Y": "01/09/2014", "BRNNCL08M26B563H": "01/09/2014"}, "2013-14": {"BRCDNL06P28Z140N": "01/09/2013", "DCHTMS07M15G224N": "01/09/2013", "DCZRBN06E29B563Y": "01/09/2013", "NVLCRL05L11B563A": "01/09/2013", "PRTLNZ06B01B563U": "01/09/2013", "PCCTMS04L23B563G": "01/09/2013", "RCCLNZ04A29B563X": "01/09/2013", "STFNDR04L07G224Z": "01/09/2013", "BNAMTT04E05B563J": "01/09/2013", "VLPGCM03M30M067F": "01/09/2013", "MGGLCU06P17G224V": "01/09/2013", "SVARCR07D03B563S": "01/09/2013", "GLVNCL05D21B563D": "01/09/2013", "NCHDNS06D23G224V": "01/09/2013", "MDNLNZ04A20G224Y": "01/09/2013", "PRAFPP04E11B563I": "01/09/2013", "GDDMMD04E13B563D": "01/09/2013", "CVNNCL06S18B563L": "01/09/2013", "SNDTMS07H27B563C": "01/09/2013", "DBGRYN04M13G224A": "01/09/2013", "MLNMTT07E28G224Y": "01/09/2013", "KRMYBA08H19G224B": "01/09/2013", "BJRVHR04E07B563A": "01/09/2013", "RZZLRT06T29G224E": "01/09/2013", "MDNRCR06M12G224D": "01/09/2013", "DAISMR04D16A001E": "01/09/2013", "BJRSKR04E47B563M": "01/09/2013", "BRIMNL05P24B563W": "01/09/2013", "PLRCST06R22B563A": "01/09/2013", "RMPTMS06L21G224J": "01/09/2013", "DCZSFO08E70B563A": "01/09/2013", "SVACST08E07B563Z": "01/09/2013", "BRLMRA06R19G224W": "01/09/2013", "GRCRRT06L08B563I": "01/09/2013", "CLZKVN05P13B563M": "01/09/2013", "NCLTMS06C20A001T": "01/09/2013", "RJBZDE08S02B563C": "01/09/2013", "MNRSMN04D16B563N": "01/09/2013", "RFFMTT04E19B563E": "01/09/2013", "SRTGMR06D01A001V": "01/09/2013", "CSLFNC05R06B563G": "01/09/2013", "LNGMCL04L08B563L": "01/09/2013", "PCCMME04R52G224L": "01/09/2013", "FRNRCR06M02G224L": "01/09/2013", "BLZMTT05A19B563F": "01/09/2013", "RMBNRC06B24C743N": "01/09/2013", "SNDNTN04R03B563P": "01/09/2013", "VLPMTT07H26B563I": "01/09/2013", "CRRTMS07C03B563C": "01/09/2013", "MRNMRC04L21B563L": "01/09/2013"}};
 
+// ── IMPORT ISCRIZIONI DA STATINO FIP ──
+var STATINI_FIP = null; // dati rimossi — caricare da file esterno statini_fip.json
 function importaIscrizioniStatino(){
   if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
-  if(!confirm("Importa iscrizioni FIP da statini 2013-2026?\nNon sovrascrive dati esistenti."))return;
-  
-  var tot=0,nuove=0,gia=0,nontrovati=[];
-  var logRighe=[];
-  
-  Object.keys(STATINI_FIP).sort().forEach(function(stagione){
-    var cfs=STATINI_FIP[stagione];
-    var nNuove=0,nGia=0,nNon=0;
-    
-    cfs.forEach(function(cf){
-      tot++;
-      // Cerca atleta per CF
-      var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===(cf||'').toUpperCase();});
-      if(!a){nNon++;nontrovati.push(cf+' ('+stagione+')');return;}
-      
-      // Controlla se iscrizione già presente
-      if(!a.iscrizioni)a.iscrizioni=[];
-      var gia_presente=a.iscrizioni.some(function(i){return i.anno===stagione;});
-      if(gia_presente){nGia++;gia++;return;}
-      
-      // Aggiungi iscrizione — senza sovrascrivere nulla
-      a.iscrizioni.push({
-        anno: stagione,
-        fed: 'FIP',
-        fonte: 'statino',
-        dataIscrizione: STATINI_FIP[stagione][cf] || ''
+  // Richiedi file esterno statini_fip.json
+  var inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=function(e){
+    var file=e.target.files[0]; if(!file)return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      var data;
+      try{ data=JSON.parse(ev.target.result); }
+      catch(err){ log('Errore parsing statini_fip.json: '+err.message,'err'); return; }
+      if(!data||typeof data!=='object'){ log('File statini_fip.json non valido.','err'); return; }
+      if(!confirm("Importa iscrizioni FIP da statini_fip.json?\nNon sovrascrive dati esistenti."))return;
+      var tot=0,nuove=0,gia=0,nontrovati=[],logRighe=[];
+      Object.keys(data).sort().forEach(function(stagione){
+        var cfs=data[stagione]; var nNuove=0,nGia=0,nNon=0;
+        Object.keys(cfs).forEach(function(cf){
+          tot++;
+          var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===(cf||'').toUpperCase();});
+          if(!a){nNon++;nontrovati.push(cf+' ('+stagione+')');return;}
+          if(!a.iscrizioni)a.iscrizioni=[];
+          var gia_presente=a.iscrizioni.some(function(i){return i.anno===stagione;});
+          if(gia_presente){nGia++;gia++;return;}
+          a.iscrizioni.push({anno:stagione,fed:'FIP',fonte:'statino',dataIscrizione:cfs[cf]||''});
+          nNuove++;nuove++;
+        });
+        logRighe.push(stagione+': +'+nNuove+' nuove, '+nGia+' già presenti, '+nNon+' CF non trovati');
       });
-      nNuove++;nuove++;
-    });
-    
-    logRighe.push(stagione+': +'+nNuove+' nuove, '+nGia+' già presenti, '+nNon+' CF non trovati');
-  });
-  
-  if(nuove===0){
-    log('Nessuna iscrizione nuova da aggiungere ('+gia+' già presenti).','warn');
-    return;
-  }
-  
-  // Salva
-  log('Salvo '+nuove+' iscrizioni nuove...','info');
-  saveDB();
-  
-  // Log dettagliato
-  logRighe.forEach(function(r){log(r,'info');});
-  log('TOTALE: '+nuove+' iscrizioni aggiunte, '+gia+' già presenti.','ok');
-  
-  if(nontrovati.length){
-    log(nontrovati.length+' CF non trovati nel DB (atleti non censiti):','warn');
-    nontrovati.slice(0,10).forEach(function(s){log('  '+s,'warn');});
-    if(nontrovati.length>10)log('  ...e altri '+(nontrovati.length-10),'warn');
-  }
-  
-  // Aggiorna select annate
-  if(typeof _initReportStagioni==='function')_initReportStagioni();
+      if(nuove===0){log('Nessuna iscrizione nuova ('+gia+' già presenti).','warn');return;}
+      log('Salvo '+nuove+' iscrizioni nuove...','info');
+      saveDB();
+      logRighe.forEach(function(r){log(r,'info');});
+      log('TOTALE: '+nuove+' iscrizioni aggiunte, '+gia+' già presenti.','ok');
+      if(nontrovati.length){
+        log(nontrovati.length+' CF non trovati nel DB:','warn');
+        nontrovati.slice(0,10).forEach(function(s){log('  '+s,'warn');});
+        if(nontrovati.length>10)log('  ...e altri '+(nontrovati.length-10),'warn');
+      }
+      if(typeof _initReportStagioni==='function')_initReportStagioni();
+    };
+    reader.readAsText(file,'utf-8');
+  };
+  log('Seleziona il file statini_fip.json...','info');
+  inp.click();
 }
 
 
-// ── IMPORT ISCRIZIONI DA ELENCO CSI ──
-var DATE_RILASCIO_CSI = {"2025-26": {"BRZFNC06R30C957B": "04/07/2025", "BNTFNC03C61B563S": "07/12/2025", "BRTPLG83P03L736E": "15/03/2026", "BRDLSE92L43B563M": "07/12/2025", "CCCVNT95S69B563I": "07/12/2025", "CRRSML94P12B563I": "07/12/2025", "CCCDRD08S25G224G": "04/07/2025", "DMNMLI04B65Z154W": "07/12/2025", "GMBNTN75D02B563Y": "15/03/2026", "GRNRNN93S53B563V": "07/12/2025", "MGGCHR07R56G224D": "04/07/2025", "MGGFNC73M01D761A": "04/07/2025", "MNFGCM96C07B563N": "07/12/2025", "MRCCRS86E26L781Z": "07/12/2025", "MRTDVD00C14L157K": "07/12/2025", "MSAMRC90S03F241J": "07/12/2025", "PCCVTR99C43G224A": "07/12/2025", "PNTNNL64D67G224P": "04/07/2025", "RNSSMN74T19B564M": "15/03/2026", "RNCDMN88E05B563G": "07/12/2025", "SCRLRT66S27B563J": "04/07/2025", "SCRLGU76S09B563V": "04/07/2025", "SZBPRC02B41Z134C": "07/12/2025", "TMMSLV14A45G224B": "04/07/2025", "TNOLXA09A01B563I": "04/07/2025", "TNOGNN66T27G224X": "04/07/2025", "TNDLNZ05C07B563P": "15/03/2026", "TNLGCM07M03B563K": "04/07/2025", "ZNLGCR80D04H501T": "19/03/2026", "ZCCNMR57S44G587L": "04/07/2025", "ZCCMTT96R13B563P": "07/12/2025", "ZRZVNT91L54B563I": "07/12/2025"}, "2023-24": {"BRZFNC06R30C957B": "11/08/2024", "BNTFNC03C61B563S": "28/11/2024", "BRGCRD68R07B563Q": "28/11/2024", "CCCVNT95S69B563I": "28/11/2024", "CLLSRA98R63G888S": "28/11/2024", "CRRSML94P12B563I": "28/11/2024", "CCCDRD08S25G224G": "11/08/2024", "CHRVNT78T22G224S": "28/11/2024", "CGULRT00C22B563B": "28/11/2024", "DMNMLI04B65Z154W": "28/11/2024", "GRNRNN93S53B563V": "28/11/2024", "MGGCHR07R56G224D": "11/08/2024", "MGGFNC73M01D761A": "11/08/2024", "MNFGCM93C07B563K": "28/11/2024", "MRTDVD00C14L157K": "28/11/2024", "MSAMRC90S03F241J": "28/11/2024", "NVLMTT94B11L840V": "28/11/2024", "PNTNNL64D67G224P": "11/08/2024", "RNCDMN88E05B563G": "05/12/2024", "SCRLRT66S27B563J": "11/08/2024", "SCRLGU76S09B563V": "11/08/2024", "SDRMTT10A27G224G": "28/11/2024", "SPCDVD78D24G224J": "11/08/2024", "SPCGLI07H05B563L": "11/08/2024", "TMMSLV14A45G224B": "11/08/2024", "TNOLXA09A01B563I": "11/08/2024", "TNOGNN66T27G224X": "11/08/2024", "TNLGCM07M03B563K": "11/08/2024", "ZCCNMR57S44G587L": "11/08/2024", "ZCCMTT96R13B563P": "28/11/2024"}};
-var ELENCO_CSI = {
-  "2025-26": [
-    {
-      "cf": "BRZFNC06R30C957B",
-      "cog": "Barzi",
-      "nom": "Francesco",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "BNTFNC03C61B563S",
-      "cog": "Benetti",
-      "nom": "Francesca",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "BRTPLG83P03L736E",
-      "cog": "Bertelli",
-      "nom": "Pierluigi",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "BRDLSE92L43B563M",
-      "cog": "Breda",
-      "nom": "Elisa",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CCCVNT95S69B563I",
-      "cog": "Caccin",
-      "nom": "Valentina",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CRRSML94P12B563I",
-      "cog": "Carraro",
-      "nom": "Samuele",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CCCDRD08S25G224G",
-      "cog": "Cecchinato",
-      "nom": "Edoardo",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "DMNMLI04B65Z154W",
-      "cog": "Demina",
-      "nom": "Mila",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "GMBNTN75D02B563Y",
-      "cog": "Gamba",
-      "nom": "Antonio",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "GRNRNN93S53B563V",
-      "cog": "Geron",
-      "nom": "Arianna",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "MGGCHR07R56G224D",
-      "cog": "Maggio",
-      "nom": "Chiara",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "MGGFNC73M01D761A",
-      "cog": "Maggio",
-      "nom": "Francesco",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "MNFGCM96C07B563N",
-      "cog": "Manfrin",
-      "nom": "Giacomo",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "MRCCRS86E26L781Z",
-      "cog": "Marcato",
-      "nom": "Christopher",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "MRTDVD00C14L157K",
-      "cog": "Martello",
-      "nom": "Davide",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "MSAMRC90S03F241J",
-      "cog": "Maso",
-      "nom": "Marco",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "PCCVTR99C43G224A",
-      "cog": "Paccagnella",
-      "nom": "Vittoria",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "PNTNNL64D67G224P",
-      "cog": "Pinton",
-      "nom": "Antonella",
-      "attivita": ""
-    },
-    {
-      "cf": "RNSSMN74T19B564M",
-      "cog": "Rensi",
-      "nom": "Simone",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "RNCDMN88E05B563G",
-      "cog": "Roncato",
-      "nom": "Damiano",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "SCRLRT66S27B563J",
-      "cog": "Scarin",
-      "nom": "Alberto",
-      "attivita": ""
-    },
-    {
-      "cf": "SCRLGU76S09B563V",
-      "cog": "Scarin",
-      "nom": "Luigi",
-      "attivita": ""
-    },
-    {
-      "cf": "SZBPRC02B41Z134C",
-      "cog": "Szabo",
-      "nom": "Patricia",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "TMMSLV14A45G224B",
-      "cog": "Tommasin",
-      "nom": "Silvia",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TNOLXA09A01B563I",
-      "cog": "Ton",
-      "nom": "Alex",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TNOGNN66T27G224X",
-      "cog": "Ton",
-      "nom": "Gianni",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TNDLNZ05C07B563P",
-      "cog": "Tondello",
-      "nom": "Lorenzo",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TNLGCM07M03B563K",
-      "cog": "Toniolo",
-      "nom": "Giacomo",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "ZNLGCR80D04H501T",
-      "cog": "Zanella",
-      "nom": "Giancarlo",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "ZCCNMR57S44G587L",
-      "cog": "Zecchinato",
-      "nom": "Nadia Maria",
-      "attivita": ""
-    },
-    {
-      "cf": "ZCCMTT96R13B563P",
-      "cog": "Zoccarato",
-      "nom": "Matteo",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "ZRZVNT91L54B563I",
-      "cog": "Zorzi",
-      "nom": "Valentina",
-      "attivita": "PVO"
-    }
-  ],
-  "2023-24": [
-    {
-      "cf": "BRZFNC06R30C957B",
-      "cog": "Barzi",
-      "nom": "Francesco",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "BNTFNC03C61B563S",
-      "cog": "Benetti",
-      "nom": "Francesca",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "BRGCRD68R07B563Q",
-      "cog": "Brogio",
-      "nom": "Corrado",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CCCVNT95S69B563I",
-      "cog": "Caccin",
-      "nom": "Valentina",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CLLSRA98R63G888S",
-      "cog": "Callegaro",
-      "nom": "Sara",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CRRSML94P12B563I",
-      "cog": "Carraro",
-      "nom": "Samuele",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CCCDRD08S25G224G",
-      "cog": "Cecchinato",
-      "nom": "Edoardo",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "CHRVNT78T22G224S",
-      "cog": "Chiarello",
-      "nom": "Valentino",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "CGULRT00C22B563B",
-      "cog": "Cuogo",
-      "nom": "Alberto",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "DMNMLI04B65Z154W",
-      "cog": "Demina",
-      "nom": "Mila",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "GRNRNN93S53B563V",
-      "cog": "Geron",
-      "nom": "Arianna",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "MGGCHR07R56G224D",
-      "cog": "Maggio",
-      "nom": "Chiara",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "MGGFNC73M01D761A",
-      "cog": "Maggio",
-      "nom": "Francesco",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "MNFGCM93C07B563K",
-      "cog": "Manfrin",
-      "nom": "Giacomo",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "MRTDVD00C14L157K",
-      "cog": "Martello",
-      "nom": "Davide",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "MSAMRC90S03F241J",
-      "cog": "Maso",
-      "nom": "Marco",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "NVLMTT94B11L840V",
-      "cog": "Novello",
-      "nom": "Matteo",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "PNTNNL64D67G224P",
-      "cog": "Pinton",
-      "nom": "Antonella",
-      "attivita": ""
-    },
-    {
-      "cf": "RNCDMN88E05B563G",
-      "cog": "Roncato",
-      "nom": "Damiano",
-      "attivita": "PVO"
-    },
-    {
-      "cf": "SCRLRT66S27B563J",
-      "cog": "Scarin",
-      "nom": "Alberto",
-      "attivita": ""
-    },
-    {
-      "cf": "SCRLGU76S09B563V",
-      "cog": "Scarin",
-      "nom": "Luigi",
-      "attivita": ""
-    },
-    {
-      "cf": "SDRMTT10A27G224G",
-      "cog": "Sedran",
-      "nom": "Mattia",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "SPCDVD78D24G224J",
-      "cog": "Specchi",
-      "nom": "Davide",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "SPCGLI07H05B563L",
-      "cog": "Specchi",
-      "nom": "Gioele",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TMMSLV14A45G224B",
-      "cog": "Tommasin",
-      "nom": "Silvia",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TNOLXA09A01B563I",
-      "cog": "Ton",
-      "nom": "Alex",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TNOGNN66T27G224X",
-      "cog": "Ton",
-      "nom": "Gianni",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "TNLGCM07M03B563K",
-      "cog": "Toniolo",
-      "nom": "Giacomo",
-      "attivita": "PCA"
-    },
-    {
-      "cf": "ZCCNMR57S44G587L",
-      "cog": "Zecchinato",
-      "nom": "Nadia Maria",
-      "attivita": ""
-    },
-    {
-      "cf": "ZCCMTT96R13B563P",
-      "cog": "Zoccarato",
-      "nom": "Matteo",
-      "attivita": "PVO"
-    }
-  ]
-};
 
+// ── IMPORT ISCRIZIONI DA ELENCO CSI ──
+var DATE_RILASCIO_CSI = null; // dati rimossi — caricare da file esterno elenco_csi.json
+var ELENCO_CSI = null;        // dati rimossi — caricare da file esterno elenco_csi.json
 function importaIscrizioniCSI(){
   if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
-  if(!confirm("Importa iscrizioni CSI da elenchi 2023-24 e 2025-26?\nNon sovrascrive dati esistenti."))return;
-
-  var nuove=0,gia=0,nontrovati=[];
-
-  Object.keys(ELENCO_CSI).sort().forEach(function(stagione){
-    var tesserati=ELENCO_CSI[stagione];
-    var nNuove=0,nGia=0,nNon=0;
-
-    tesserati.forEach(function(t){
-      var cf=(t.cf||'').toUpperCase();
-      var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===cf;});
-      if(!a){
-        nNon++;
-        nontrovati.push(cf+' '+t.cog+' '+t.nom+' ('+stagione+')');
-        return;
-      }
-      if(!a.iscrizioni)a.iscrizioni=[];
-      var gia_presente=a.iscrizioni.some(function(i){return i.anno===stagione&&i.fed==='CSI';});
-      if(gia_presente){nGia++;gia++;return;}
-      a.iscrizioni.push({
-        anno: stagione,
-        fed: 'CSI',
-        attivita: t.attivita||'',
-        fonte: 'elenco',
-        dataIscrizione: (DATE_RILASCIO_CSI[stagione]&&DATE_RILASCIO_CSI[stagione][cf]) ? DATE_RILASCIO_CSI[stagione][cf] : ''
+  // Richiedi file esterno elenco_csi.json
+  var inp=document.createElement('input');
+  inp.type='file'; inp.accept='.json';
+  inp.onchange=function(e){
+    var file=e.target.files[0]; if(!file)return;
+    var reader=new FileReader();
+    reader.onload=function(ev){
+      var data;
+      try{ data=JSON.parse(ev.target.result); }
+      catch(err){ log('Errore parsing elenco_csi.json: '+err.message,'err'); return; }
+      if(!data||!data.elenco||!data.dateRilascio){ log('File elenco_csi.json non valido (mancano elenco o dateRilascio).','err'); return; }
+      var ELENCO=data.elenco, DATE=data.dateRilascio;
+      if(!confirm("Importa iscrizioni CSI da elenco_csi.json?\nNon sovrascrive dati esistenti."))return;
+      var nuove=0,gia=0,nontrovati=[];
+      Object.keys(ELENCO).sort().forEach(function(stagione){
+        var tesserati=ELENCO[stagione]; var nNuove=0,nGia=0,nNon=0;
+        tesserati.forEach(function(t){
+          var cf=(t.cf||'').toUpperCase();
+          var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===cf;});
+          if(!a){nNon++;nontrovati.push(cf+' '+t.cog+' '+t.nom+' ('+stagione+')');return;}
+          if(!a.iscrizioni)a.iscrizioni=[];
+          var gia_presente=a.iscrizioni.some(function(i){return i.anno===stagione&&i.fed==='CSI';});
+          if(gia_presente){nGia++;gia++;return;}
+          a.iscrizioni.push({
+            anno:stagione, fed:'CSI', attivita:t.attivita||'', fonte:'elenco',
+            dataIscrizione:(DATE[stagione]&&DATE[stagione][cf])?DATE[stagione][cf]:''
+          });
+          nNuove++;nuove++;
+        });
+        log(stagione+' CSI: +'+nNuove+' nuove, '+nGia+' già presenti, '+nNon+' non trovati','info');
       });
-      nNuove++;nuove++;
-    });
-
-    log(stagione+' CSI: +'+nNuove+' nuove, '+nGia+' già presenti, '+nNon+' non trovati','info');
-  });
-
-  if(nuove>0){
-    saveDB();
-    log('TOTALE CSI: '+nuove+' iscrizioni aggiunte.','ok');
-    if(typeof _initReportStagioni==='function')_initReportStagioni();
-  } else {
-    log('Nessuna iscrizione CSI nuova ('+gia+' già presenti).','warn');
-  }
-
-  if(nontrovati.length){
-    log(nontrovati.length+' non trovati nel DB:','warn');
-    nontrovati.slice(0,10).forEach(function(s){log('  '+s,'warn');});
-  }
+      if(nuove>0){
+        saveDB();
+        log('TOTALE CSI: '+nuove+' iscrizioni aggiunte.','ok');
+        if(typeof _initReportStagioni==='function')_initReportStagioni();
+      } else {
+        log('Nessuna iscrizione CSI nuova ('+gia+' già presenti).','warn');
+      }
+      if(nontrovati.length){
+        log(nontrovati.length+' non trovati nel DB:','warn');
+        nontrovati.slice(0,10).forEach(function(s){log('  '+s,'warn');});
+      }
+    };
+    reader.readAsText(file,'utf-8');
+  };
+  log('Seleziona il file elenco_csi.json...','info');
+  inp.click();
 }
 
 </script>
@@ -2427,7 +2042,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v5.6 · 21/03/2026 14:04";
+var BUILD_VERSION = "v6.1 · 21/03/2026 16:31";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -2470,9 +2085,7 @@ function connectDB(){
       window._onDBLoaded=function(){
         clearTimeout(_t); window._onDBLoaded=null;
         if(typeof _initReportStagioni==='function')_initReportStagioni();
-        log('DB: '+DB.atleti.length+' atleti.','ok');
-        setDot('ok'); setBtns(true); document.getElementById('btn-connect').disabled=false;
-      };
+        log('DB: '+((DB&&DB.atleti)?DB.atleti.length:0)+' atleti.','ok');
       loadDB();
       setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&document.getElementById('btn-connect').disabled){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); document.getElementById('btn-connect').disabled=false; } },3000);
     },
@@ -2792,7 +2405,7 @@ window._onAuthOK = function(user){
     if(DB&&DB.atleti&&DB.atleti.length>0){ if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); }
     else { log('DB vuoto.','warn'); setDot('warn'); setBtns(true); }
   },3000);
-  window._onDBLoaded=function(){ clearTimeout(_t); window._onDBLoaded=null; if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); };
+  window._onDBLoaded=function(){ clearTimeout(_t); window._onDBLoaded=null; if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+((DB&&DB.atleti)?DB.atleti.length:0)+' atleti.','ok'); setDot('ok'); setBtns(true); };
 };
 window._onAuthLogout=function(){ log('Sessione terminata.','warn'); setDot(''); setBtns(false); };
 
