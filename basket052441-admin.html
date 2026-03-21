@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v8.3 · 21/03/2026 20:28<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v8.4 · 21/03/2026 21:39<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v8.3 · 21/03/2026 20:28</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v8.4 · 21/03/2026 21:39</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -355,7 +355,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v8.3 · 21/03/2026 20:28";
+var BUILD_VERSION = "v8.4 · 21/03/2026 21:39";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1352,7 +1352,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v8.3 · 21/03/2026 20:28";
+var BUILD_VERSION="v8.4 · 21/03/2026 21:39";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -2082,23 +2082,26 @@ function importaIscrizioniCSI(){
 
 function rigeneraIscrizioni(){
   if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
-  if(!confirm("ATTENZIONE: questa operazione azzera TUTTE le iscrizioni di tutti gli atleti\ne le ricostruisce da statini_fip.json + elenco_csi.json.\n\nI pagamenti NON vengono toccati.\n\nProcedere?"))return;
-  var inp=document.createElement('input');
-  inp.type='file'; inp.accept='.json'; inp.multiple=true;
-  log('Seleziona ENTRAMBI i file: statini_fip.json e elenco_csi.json','info');
-  inp.onchange=function(e){
-    var files=Array.from(e.target.files);
-    if(!files.length)return;
-    var fipFile=files.find(function(f){return f.name.indexOf('statini_fip')>=0;});
-    var csiFile=files.find(function(f){return f.name.indexOf('elenco_csi')>=0;});
-    if(!fipFile){log('File statini_fip.json non trovato nella selezione.','err');return;}
-    if(!csiFile){log('File elenco_csi.json non trovato nella selezione.','err');return;}
-    var fip=null, csiData=null;
-    function _tryEsegui(){
-      if(!fip||!csiData)return;
-      DB.atleti.forEach(function(a){ a.iscrizioni=[]; });
-      log('Iscrizioni azzerate su '+DB.atleti.length+' atleti.','info');
-      var fipNuove=0,fipNonTrovati=[];
+  if(!confirm("ATTENZIONE: azzera le iscrizioni FIP e/o CSI e le ricostruisce dai file selezionati.\n\nI pagamenti NON vengono toccati.\n\nProcedere?"))return;
+
+  var fip=null, csiData=null;
+
+  function _esegui(){
+    if(!fip&&!csiData){log('Nessun file selezionato. Operazione annullata.','warn');return;}
+
+    // Azzera solo le federazioni che ricostruiamo
+    var azzFIP=!!fip, azzCSI=!!csiData;
+    DB.atleti.forEach(function(a){
+      a.iscrizioni=(a.iscrizioni||[]).filter(function(i){
+        if(azzFIP&&i.fed==='FIP')return false;
+        if(azzCSI&&i.fed==='CSI')return false;
+        return true;
+      });
+    });
+    log('Iscrizioni azzerate: FIP='+azzFIP+', CSI='+azzCSI,'info');
+
+    var fipNuove=0,fipNonTrovati=[];
+    if(fip){
       Object.keys(fip).sort().forEach(function(stagione){
         var cfs=fip[stagione];
         Object.keys(cfs).forEach(function(cf){
@@ -2109,8 +2112,11 @@ function rigeneraIscrizioni(){
         });
       });
       log('FIP: '+fipNuove+' iscrizioni reimportate'+(fipNonTrovati.length?' ('+fipNonTrovati.length+' CF non trovati)':''),'info');
+    }
+
+    var csiNuove=0,csiNonTrovati=[];
+    if(csiData){
       var ELENCO=csiData.elenco, DATE=csiData.dateRilascio;
-      var csiNuove=0,csiNonTrovati=[];
       Object.keys(ELENCO).sort().forEach(function(stagione){
         ELENCO[stagione].forEach(function(t){
           var cf=(t.cf||'').toUpperCase();
@@ -2122,28 +2128,59 @@ function rigeneraIscrizioni(){
         });
       });
       log('CSI: '+csiNuove+' iscrizioni reimportate'+(csiNonTrovati.length?' ('+csiNonTrovati.length+' non trovati)':''),'info');
-      saveDB();
-      log('RIGENERA OK — Tot: '+(fipNuove+csiNuove)+' iscrizioni salvate.','ok');
-      if(typeof _initReportStagioni==='function')_initReportStagioni();
     }
-    var r1=new FileReader();
-    r1.onload=function(ev){
-      try{ fip=JSON.parse(ev.target.result); }
-      catch(err){ log('Errore parsing statini_fip.json: '+err.message,'err'); return; }
-      if(!fip||typeof fip!=='object'){ log('statini_fip.json non valido.','err'); return; }
-      log('statini_fip.json caricato OK.','info'); _tryEsegui();
-    };
-    r1.readAsText(fipFile,'utf-8');
-    var r2=new FileReader();
-    r2.onload=function(ev){
-      try{ csiData=JSON.parse(ev.target.result); }
-      catch(err){ log('Errore parsing elenco_csi.json: '+err.message,'err'); return; }
-      if(!csiData||!csiData.elenco||!csiData.dateRilascio){ log('elenco_csi.json non valido.','err'); return; }
-      log('elenco_csi.json caricato OK.','info'); _tryEsegui();
-    };
-    r2.readAsText(csiFile,'utf-8');
+
+    saveDB();
+    log('RIGENERA OK — FIP:'+fipNuove+' CSI:'+csiNuove+' iscrizioni salvate.','ok');
+    if(typeof _initReportStagioni==='function')_initReportStagioni();
+  }
+
+  // Step 1: statini_fip.json
+  var inp1=document.createElement('input'); inp1.type='file'; inp1.accept='.json';
+  log('Passo 1/2 — Seleziona statini_fip.json (annulla per saltare FIP)...','info');
+  inp1.onchange=function(e1){
+    var f1=e1.target.files[0];
+    if(f1){
+      var r1=new FileReader();
+      r1.onload=function(ev){
+        try{ fip=JSON.parse(ev.target.result); log('statini_fip.json caricato OK.','info'); }
+        catch(err){ log('Errore statini_fip.json: '+err.message,'err'); fip=null; }
+        _step2();
+      };
+      r1.readAsText(f1,'utf-8');
+    } else {
+      log('FIP saltato.','warn'); _step2();
+    }
   };
-  inp.click();
+  // Gestisci anche il caso in cui il picker viene chiuso senza selezione
+  inp1.addEventListener('cancel',function(){ log('FIP saltato.','warn'); _step2(); });
+  inp1.click();
+  // Fallback: se dopo 500ms onchange non scatta (picker chiuso), prosegui
+  setTimeout(function(){ if(fip===null&&csiData===null){ _step2(); } },30000);
+
+  function _step2(){
+    var inp2=document.createElement('input'); inp2.type='file'; inp2.accept='.json';
+    log('Passo 2/2 — Seleziona elenco_csi.json (annulla per saltare CSI)...','info');
+    inp2.onchange=function(e2){
+      var f2=e2.target.files[0];
+      if(f2){
+        var r2=new FileReader();
+        r2.onload=function(ev){
+          try{
+            csiData=JSON.parse(ev.target.result);
+            if(!csiData.elenco||!csiData.dateRilascio){ log('elenco_csi.json non valido.','err'); csiData=null; }
+            else log('elenco_csi.json caricato OK.','info');
+          }catch(err){ log('Errore elenco_csi.json: '+err.message,'err'); csiData=null; }
+          _esegui();
+        };
+        r2.readAsText(f2,'utf-8');
+      } else {
+        log('CSI saltato.','warn'); _esegui();
+      }
+    };
+    inp2.addEventListener('cancel',function(){ log('CSI saltato.','warn'); _esegui(); });
+    inp2.click();
+  }
 }
 
 function normalizzaCAP(){
