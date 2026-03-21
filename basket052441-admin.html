@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v7.0 · 21/03/2026 18:34<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v7.2 · 21/03/2026 18:55<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v7.0 · 21/03/2026 18:34</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v7.2 · 21/03/2026 18:55</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -195,7 +195,7 @@ return false; // non salvare"></textarea>
         <div class="op-desc">Genera un file ZIP con tutte le ricevute PDF detraibili dell'anno 2025. Nome file: annonascita_cognome_nome_25.pdf</div>
         <div class="params show">
           <div class="grid2">
-            <div><label>Anno solare</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
+            <div><label>Annata sportiva</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
             <div><label>Tipo</label><select id="op-det-pdf"><option value="det">Solo detraibili</option><option value="ndet">Solo N-DET</option><option value="tutti">Tutti</option></select></div>
           </div>
         </div>
@@ -262,7 +262,7 @@ return false; // non salvare"></textarea>
 
   <div class="grid2" style="margin-bottom:12px">
     <div>
-      <label>Anno solare</label>
+      <label>Annata sportiva</label>
       <select id="rpt-stagione">
         <option value="">— seleziona anno —</option>
       </select>
@@ -288,6 +288,8 @@ return false; // non salvare"></textarea>
         <input type="checkbox" class="rpt-campo" value="tutore"> Tutore</label>
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
         <input type="checkbox" class="rpt-campo" value="note"> Note iscrizione</label>
+        <label style="display:inline-flex;align-items:center;gap:4px;min-height:44px;cursor:pointer">
+        <input type="checkbox" class="rpt-campo" value="dataiscrizione"> Data iscrizione</label>
     </div>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -353,7 +355,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v7.0 · 21/03/2026 18:34";
+var BUILD_VERSION = "v7.2 · 21/03/2026 18:55";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1327,7 +1329,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v7.0 · 21/03/2026 18:34";
+var BUILD_VERSION="v7.2 · 21/03/2026 18:55";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1716,21 +1718,17 @@ window.addEventListener('load',function(){
 function _initReportStagioni(){
   var sel=document.getElementById('rpt-stagione');
   if(!sel||!DB)return;
-  // Ricava anni solari dalle annate disponibili
-  var anniSolari=new Set();
+  // Ricava annate disponibili (formato "YYYY-YY")
+  var annate=new Set();
   (DB.atleti||[]).forEach(function(a){
-    (a.iscrizioni||[]).forEach(function(i){
-      if(!i.anno)return;
-      var annoBase=parseInt(i.anno.split('-')[0]);
-      // annata "annoBase-(annoBase+1)" copre anno solare annoBase+1 (gen-ago) e annoBase (set-dic)
-      anniSolari.add(annoBase);   // set-dic di annoBase
-      anniSolari.add(annoBase+1); // gen-ago di annoBase+1
-    });
+    (a.iscrizioni||[]).forEach(function(i){if(i.anno)annate.add(i.anno);});
   });
-  // Anno corrente sempre presente
-  anniSolari.add(new Date().getFullYear());
-  var sorted=Array.from(anniSolari).sort().reverse();
-  sel.innerHTML='<option value="">— seleziona anno —</option>'+sorted.map(function(y){return'<option value="'+y+'">'+y+'</option>';}).join('');
+  // Annata corrente sempre presente
+  var now=new Date(),m=now.getMonth();
+  var annoInizio=m>=8?now.getFullYear():now.getFullYear()-1;
+  annate.add(annoInizio+'-'+String(annoInizio+1).slice(-2));
+  var sorted=Array.from(annate).sort().reverse();
+  sel.innerHTML='<option value="">— seleziona annata —</option>'+sorted.map(function(a){return'<option value="'+a+'">'+a+'</option>';}).join('');
 }
 
 // ── HELPER REPORT ──
@@ -1757,13 +1755,9 @@ function _comuneAtleta(a){
   return c;
 }
 function _fedAtleta(a,stagione){
-  var _s=parseInt(stagione);
-  var annata_prec=(_s-1)+'-'+String(_s).slice(-2);
-  var annata_curr=_s+'-'+String(_s+1).slice(-2);
   var feds=[];
   (a.iscrizioni||[]).forEach(function(i){
-    if((i.anno===annata_prec||i.anno===annata_curr)&&i.fed&&feds.indexOf(i.fed)<0)
-      feds.push(i.fed);
+    if(i.anno===stagione&&i.fed&&feds.indexOf(i.fed)<0)feds.push(i.fed);
   });
   return feds.length?feds.sort().join('+'):'—';
 }
@@ -1791,40 +1785,33 @@ function _campiSelezionati(){var campi={};document.querySelectorAll('.rpt-campo:
 // ── GENERA REPORT SOCI ──
 function generaReportSoci(){
   if(!DB){log('DB non caricato.','err');return;}
-  var annoSolare=parseInt(document.getElementById('rpt-stagione').value);
-  if(!annoSolare){log("Seleziona un anno.",'warn');return;}
+  var annata=document.getElementById('rpt-stagione').value;
+  if(!annata){log("Seleziona un'annata.",'warn');return;}
   var comuneRef=(document.getElementById('rpt-comune').value||'CAMPODARSEGO').trim().toUpperCase();
-  var annoBase=annoSolare; // per età al 31/12
   var dataStampa=new Date().toLocaleDateString('it-IT');
-  // Anno solare X:
-  // - Annata (X-1)-XX completa (era attivo in quell'annata → era socio nel 2025 gen-ago)
-  // - Annata X-(X+1) solo se dataIscrizione <= 31/12/X
-  var annata_prec=(annoSolare-1)+'-'+String(annoSolare).slice(2);
-  var annata_curr=annoSolare+'-'+String(annoSolare+1).slice(2);
-  var cutoff=new Date(annoSolare,11,31); // 31/12/X
-  function _parseDataIt(s){
-    if(!s)return null;
-    var p=s.split('/');
-    if(p.length===3)return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));
-    return null;
+  // Annata sportiva es. "2025-26": sett 2025 - ago 2026
+  var annoInizio=parseInt(annata.split('-')[0]);  // 2025
+  var annoFine=annoInizio+1;                       // 2026
+  var annata_prec=annata; // per compatibilità funzioni helper
+  var annata_curr=annata;
+  // Età al 01/09 dell'anno di inizio annata → chi era minorenne all'inizio è minorenne per tutta l'annata
+  var dataSoglia=new Date(annoInizio,8,1); // 01/09/annoInizio
+  function _eraMinorenne(a){
+    if(!a.dn)return true; // senza data trattato come minorenne per sicurezza
+    var dn=a.dn;if(dn.indexOf('/')>-1){var p=dn.split('/');dn=p[2]+'-'+p[1]+'-'+p[0];}
+    var nato=new Date(dn);if(isNaN(nato))return true;
+    var eta=dataSoglia.getFullYear()-nato.getFullYear();
+    var md=(dataSoglia.getMonth()*100+dataSoglia.getDate())-(nato.getMonth()*100+nato.getDate());
+    if(md<0)eta--;
+    return eta<18;
   }
-  function _iscrittNelAnno(a){
-    return (a.iscrizioni||[]).some(function(i){
-      if(i.anno===annata_prec) return true; // annata precedente completa
-      if(i.anno===annata_curr){
-        if(!i.dataIscrizione) return true; // senza data → includi
-        var d=_parseDataIt(i.dataIscrizione);
-        return d && d<=cutoff;
-      }
-      return false;
-    });
-  }
-  var iscritti=(DB.atleti||[]).filter(_iscrittNelAnno);
-  var visti={}; iscritti=iscritti.filter(function(a){ if(visti[a.id])return false; visti[a.id]=true; return true; });
-  if(!iscritti.length){log('Nessun socio per il '+annoSolare,'warn');return;}
-  var stagione=annoSolare; // usato nell'header del report
+  var iscritti=(DB.atleti||[]).filter(function(a){
+    return (a.iscrizioni||[]).some(function(i){return i.anno===annata;});
+  });
+  if(!iscritti.length){log('Nessun socio per l\'annata '+annata,'warn');return;}
+  var stagione=annata;
   var maggiorenni=[],minorenni=[];
-  iscritti.forEach(function(a){var eta=_etaAl31Dic(a,annoBase);if(eta===null)eta=99;if(eta>=18)maggiorenni.push(a);else minorenni.push(a);});
+  iscritti.forEach(function(a){if(_eraMinorenne(a))minorenni.push(a);else maggiorenni.push(a);});
   minorenni.forEach(function(a){a._flagMagg=(_etaOggi(a)||0)>=18;});
   // Raggruppa minorenni per categoria nell'annata
   // Per statistiche: una categoria per atleta (la principale)
@@ -1854,14 +1841,14 @@ function generaReportSoci(){
       res:arr.filter(function(a){return _comuneAtleta(a).indexOf(comuneRef)>-1;}).length,
       noRes:arr.filter(function(a){return _comuneAtleta(a).indexOf(comuneRef)<0;}).length};
   }
-  window._rptData={stagione:String(annoSolare),annoBase:annoBase,comuneRef:comuneRef,dataStampa:dataStampa,
+  window._rptData={stagione:annata,annoInizio:annoInizio,annoFine:annoFine,comuneRef:comuneRef,dataStampa:dataStampa,
     maggiorenni:maggiorenni,minorenni:minorenni,perAnno:perAnno,perAnnoStat:perAnnoStat,
     statMagg:stat(maggiorenni),statMin:stat(minorenni),statTot:stat(iscritti)};
   _renderReportSoci();
   document.getElementById('rpt-anteprima').style.display='block';
   document.getElementById('rpt-btn-stampa').style.display='';
   document.getElementById('rpt-btn-csv').style.display='';
-  log('Report '+annoSolare+': '+iscritti.length+' soci.','ok');
+  log('Report '+annata+': '+iscritti.length+' soci.','ok');
 }
 
 function _renderReportSoci(){
@@ -1870,11 +1857,11 @@ function _renderReportSoci(){
   var CSS='<style>.rpt{font-family:Arial,sans-serif;font-size:12px;color:#111;max-width:900px}.rpt h1{font-size:16px;font-weight:bold;margin-bottom:4px}.rpt h2{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:2px solid #1a2a4a;padding-bottom:3px;color:#1a2a4a}.rpt h3{font-size:12px;font-weight:bold;margin:12px 0 4px;color:#3a5a8a}.rpt table{border-collapse:collapse;width:100%;margin-bottom:12px}.rpt th{background:#1a2a4a;color:#fff;padding:5px 8px;text-align:center;font-size:11px}.rpt th.left{text-align:left}.rpt td{padding:4px 8px;border:1px solid #ccc;font-size:11px;text-align:center}.rpt td.left{text-align:left}.rpt tr.tot{background:#e8f0ff;font-weight:bold}.rpt tr.subtot{background:#f0f4ff}.rpt tr.magg-row:nth-child(even){background:#f8f8f8}.rpt tr.min-row:nth-child(even){background:#f8fff8}.rpt .flag{color:#c00;font-weight:bold}.rpt .meta{font-size:11px;color:#666;margin-bottom:12px}</style>';
   var html=CSS+'<div class="rpt">';
   html+='<h1>A.S.D. Basket Campodarsego — Elenco Soci</h1>';
-  html+='<div class="meta">Anno solare: <strong>'+d.stagione+'</strong> | Data stampa: <strong>'+d.dataStampa+'</strong> | Comune rif.: <strong>'+d.comuneRef+'</strong><br>Età al 31/12/'+d.annoBase+' | ★ = minorenne nell&#39;annata, maggiorenne oggi</div>';
+  html+='<div class="meta">Annata sportiva: <strong>'+d.stagione+'</strong> | Data stampa: <strong>'+d.dataStampa+'</strong> | Comune rif.: <strong>'+d.comuneRef+'</strong><br>Minorenne se nato dopo il 01/09/'+d.annoInizio+' | ★ = minorenne nell&#39;annata, maggiorenne oggi</div>';
   html+='<h2>Riepilogo statistico</h2>';
   html+='<table><thead><tr><th class="left">Sezione</th><th>Tot.</th><th>M</th><th>F</th><th>Res. '+d.comuneRef+'</th><th>Non res.</th></tr></thead><tbody>';
   var sm=d.statMagg;
-  html+='<tr><td class="left">Maggiorenni (≥18 al 31/12/'+d.annoBase+')</td><td>'+sm.tot+'</td><td>'+sm.m+'</td><td>'+sm.f+'</td><td>'+sm.res+'</td><td>'+sm.noRes+'</td></tr>';
+  html+='<tr><td class="left">Maggiorenni (≥18 al 01/09/'+d.annoInizio+')</td><td>'+sm.tot+'</td><td>'+sm.m+'</td><td>'+sm.f+'</td><td>'+sm.res+'</td><td>'+sm.noRes+'</td></tr>';
   var anniOrd=Object.keys(d.perAnnoStat||d.perAnno).sort(function(a,b){ var oc=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—']; var ia=oc.indexOf(a),ib=oc.indexOf(b); if(ia<0)ia=99; if(ib<0)ib=99; return ia-ib; });
   anniOrd.forEach(function(an){
     var arr=(d.perAnnoStat||d.perAnno)[an];var s={tot:0,m:0,f:0,res:0,noRes:0};
@@ -1890,12 +1877,12 @@ function _renderReportSoci(){
   function tabellaElenco(atleti,titolo,classeRiga){
     if(!atleti.length)return'';
     var t='<h2>'+titolo+' ('+atleti.length+')</h2>';
-    t+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
+    t+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.dataiscrizione?'<th>Iscr.</th>':'')+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
     atleti.sort(function(a,b){return a.cog.localeCompare(b.cog)||a.nom.localeCompare(b.nom);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
     });
     t+='</tbody></table>';return t;
   }
@@ -1906,12 +1893,12 @@ function _renderReportSoci(){
   anniOrdElenco.forEach(function(an){
     var arr=d.perAnno[an];
     html+='<h3>'+an+' ('+arr.length+')</h3>';
-    html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
+    html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.dataiscrizione?'<th>Iscr.</th>':'')+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
     arr.sort(function(a,b){return a.cog.localeCompare(b.cog);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
     });
     html+='</tbody></table>';
   });
@@ -1953,6 +1940,7 @@ function esportaReportSociCSV(){
       if(CHDR.telefono)row.push(_telefonoAtleta(a));
       if(CHDR.email)row.push(_emailAtleta(a));
       if(CHDR.tutore)row.push(_tutoreAtleta(a));
+      if(CHDR.dataiscrizione)row.push(_dataIscrizioneAtleta(a,annata_prec,annata_curr));
       if(CHDR.note)row.push(_noteIscrizione(a,d.stagione));
       row.push(a._flagMagg?"SI":"NO");
       rows.push(row);
@@ -2207,7 +2195,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v7.0 · 21/03/2026 18:34";
+var BUILD_VERSION = "v7.2 · 21/03/2026 18:55";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -2616,13 +2604,9 @@ function _comuneAtleta(a){
   return c;
 }
 function _fedAtleta(a,stagione){
-  var _s=parseInt(stagione);
-  var annata_prec=(_s-1)+'-'+String(_s).slice(-2);
-  var annata_curr=_s+'-'+String(_s+1).slice(-2);
   var feds=[];
   (a.iscrizioni||[]).forEach(function(i){
-    if((i.anno===annata_prec||i.anno===annata_curr)&&i.fed&&feds.indexOf(i.fed)<0)
-      feds.push(i.fed);
+    if(i.anno===stagione&&i.fed&&feds.indexOf(i.fed)<0)feds.push(i.fed);
   });
   return feds.length?feds.sort().join('+'):'—';
 }
@@ -2645,6 +2629,17 @@ function _emailAtleta(a){return(a.tutEmail||a.email||'').trim();}
 function _tutoreAtleta(a){var c=(a.tutCog||'').trim(),n=(a.tutNom||'').trim();if(c||n)return(c+' '+n).trim();return(a.gen||'').trim();}
 function _certAtleta(a){if(!a.cs)return'—';var cs=a.cs;if(cs.indexOf('/')>-1){var p=cs.split('/');return p[2]+'/'+p[1]+'/'+p[0];}return cs;}
 function _noteIscrizione(a,stagione){var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});return isc?(isc.note||''):'';}
+
+function _dataIscrizioneAtleta(a,annata_prec,annata_curr){
+  var iscs=(a.iscrizioni||[]).filter(function(i){return i.anno===annata_prec||i.anno===annata_curr;});
+  if(!iscs.length)return'—';
+  // Ordina per data e prendi la più antica
+  var sorted=iscs.slice().sort(function(a,b){
+    function p(d){if(!d)return 99999999;var x=d.split('/');return +(x[2]+x[1]+x[0]);}
+    return p(a.dataIscrizione)-p(b.dataIscrizione);
+  });
+  return sorted[0].dataIscrizione||'—';
+}
 function _campiSelezionati(){var campi={};document.querySelectorAll('.rpt-campo:checked').forEach(function(cb){campi[cb.value]=true;});return campi;}
 
 // ── GENERA REPORT SOCI ──
@@ -2700,7 +2695,7 @@ function _renderReportSoci(){
   html+='<h2>Riepilogo statistico</h2>';
   html+='<table><thead><tr><th class="left">Sezione</th><th>Tot.</th><th>M</th><th>F</th><th>Res. '+d.comuneRef+'</th><th>Non res.</th></tr></thead><tbody>';
   var sm=d.statMagg;
-  html+='<tr><td class="left">Maggiorenni (≥18 al 31/12/'+d.annoBase+')</td><td>'+sm.tot+'</td><td>'+sm.m+'</td><td>'+sm.f+'</td><td>'+sm.res+'</td><td>'+sm.noRes+'</td></tr>';
+  html+='<tr><td class="left">Maggiorenni (≥18 al 01/09/'+d.annoInizio+')</td><td>'+sm.tot+'</td><td>'+sm.m+'</td><td>'+sm.f+'</td><td>'+sm.res+'</td><td>'+sm.noRes+'</td></tr>';
   var anniOrd=Object.keys(d.perAnno).sort().reverse();
   anniOrd.forEach(function(an){
     var arr=d.perAnno[an];var s={tot:0,m:0,f:0,res:0,noRes:0};
@@ -2717,12 +2712,12 @@ function _renderReportSoci(){
   function tabellaElenco(atleti,titolo,classeRiga){
     if(!atleti.length)return'';
     var t='<h2>'+titolo+' ('+atleti.length+')</h2>';
-    t+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
+    t+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.dataiscrizione?'<th>Iscr.</th>':'')+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
     atleti.sort(function(a,b){return a.cog.localeCompare(b.cog)||a.nom.localeCompare(b.nom);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
     });
     t+='</tbody></table>';return t;
   }
@@ -2734,12 +2729,12 @@ function _renderReportSoci(){
     var arr=d.perAnno[an];
     var catLabel=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno({dn:an+'-06-01',cf:''},d.stagione)||an):an;
     html+='<h3>Nati '+an+' — '+catLabel+' ('+arr.length+')</h3>';
-    html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
+    html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.dataiscrizione?'<th>Iscr.</th>':'')+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
     arr.sort(function(a,b){return a.cog.localeCompare(b.cog);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
     });
     html+='</tbody></table>';
   });
