@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v6.6 · 21/03/2026 17:45<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v6.9 · 21/03/2026 18:09<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v6.6 · 21/03/2026 17:45</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v6.9 · 21/03/2026 18:09</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -353,7 +353,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v6.6 · 21/03/2026 17:45";
+var BUILD_VERSION = "v6.9 · 21/03/2026 18:09";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1327,7 +1327,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v6.6 · 21/03/2026 17:45";
+var BUILD_VERSION="v6.9 · 21/03/2026 18:09";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1757,12 +1757,21 @@ function _comuneAtleta(a){
   return c;
 }
 function _fedAtleta(a,stagione){
-  var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});
-  return isc?(isc.fed||'—'):'—';
+  var _s=parseInt(stagione);
+  var annata_prec=(_s-1)+'-'+String(_s).slice(-2);
+  var annata_curr=_s+'-'+String(_s+1).slice(-2);
+  var feds=[];
+  (a.iscrizioni||[]).forEach(function(i){
+    if((i.anno===annata_prec||i.anno===annata_curr)&&i.fed&&feds.indexOf(i.fed)<0)
+      feds.push(i.fed);
+  });
+  return feds.length?feds.sort().join('+'):'—';
 }
 function _catAtleta(a,stagione){
-  var catCalc=(typeof _catAtletaPerAnno==='function')?_catAtletaPerAnno(a,stagione):'';
-  if(catCalc)return catCalc;
+  if(typeof _catMultiplaAtleta==='function'){
+    var cats=_catMultiplaAtleta(a,stagione);
+    if(cats&&cats.length)return cats.join('/');
+  }
   var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});
   return isc?(isc.cat1||a.cat||'—'):(a.cat||'—');
 }
@@ -1818,10 +1827,18 @@ function generaReportSoci(){
   iscritti.forEach(function(a){var eta=_etaAl31Dic(a,annoBase);if(eta===null)eta=99;if(eta>=18)maggiorenni.push(a);else minorenni.push(a);});
   minorenni.forEach(function(a){a._flagMagg=(_etaOggi(a)||0)>=18;});
   // Raggruppa minorenni per categoria nell'annata
+  // Per statistiche: una categoria per atleta (la principale)
+  var perAnnoStat={};
+  minorenni.forEach(function(a){
+    var cat=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno(a,stagione)||'—'):'—';
+    if(!perAnnoStat[cat])perAnnoStat[cat]=[];perAnnoStat[cat].push(a);
+  });
+  // Per elenco: tutte le categorie (atleta può apparire in più riquadri)
   var perAnno={};
   minorenni.forEach(function(a){
-    var cat=_catAtleta(a,stagione)||'—';
-    if(!perAnno[cat])perAnno[cat]=[];perAnno[cat].push(a);
+    var cats=(typeof _catMultiplaAtleta==='function')?_catMultiplaAtleta(a,stagione):[];
+    if(!cats||!cats.length)cats=[_catAtleta(a,stagione)||'—'];
+    cats.forEach(function(cat){if(!perAnno[cat])perAnno[cat]=[];perAnno[cat].push(a);});
   });
   // Ordine categorie standard
   var ORDINE_CAT=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—'];
@@ -1838,7 +1855,7 @@ function generaReportSoci(){
       noRes:arr.filter(function(a){return _comuneAtleta(a).indexOf(comuneRef)<0;}).length};
   }
   window._rptData={stagione:String(annoSolare),annoBase:annoBase,comuneRef:comuneRef,dataStampa:dataStampa,
-    maggiorenni:maggiorenni,minorenni:minorenni,perAnno:perAnno,
+    maggiorenni:maggiorenni,minorenni:minorenni,perAnno:perAnno,perAnnoStat:perAnnoStat,
     statMagg:stat(maggiorenni),statMin:stat(minorenni),statTot:stat(iscritti)};
   _renderReportSoci();
   document.getElementById('rpt-anteprima').style.display='block';
@@ -1858,9 +1875,9 @@ function _renderReportSoci(){
   html+='<table><thead><tr><th class="left">Sezione</th><th>Tot.</th><th>M</th><th>F</th><th>Res. '+d.comuneRef+'</th><th>Non res.</th></tr></thead><tbody>';
   var sm=d.statMagg;
   html+='<tr><td class="left">Maggiorenni (≥18 al 31/12/'+d.annoBase+')</td><td>'+sm.tot+'</td><td>'+sm.m+'</td><td>'+sm.f+'</td><td>'+sm.res+'</td><td>'+sm.noRes+'</td></tr>';
-  var anniOrd=Object.keys(d.perAnno).sort(function(a,b){ var oc=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—']; var ia=oc.indexOf(a),ib=oc.indexOf(b); if(ia<0)ia=99; if(ib<0)ib=99; return ia-ib; });
+  var anniOrd=Object.keys(d.perAnnoStat||d.perAnno).sort(function(a,b){ var oc=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—']; var ia=oc.indexOf(a),ib=oc.indexOf(b); if(ia<0)ia=99; if(ib<0)ib=99; return ia-ib; });
   anniOrd.forEach(function(an){
-    var arr=d.perAnno[an];var s={tot:0,m:0,f:0,res:0,noRes:0};
+    var arr=(d.perAnnoStat||d.perAnno)[an];var s={tot:0,m:0,f:0,res:0,noRes:0};
     arr.forEach(function(a){s.tot++;if((a.sex||'M')==='M')s.m++;else s.f++;if(_comuneAtleta(a).indexOf(d.comuneRef)>-1)s.res++;else s.noRes++;});
     html+='<tr class="subtot"><td class="left">&nbsp;&nbsp;'+an+'</td><td>'+s.tot+'</td><td>'+s.m+'</td><td>'+s.f+'</td><td>'+s.res+'</td><td>'+s.noRes+'</td></tr>';
   });
@@ -1885,7 +1902,8 @@ function _renderReportSoci(){
 
   html+=tabellaElenco(d.maggiorenni,'Elenco soci maggiorenni','magg-row');
   html+='<h2>Elenco soci minorenni</h2>';
-  anniOrd.forEach(function(an){
+  var anniOrdElenco=Object.keys(d.perAnno).sort(function(a,b){ var oc=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—']; var ia=oc.indexOf(a),ib=oc.indexOf(b); if(ia<0)ia=99; if(ib<0)ib=99; return ia-ib; });
+  anniOrdElenco.forEach(function(an){
     var arr=d.perAnno[an];
     html+='<h3>'+an+' ('+arr.length+')</h3>';
     html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
@@ -2189,7 +2207,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v6.6 · 21/03/2026 17:45";
+var BUILD_VERSION = "v6.9 · 21/03/2026 18:09";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -2598,12 +2616,21 @@ function _comuneAtleta(a){
   return c;
 }
 function _fedAtleta(a,stagione){
-  var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});
-  return isc?(isc.fed||'—'):'—';
+  var _s=parseInt(stagione);
+  var annata_prec=(_s-1)+'-'+String(_s).slice(-2);
+  var annata_curr=_s+'-'+String(_s+1).slice(-2);
+  var feds=[];
+  (a.iscrizioni||[]).forEach(function(i){
+    if((i.anno===annata_prec||i.anno===annata_curr)&&i.fed&&feds.indexOf(i.fed)<0)
+      feds.push(i.fed);
+  });
+  return feds.length?feds.sort().join('+'):'—';
 }
 function _catAtleta(a,stagione){
-  var catCalc=(typeof _catAtletaPerAnno==='function')?_catAtletaPerAnno(a,stagione):'';
-  if(catCalc)return catCalc;
+  if(typeof _catMultiplaAtleta==='function'){
+    var cats=_catMultiplaAtleta(a,stagione);
+    if(cats&&cats.length)return cats.join('/');
+  }
   var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});
   return isc?(isc.cat1||a.cat||'—'):(a.cat||'—');
 }
@@ -2633,10 +2660,18 @@ function generaReportSoci(){
   var maggiorenni=[],minorenni=[];
   iscritti.forEach(function(a){var eta=_etaAl31Dic(a,annoBase);if(eta===null)eta=99;if(eta>=18)maggiorenni.push(a);else minorenni.push(a);});
   minorenni.forEach(function(a){a._flagMagg=(_etaOggi(a)||0)>=18;});
+  // Per statistiche: una categoria per atleta (la principale)
+  var perAnnoStat={};
+  minorenni.forEach(function(a){
+    var cat=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno(a,stagione)||'—'):'—';
+    if(!perAnnoStat[cat])perAnnoStat[cat]=[];perAnnoStat[cat].push(a);
+  });
+  // Per elenco: tutte le categorie (atleta può apparire in più riquadri)
   var perAnno={};
   minorenni.forEach(function(a){
-    var an=(typeof _annoNascitaAtleta==='function')?(_annoNascitaAtleta(a)||'?'):'?';
-    if(!perAnno[an])perAnno[an]=[];perAnno[an].push(a);
+    var cats=(typeof _catMultiplaAtleta==='function')?_catMultiplaAtleta(a,stagione):[];
+    if(!cats||!cats.length)cats=[_catAtleta(a,stagione)||'—'];
+    cats.forEach(function(cat){if(!perAnno[cat])perAnno[cat]=[];perAnno[cat].push(a);});
   });
   function stat(arr){
     return{tot:arr.length,
@@ -2646,7 +2681,7 @@ function generaReportSoci(){
       noRes:arr.filter(function(a){return _comuneAtleta(a).indexOf(comuneRef)<0;}).length};
   }
   window._rptData={stagione:stagione,annoBase:annoBase,comuneRef:comuneRef,dataStampa:dataStampa,
-    maggiorenni:maggiorenni,minorenni:minorenni,perAnno:perAnno,
+    maggiorenni:maggiorenni,minorenni:minorenni,perAnno:perAnno,perAnnoStat:perAnnoStat,
     statMagg:stat(maggiorenni),statMin:stat(minorenni),statTot:stat(iscritti)};
   _renderReportSoci();
   document.getElementById('rpt-anteprima').style.display='block';
@@ -2694,7 +2729,8 @@ function _renderReportSoci(){
 
   html+=tabellaElenco(d.maggiorenni,'Elenco soci maggiorenni','magg-row');
   html+='<h2>Elenco soci minorenni</h2>';
-  anniOrd.forEach(function(an){
+  var anniOrdElenco=Object.keys(d.perAnno).sort(function(a,b){ var oc=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—']; var ia=oc.indexOf(a),ib=oc.indexOf(b); if(ia<0)ia=99; if(ib<0)ib=99; return ia-ib; });
+  anniOrdElenco.forEach(function(an){
     var arr=d.perAnno[an];
     var catLabel=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno({dn:an+'-06-01',cf:''},d.stagione)||an):an;
     html+='<h3>Nati '+an+' — '+catLabel+' ('+arr.length+')</h3>';
