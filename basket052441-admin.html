@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v8.7 · 21/03/2026 22:34<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v8.8 · 21/03/2026 22:52<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v8.7 · 21/03/2026 22:34</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v8.8 · 21/03/2026 22:52</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -355,7 +355,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v8.7 · 21/03/2026 22:34";
+var BUILD_VERSION = "v8.8 · 21/03/2026 22:52";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1162,6 +1162,7 @@ function _annoNascitaAtleta(a){
 
 function _catAtletaPerAnno(a, annoStr){
   // Categoria principale di un atleta in una stagione specifica
+  // Prima prova tabella DB.categorie se disponibile
   var tabella = DB.categorie && DB.categorie[annoStr];
   var annoNasc = _annoNascitaAtleta(a);
   if(tabella && annoNasc){
@@ -1169,7 +1170,18 @@ function _catAtletaPerAnno(a, annoStr){
       if(tabella[cat].indexOf(annoNasc) > -1) return cat;
     }
   }
-  // Categorie non vincolate all'età: leggi dall'iscrizione
+  // Calcola categoria FIP standard da anno di nascita
+  if(annoNasc && annoStr){
+    var annoInizio = parseInt(annoStr.split('-')[0]);
+    var diff = annoInizio - annoNasc;
+    if(diff===5||diff===6) return 'Pulcini';
+    if(diff===7||diff===8) return 'Scoiattoli';
+    if(diff===9||diff===10) return 'Aquilotti';
+    if(diff===11||diff===12) return 'Esordienti';
+    if(diff>=13) return 'Esordienti'; // under più grandi
+    if(diff<=4) return 'Pulcini'; // giovanissimi
+  }
+  // Fallback: leggi dall'iscrizione
   var isc = a.iscrizioni && a.iscrizioni.find(function(i){return i.anno===annoStr;});
   if(isc && isc.cat1) return isc.cat1;
   return a.cat || '';
@@ -1185,6 +1197,17 @@ function _catMultiplaAtleta(a, annoStr){
     for(var cat in tabella){
       if(tabella[cat].indexOf(annoNasc) > -1) cats.push(cat);
     }
+  }
+  if(!cats.length && annoNasc && annoStr){
+    var annoInizio2 = parseInt(annoStr.split('-')[0]);
+    var diff2 = annoInizio2 - annoNasc;
+    var catCalc = null;
+    if(diff2===5||diff2===6) catCalc='Pulcini';
+    else if(diff2===7||diff2===8) catCalc='Scoiattoli';
+    else if(diff2===9||diff2===10) catCalc='Aquilotti';
+    else if(diff2>=11) catCalc='Esordienti';
+    else if(diff2<=4) catCalc='Pulcini';
+    if(catCalc) cats.push(catCalc);
   }
   if(!cats.length){
     var isc = a.iscrizioni && a.iscrizioni.find(function(i){return i.anno===annoStr;});
@@ -1348,7 +1371,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v8.7 · 21/03/2026 22:34";
+var BUILD_VERSION="v8.8 · 21/03/2026 22:52";
 
 // var DB = null; → core
 // var _db = null; → core
