@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v7.3 · 21/03/2026 19:11<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v7.4 · 21/03/2026 19:34<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v7.3 · 21/03/2026 19:11</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v7.4 · 21/03/2026 19:34</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -355,7 +355,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v7.3 · 21/03/2026 19:11";
+var BUILD_VERSION = "v7.4 · 21/03/2026 19:34";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -841,6 +841,12 @@ function loadDB(){
     if(!DB.listar)DB.listar=[];
   }catch(e){}
   diag("loadDB: localStorage — atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pag="+Object.keys(DB.pagamenti||{}).length);
+  // Se Firebase non pronto, usa solo localStorage e notifica subito
+  if(!_fbReady){
+    if(typeof window._onDBLoaded==='function') window._onDBLoaded();
+    else if(typeof _initReportStagioni==='function') _initReportStagioni();
+    diag("Firebase offline - uso dati da localStorage","warn");
+  }
   // 2. Scarica da Firebase le sezioni aggiornate
   if(_fbReady){
     syncStatus(true);
@@ -958,7 +964,21 @@ function doLogin() {
 function doLogout() {
   if(!confirm("Uscire dall'applicazione?")) return;
   _clearAppCache();
-  firebase.auth().signOut().then(function() { window.location.reload(true); });
+  // Funziona sia online che offline
+  function _goLogin(){
+    var loginScr=document.getElementById('login-scr');
+    var mainScr=document.getElementById('main-scr');
+    if(mainScr) mainScr.style.display='none';
+    if(loginScr) loginScr.style.display='';
+    var btn=document.getElementById('btn-connect');
+    if(btn){btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;}
+    DB=null; setDot(''); if(typeof setBtns==='function')setBtns(false);
+  }
+  if(typeof firebase!=='undefined'&&firebase.auth){
+    firebase.auth().signOut().then(_goLogin).catch(_goLogin);
+  } else {
+    _goLogin();
+  }
 }
 
 
@@ -1329,7 +1349,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v7.3 · 21/03/2026 19:11";
+var BUILD_VERSION="v7.4 · 21/03/2026 19:34";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -2198,7 +2218,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v7.3 · 21/03/2026 19:11";
+var BUILD_VERSION = "v7.4 · 21/03/2026 19:34";
 
 // var DB = null; → core
 // var _db = null; → core
