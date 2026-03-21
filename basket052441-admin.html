@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v5.5 · 21/03/2026 13:50<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v5.6 · 21/03/2026 14:25<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v5.5 · 21/03/2026 13:50</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v5.6 · 21/03/2026 14:25</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -221,6 +221,27 @@ return false; // non salvare"></textarea>
 <!-- REPORT SOCI                                         -->
 <!-- ═══════════════════════════════════════════════════ -->
 <div class="card">
+  <div class="card-title">📋 Import Iscrizioni da Statino FIP</div>
+  <p style="font-size:12px;color:#6a8a9a;margin-bottom:10px">
+    Importa le iscrizioni FIP da statini 2013/14–2025/26 (13 annate, ~359 atleti).<br>
+    <strong>Non sovrascrive</strong> dati già presenti.
+  </p>
+  <div class="op-row">
+    <div class="op-info">
+      <div class="op-title">Importa iscrizioni da statini FIP</div>
+      <div class="op-desc">Aggiunge iscrizione FIP per ogni annata in cui l'atleta era nello statino. Prerequisito: DB caricato.</div>
+    </div>
+    <button class="btn btn-gold" onclick="importaIscrizioniStatino()" style="min-height:44px;white-space:nowrap">📋 FIP</button>
+  </div>
+  <div class="op-row" style="margin-top:8px">
+    <div class="op-info">
+      <div class="op-title">Importa iscrizioni CSI (2023-24, 2025-26)</div>
+      <div class="op-desc">Aggiunge iscrizione CSI per adulti e atleti Special Olympics presenti negli elenchi tesserati.</div>
+    </div>
+    <button class="btn btn-blue" onclick="importaIscrizioniCSI()" style="min-height:44px;white-space:nowrap">📋 CSI</button>
+  </div>
+</div>
+<div class="card">
   <div class="card-title">📊 Report Soci — Comunicazione Comunale</div>
 
   <div class="grid2" style="margin-bottom:12px">
@@ -275,6 +296,12 @@ return false; // non salvare"></textarea>
 
 
 </div><!-- /main-scr -->
+
+
+
+
+
+
 <script>
 // ════════════════════════════════════════════════════════
 // basket-core.js — ASD Basket Campodarsego
@@ -798,9 +825,10 @@ function loadDB(){
       buildSearchIndex();
       localStorage.setItem(DB_KEY,JSON.stringify(DB));
       migraAtleti();
-      renderDashboard();
+      if(typeof window._onDBLoaded === 'function'){ window._onDBLoaded(); }
+      else if(typeof renderDashboard === 'function'){ renderDashboard(); }
       syncStatus(false);
-      console.log("[FB] DB caricato dal cloud (sezioni separate)"); diag("Firebase OK: atleti="+DB.atleti.length+", pagamenti="+Object.keys(DB.pagamenti||{}).length,"ok");
+      console.log("[FB] DB caricato dal cloud"); diag("Firebase OK: atleti="+DB.atleti.length+", pagamenti="+Object.keys(DB.pagamenti||{}).length,"ok");
     }).catch(function(e){
       syncStatus(false);
       console.error("[FB] Errore lettura sezioni:",e);
@@ -1250,7 +1278,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v5.5 · 21/03/2026 13:50";
+var BUILD_VERSION="v5.6 · 21/03/2026 14:25";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1831,6 +1859,495 @@ function esportaReportSociCSV(){
   log("CSV: "+(rows.length-1)+" soci.","ok");
 }
 
+
+// ── IMPORT ISCRIZIONI DA STATINO FIP ──
+var STATINI_FIP = {"2025-26": ["DMLGLI18H01B563P", "GRIBGI18A05B563U", "MRTNCL19D15B563F", "MSNNCL17P02B563X", "BRTMTT18R15B563D", "BRSNGL14M20B563Q", "ZNLLBA17C55G224Z", "MLNDNL14A14B563V", "BTTMTT18A24B563V", "PCARCR18R13A001S", "GCNMRC14E14G224A", "TSRGRL14E05B563O", "BRNLSN14E06F241L", "LHTNSM16B28B563M", "LHTHMZ16B28B563Z", "FNTLSS14A08B563C", "BRBTMS15H12B563X", "MNCMRA19T09G224S", "FRILSN17C29G224M", "NRDLSN17M15G224L", "MSTRJN17B13B563N", "VSNMTT17A24B563J", "NNJYMN14P44B563A", "FBRLRD18H25B563H", "BRGLRA17C50B563S", "PSTMTT19B02B563R", "DMERKE17P29B563H", "MRTRCR15R25G224I", "NCLDRD14P26B563N", "MROBSS15P10G224F", "MRTFPP17E23B563U", "PLMMTS15P29B563E", "TRRTTR15M10B563L", "FRLLNZ15D25B563O", "HRCRYN15T09C352W", "FTTGRG14E30B563G", "FRISRA18M48G224Q", "BLLSMN14L10B563X", "FBRSST18H25B563I", "MKHSHL15B10B563V"], "2024-25": ["DMLGLI18H01B563P", "FBRNCL18E19B563N", "VSNLMI18R28B563T", "MMJRJN14P08Z100Y", "MRTNCL19D15B563F", "PPDJLO17A30B563N", "MSNNCL17P02B563X", "BRTMTT18R15B563D", "BRSNGL14M20B563Q", "RFFPTR13T11B563N", "CLELNE13P68G224J", "BDNRFL13S16A001S", "BTTMTT18A24B563V", "PCARCR18R13A001S", "GCNMRC14E14G224A", "PLLNDR13C04B563V", "TSRGRL14E05B563O", "MRRDNL18D11G224L", "BRNLSN14E06F241L", "LHTNSM16B28B563M", "BBLLNZ13A30B563S", "FNTLSS14A08B563C", "TMBNCL19P06B563F", "SROKRM16R10G224E", "LNGNNA13T70B563N", "NMTDSN16E06B563B", "VRIDRL13D05L736H", "MNCMRA19T09G224S", "LMALRT13S05G224B", "FRILSN17C29G224M", "DCHGSI13D04B563U", "BSNLRD14C05G224A", "LMNFPP18R11G224U", "FBRSST18H25B563I", "BRTGNN19T28B563L", "NNJYMN14P44B563A", "FBRLRD18H25B563H", "BRGLRA17C50B563S", "PSTMTT19B02B563R", "STFGCM18A26B563Q", "MRTRCR15R25G224I", "TNLDVD16A29B563A", "BGNCST13P27D325F", "BNARCE18A01B563Y", "BNVNRT16D42B563I", "GRGMTT13B28B563N", "PLMMTS15P29B563E", "TRRTTR15M10B563L", "FRLLNZ15D25B563O", "CLLLSN13A14B563T", "LSPNCL18L19B563L", "FVRSST13S07B563U", "CNATMS15B01B563C", "CSTGNN13H26G224F", "FTTGRG14E30B563G", "FRISRA18M48G224Q", "BLLSMN14L10B563X", "TNLMTT13L15B563U", "NCLDRD14P26B563N", "MKHSHL15B10B563V"], "2023-24": ["FBRNCL18E19B563N", "LGGTMS13C24G224R", "PPDJLO17A30B563N", "MRRMTT12H12C627T", "BRSNGL14M20B563Q", "RFFPTR13T11B563N", "TRRNHL12M15B563L", "ZNNGNI17C21B563B", "BRTLRT13M07B563E", "GCNMRC14E14G224A", "TSRGRL14E05B563O", "MRRDNL18D11G224L", "BRNLSN14E06F241L", "PZZXLA14E15B563C", "FNTLSS14A08B563C", "FRLTMS18L31B563B", "LNGNNA13T70B563N", "NMTDSN16E06B563B", "FRILSN17C29G224M", "ZNNGLI14M04B563C", "DCHGSI13D04B563U", "DZNGCM12C26B563W", "BRGLRA17C50B563S", "TNLDVD16A29B563A", "BLGTMF12B15B563H", "BGNCST13P27D325F", "GRGMTT13B28B563N", "TRRTTR15M10B563L", "CLLLSN13A14B563T", "FVRSST13S07B563U", "CSTGNN13H26G224F", "GRCMTN17H30B563B", "FTTGRG14E30B563G", "VLPLEI15C25B563A", "BLLSMN14L10B563X", "TNLMTT13L15B563U", "NCLDRD14P26B563N"], "2022-23": ["ZMPLCU12L30G224C", "TRBNDR15B24B563H", "MRRMTT12H12C627T", "BRTLRT13M07B563E", "TRBMGT11S45B563E", "GCNMRC14E14G224A", "GRILCU11L01F241C", "TTOSML13A23B563B", "TSRGRL14E05B563O", "VLPGSI13M30B563Y", "CLTTTR13D03B563U", "FNTLSS14A08B563C", "TLTLXA11L06B563S", "LNGNNA13T70B563N", "MRRTMS14C27G224S", "NMTDSN16E06B563B", "VRIDRL13D05L736H", "ZNNLRD16C11B563N", "DCHGSI13D04B563U", "CSTRCR11T09B563J", "BRGLRA17C50B563S", "BLGTMF12B15B563H", "BGNCST13P27D325F", "BNVNRT16D42B563I", "GRGMTT13B28B563N", "GNALGB17R16G224F", "CLLLSN13A14B563T", "HSRZZA14L04B563F", "FVRSST13S07B563U", "SGRMTT11H29B563J", "CMPGNN13C18G224F", "TNLMTT13L15B563U"], "2021-22": ["MRRMTT12H12C627T", "DLSMHL14D65B519G", "SCPTRN11M11B563A", "GCNMRC14E14G224A", "LBRRCR13E09G224D", "TSRGRL14E05B563O", "BSCFPP16T01B563P", "STFNCL13L09B563Y", "VLPGSI13M30B563Y", "CLTTTR13D03B563U", "FNTLSS14A08B563C", "CNCGLI12E62B563M", "MTTZRR16C45B563A", "MRRTMS14C27G224S", "DLPLSN16C24B563C", "BSSFPP15C16B563C", "BSNNCL16L18B563U", "DCHGSI13D04B563U", "TNLFNC14E19B563Q", "DLPPFR13L23B563F", "BNVNRT16D42B563I", "GRGMTT13B28B563N", "FVRSST13S07B563U", "CNATMS15B01B563C", "CMPGNN13C18G224F"], "2020-21": ["BNAGRL09A17B563R", "MRRMTT12H12C627T", "CNCGLI12E62B563M"], "2019-20": ["RSTLRT09S08C743T", "MCHRNN11R62B563E", "SLVMTT09H29B563Z", "LNIFNC09R21G224B", "MRRMTT12H12C627T", "FBANNA09R55F241U", "NCANGB12H07B563L", "BNAGRL09A17B563R", "NRDLRT10L17B563B", "STORCR09T30B563G", "BSSMLN10T01B563W", "MRNPTR09S05B563H", "RLFNRO12P46B563O", "BNLLVS11H02F241P", "SCPTRN11M11B563A", "BCCDVD09H17B563R", "GRILCU11L01F241C", "SCPCRL11B15B563C", "LVTBRC09S70B563D", "SLVMYA09C43B563S", "VLPGSI13M30B563Y", "CNCGLI12E62B563M", "TRTDVD10T05C743O", "FBAGRG12R41B563Y", "GNTLSN11M02C743C", "PSTSML09L04B563C", "STCNCL13B08B563K", "MRLNCL12L13B563F", "SKLRSA09E05A001K", "DLZLSS11C64F241N", "SKLKNE12R41A001X", "RZZTTR14P02B563P", "DLPPFR13L23B563F", "GLZLCU12A10G224I", "SCNLRD11B14F861T", "FNTTMS10B10G224P", "MLLSNT10M56G224U", "BNAMRC11H23B563M", "ZNNLNZ09C24G224E", "BRNDRN09E21B563F", "MNTDRD13A15L840I", "CLLLSN13A14B563T", "DMERCR12S27B563X", "FVRSST13S07B563U", "MRLJCP09S25B563C", "CRRLNZ12E29F241E", "ZMPNDR10C17B563V", "BSTRRA09A48F241Y", "NVLSRA09D65G224Z", "MLNNGL09H53G224T", "ZMPSMN12D02B563Y"], "2018-19": ["RSTLRT09S08C743T", "MCHRNN11R62B563E", "SLVMTT09H29B563Z", "DRIMSM12D07Z154O", "LNIFNC09R21G224B", "MRRMTT12H12C627T", "FBANNA09R55F241U", "RMPLCA11T42B563M", "BNAGRL09A17B563R", "NRDLRT10L17B563B", "STORCR09T30B563G", "BRZMHL10H07B563L", "BSSMLN10T01B563W", "DVCGNN12T11B563M", "BNLLVS11H02F241P", "MRNPTR09S05B563H", "BCCDVD09H17B563R", "MDTFPP10P06B563Z", "TMMGAI09E54B563P", "FRNPLA13C02B563F", "LVTBRC09S70B563D", "SLVMYA09C43B563S", "GSTFNC13L19B563A", "BRZGNN11S04B563Y", "CNCGLI12E62B563M", "TRTDVD10T05C743O", "FBAGRG12R41B563Y", "LNGLRD13A21G224E", "MSCCRS09B25B563R", "STCNCL13B08B563K", "PSTSML09L04B563C", "TLTLXA11L06B563S", "MRLNCL12L13B563F", "PZZRFL11C04B563E", "SKLRSA09E05A001K", "CVNJPR09T23B180O", "BRTNLC12P54F241F", "FRLRCR10P18G224O", "SKLKNE12R41A001X", "RVZCHR10S65G224L", "GLZLCU12A10G224I", "SCNLRD11B14F861T", "BLZFNC11A16G224X", "TRMNNI10T06L840Y", "ZNRMTT11E27B563P", "BBLCRS10A21L736E", "ZNNLNZ09C24G224E", "CCCPTR12L11B563O", "MRCRFL10C22B563Q", "DMERCR12S27B563X", "FVRSST13S07B563U", "MRLJCP09S25B563C", "RFFLSN10S12B563D", "CRRLNZ12E29F241E", "ZMPNDR10C17B563V", "BSTRRA09A48F241Y", "BNANMO11R70B563Z", "NVLSRA09D65G224Z", "MLNNGL09H53G224T", "ZMPSMN12D02B563Y"], "2017-18": ["BRCDNL06P28Z140N", "RSTLRT09S08C743T", "SBBMTT08S09B563X", "LBRMTT09T10B563H", "RAIDRH09R57G224D", "LNIFNC09R21G224B", "SRTGFL09M09A001T", "FBANNA09R55F241U", "MZZGAI10L54G224R", "BNAGRL09A17B563R", "NRDLRT10L17B563B", "STORCR09T30B563G", "BRZMHL10H07B563L", "BSSMLN10T01B563W", "DCHCLL10T18B563A", "NNJKVN09R09G224S", "PRDFNC08A24B563Y", "RCCTMS11B22B563B", "SNDTMS07H27B563C", "CNVLSN07L18B563T", "BCCDVD09H17B563R", "MDTFPP10P06B563Z", "TMMGAI09E54B563P", "DNNRCR11P15A001U", "GHTLND08D28B563E", "LVTBRC09S70B563D", "SLVMYA09C43B563S", "MDNRCR06M12G224D", "BRZGNN11S04B563Y", "LNIVTR11D16G224E", "NDRNRC08T24B563L", "MSCCRS09B25B563R", "NDRDNN10T19B563A", "TLTLXA11L06B563S", "NZZDRD10R26B563E", "PSTSML09L04B563C", "TGUGLN06E42G224C", "NVLSRA09D65G224Z", "RMPTMS06L21G224J", "SKLRSA09E05A001K", "CVNJPR09T23B180O", "SLMLSS06T50B563G", "FRLRCR10P18G224O", "CLNRCR08H29B563V", "BRLMRA06R19G224W", "GRCRRT06L08B563I", "BNAGNN10P26B563W", "RVZCHR10S65G224L", "PRACHR07L57B563O", "LIAMTT06L25G224C", "SCNLRD11B14F861T", "SRTGMR06D01A001V", "BCALRD11P26B563V", "PRDDNL07S10B563G", "BRHDRA09T09B563N", "TRMNNI10T06L840Y", "ZNRMTT11E27B563P", "BBLCRS10A21L736E", "FRNRCR06M02G224L", "NTNNDR10R11B563C", "BZZMCL06R20E410F", "DTGRCR10M14B563R", "CCCPTR12L11B563O", "MRCRFL10C22B563Q", "ZNNLNZ09C24G224E", "RFFLSN10S12B563D", "VSNGMC10D07B563S", "SCPCLL10S29G224N", "ZMPNDR10C17B563V", "BSTRRA09A48F241Y", "RSTLSS07S49B563X", "ZMPSMN12D02B563Y"], "2016-17": ["RMINDR06A03B563O", "NNJHRY05R26H620T", "SHHMUA08D50B563J", "TRVNLS10L22G224F", "PGRLSS05S65B563S", "SRTGFL09M09A001T", "MZZGAI10L54G224R", "BNAGRL09A17B563R", "RMNMTN05C50B563T", "LIURKE08T16B563N", "CNVLSN07L18B563T", "TMMGAI09E54B563P", "GNDSMA06D41B563M", "VGNLCU09E28B563J", "LDDBRC05T42G224Y", "GNDMRO09T03B563X", "TGUGLN06E42G224C", "FRGNNG09B16A001H", "CVNJPR09T23B180O", "RMBNZE10B18C743G", "LIAMTT06L25G224C", "ZMNMTT08R25B563D", "STFGIO07A68B563O", "BZZMCL06R20E410F", "DNOLSN08L19B563Z", "LNZMGL08M56G224R", "BLNMNL05L07G224T", "RSTLSS07S49B563X", "FLPGRL07S01B563V", "MRTTMS08L18D325G", "GMBSFO07B60A001O", "DBRMLN07T71Z129S", "STORCR09T30B563G", "NNJKVN09R09G224S", "RCCTMS11B22B563B", "SNDTMS07H27B563C", "DLLMME06S65B563R", "TKKBRR07B20B563M", "ZLIRRA05P53G224R", "SMBSML06T21B563R", "NVLCSR09R14B563B", "NDRNRC08T24B563L", "MSCCRS09B25B563R", "SCZNMR08E49B563Z", "PZZRFL11C04B563E", "SKLRSA09E05A001K", "ZRBRCC09L48A001Y", "LHJSFN07E24B563B", "BRLMRA06R19G224W", "MRCCST06A25B563T", "SLVMDL08P59B563Y", "LMNSRA06H69B563K", "FRNRCR06M02G224L", "NTNNDR10R11B563C", "HDAMMM05D23Z330R", "ZNNGRG05E58G224H", "DTGRCR10M14B563R", "ZNNLNZ09C24G224E", "MRLJCP09S25B563C", "RSTLRT09S08C743T", "RSNTMS10M17F241V", "NRDLRT10L17B563B", "PRDFNC08A24B563Y", "GHTLND08D28B563E", "KRMYBA08H19G224B", "LIXSMN07B03D325W", "DDMMRC07D22B563V", "HBLMRN07E12G224X", "MDNRCR06M12G224D", "NDRDNN10T19B563A", "RMPTMS06L21G224J", "SBSMHS09R10B563P", "VTTGDI06P62B563I", "PRACHR07L57B563O", "FRGLSN11L25A001Y", "SRTGMR06D01A001V", "MRCRFL10C22B563Q", "BRBMTC07T15H224A", "VSNGMC10D07B563S", "BSTRRA09A48F241Y", "SHHMYA06P46B563Y", "NVLSRA09D65G224Z", "LDDSRA08M44G224Y", "SCNLSN07L23D325M", "BRCDNL06P28Z140N", "HOIDTN08T19B563W", "ZHNQAO08B11B563O", "BRTNRC07R16L407T", "TNLMLD05M43G224D", "DCHCLL10T18B563A", "HBCSFN05S30G224H", "LWNNDR08C14B563E", "MRNNTA11C58B563J", "LVTBRC09S70B563D", "BSCGPP07M11F241K", "NZZDRD10R26B563E", "LMNMIA10A67B563O", "MNLDSM06A13B563B", "GRCRRT06L08B563I", "PRDDNL07S10B563G", "RSSFRC08P11D612M", "ZMPNDR10C17B563V"], "2015-16": ["BRCDNL06P28Z140N", "RMINDR06A03B563O", "PCCTMS04L23B563G", "TRVNLS10L22G224F", "BNAMTT04E05B563J", "CLNDNT06M66G224Q", "CRRNNG04P16G224L", "BRTNRC07R16L407T", "DLCMTT04T03B563R", "PGRLSS05S65B563S", "PPVDNI05H61B563L", "NCHDNS06D23G224V", "PPVRCR06E05B563T", "MDNLNZ04A20G224Y", "BNAGRL09A17B563R", "NRDLRT10L17B563B", "PRAFPP04E11B563I", "TNLMLD05M43G224D", "CLNGVR10A69G224P", "GDDMMD04E13B563D", "PVSMRC09L04B563E", "PRDFNC08A24B563Y", "SNDTMS07H27B563C", "ZHNQAO08B11B563O", "DLLMME06S65B563R", "CNVLSN07L18B563T", "TMMGAI09E54B563P", "NLSLRD10S20B563D", "VGNLCU09E28B563J", "LDDBRC05T42G224Y", "KRMYBA08H19G224B", "LVTBRC09S70B563D", "CCCSFN06T15G224J", "MDNRCR06M12G224D", "NVLCSR09R14B563B", "NDRNRC08T24B563L", "MSCCRS09B25B563R", "DMRMLD06L41G224F", "RMPTMS06L21G224J", "RMNSRA06R44B563R", "SBSMHS09R10B563P", "PPVNMR08S66B563P", "BRLMRA06R19G224W", "GRCRRT06L08B563I", "MCHSMN04R28B563R", "TLGDDC06T13B563E", "CCCLRD05E23G224C", "VTTGDI06P62B563I", "SPSGLI07C71F205W", "LIAMTT06L25G224C", "PRACHR07L57B563O", "ZTISFN09B02G224M", "SRTGMR06D01A001V", "PRDDNL07S10B563G", "PCCMME04R52G224L", "SLVMDL08P59B563Y", "FSLLSN09M14B563G", "PRNNCL09P29F382A", "BRTFRC06D61B563P", "BRSLRD04H26G224I", "HDAMMM05D23Z330R", "BZZMCL06R20E410F", "LNZMGL08M56G224R", "BRBMTC07T15H224A", "BLNMNL05L07G224T", "ZMPNDR10C17B563V", "TTONIA09L16B563D", "NVLSRA09D65G224Z", "LDDSRA08M44G224Y"], "2014-15": ["BRCDNL06P28Z140N", "CLLLCU08P04B563A", "NVLCRL05L11B563A", "HOIDTN08T19B563W", "PCCTMS04L23B563G", "PZZMLY07P52G224E", "RSSLGR04R59B563R", "BNAMTT04E05B563J", "DLCMTT04T03B563R", "SVARCR07D03B563S", "SHHMUA08D50B563J", "TRTGNN08A19B563N", "ZHNQAO08B11B563O", "NCHDNS06D23G224V", "MDNLNZ04A20G224Y", "BNAGRL09A17B563R", "PRAFPP04E11B563I", "RMBMRC04C25G224L", "GDDMMD04E13B563D", "CVNNCL06S18B563L", "SNDTMS07H27B563C", "DBGRYN04M13G224A", "CNVLSN07L18B563T", "MDASFO06B61G224Y", "LDDBRC05T42G224Y", "KRMYBA08H19G224B", "RZZLRT06T29G224E", "CCCSFN06T15G224J", "DMRGPP08H07G224M", "GBBGLI04R65B563P", "MDNRCR06M12G224D", "NVLCSR09R14B563B", "NDRNRC08T24B563L", "PZZNMO07M53B563F", "MSCCRS09B25B563R", "SLVFPP08P29B563O", "VTTNGL05E53B563G", "RMPTMS06L21G224J", "RMNSRA06R44B563R", "DCZSFO08E70B563A", "LHJSFN07E24B563B", "SNCRCR09A02B563I", "GBBGAI07A41B563T", "SVACST08E07B563Z", "MCHSMN04R28B563R", "PVNMTT09D04B563M", "TLGDDC06T13B563E", "CCCLRD05E23G224C", "PRACHR07L57B563O", "RJBZDE08S02B563C", "SRTGMR06D01A001V", "GLNLSS05S53B563O", "PSTVSL04E11Z140U", "PRDDNL07S10B563G", "BLLGLI05H42B563O", "FRNRCR06M02G224L", "BRTFRC06D61B563P", "BRSLRD04H26G224I", "HDAMMM05D23Z330R", "BZZMCL06R20E410F", "MVLVTR03H44B563A", "SNDNTN04R03B563P", "PZZDVD08L30B563H", "BLNMNL05L07G224T", "MNFSAI06E48B563H", "SHHMYA06P46B563Y", "NVLSRA09D65G224Z", "LDDSRA08M44G224Y", "BRNNCL08M26B563H"], "2013-14": ["BRCDNL06P28Z140N", "DCHTMS07M15G224N", "DCZRBN06E29B563Y", "NVLCRL05L11B563A", "PRTLNZ06B01B563U", "PCCTMS04L23B563G", "RCCLNZ04A29B563X", "STFNDR04L07G224Z", "BNAMTT04E05B563J", "VLPGCM03M30M067F", "MGGLCU06P17G224V", "SVARCR07D03B563S", "GLVNCL05D21B563D", "NCHDNS06D23G224V", "MDNLNZ04A20G224Y", "PRAFPP04E11B563I", "GDDMMD04E13B563D", "CVNNCL06S18B563L", "SNDTMS07H27B563C", "DBGRYN04M13G224A", "MLNMTT07E28G224Y", "KRMYBA08H19G224B", "BJRVHR04E07B563A", "RZZLRT06T29G224E", "MDNRCR06M12G224D", "DAISMR04D16A001E", "BJRSKR04E47B563M", "BRIMNL05P24B563W", "PLRCST06R22B563A", "RMPTMS06L21G224J", "DCZSFO08E70B563A", "SVACST08E07B563Z", "BRLMRA06R19G224W", "GRCRRT06L08B563I", "CLZKVN05P13B563M", "NCLTMS06C20A001T", "RJBZDE08S02B563C", "MNRSMN04D16B563N", "RFFMTT04E19B563E", "SRTGMR06D01A001V", "CSLFNC05R06B563G", "LNGMCL04L08B563L", "PCCMME04R52G224L", "FRNRCR06M02G224L", "BLZMTT05A19B563F", "RMBNRC06B24C743N", "SNDNTN04R03B563P", "VLPMTT07H26B563I", "CRRTMS07C03B563C", "MRNMRC04L21B563L"]};
+
+function importaIscrizioniStatino(){
+  if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
+  if(!confirm("Importa iscrizioni FIP da statini 2013-2026?\nNon sovrascrive dati esistenti."))return;
+  
+  var tot=0,nuove=0,gia=0,nontrovati=[];
+  var logRighe=[];
+  
+  Object.keys(STATINI_FIP).sort().forEach(function(stagione){
+    var cfs=STATINI_FIP[stagione];
+    var nNuove=0,nGia=0,nNon=0;
+    
+    cfs.forEach(function(cf){
+      tot++;
+      // Cerca atleta per CF
+      var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===(cf||'').toUpperCase();});
+      if(!a){nNon++;nontrovati.push(cf+' ('+stagione+')');return;}
+      
+      // Controlla se iscrizione già presente
+      if(!a.iscrizioni)a.iscrizioni=[];
+      var gia_presente=a.iscrizioni.some(function(i){return i.anno===stagione;});
+      if(gia_presente){nGia++;gia++;return;}
+      
+      // Aggiungi iscrizione — senza sovrascrivere nulla
+      a.iscrizioni.push({
+        anno: stagione,
+        fed: 'FIP',
+        fonte: 'statino'
+      });
+      nNuove++;nuove++;
+    });
+    
+    logRighe.push(stagione+': +'+nNuove+' nuove, '+nGia+' già presenti, '+nNon+' CF non trovati');
+  });
+  
+  if(nuove===0){
+    log('Nessuna iscrizione nuova da aggiungere ('+gia+' già presenti).','warn');
+    return;
+  }
+  
+  // Salva
+  log('Salvo '+nuove+' iscrizioni nuove...','info');
+  saveDB();
+  
+  // Log dettagliato
+  logRighe.forEach(function(r){log(r,'info');});
+  log('TOTALE: '+nuove+' iscrizioni aggiunte, '+gia+' già presenti.','ok');
+  
+  if(nontrovati.length){
+    log(nontrovati.length+' CF non trovati nel DB (atleti non censiti):','warn');
+    nontrovati.slice(0,10).forEach(function(s){log('  '+s,'warn');});
+    if(nontrovati.length>10)log('  ...e altri '+(nontrovati.length-10),'warn');
+  }
+  
+  // Aggiorna select annate
+  if(typeof _initReportStagioni==='function')_initReportStagioni();
+}
+
+
+// ── IMPORT ISCRIZIONI DA ELENCO CSI ──
+var ELENCO_CSI = {
+  "2025-26": [
+    {
+      "cf": "BRZFNC06R30C957B",
+      "cog": "Barzi",
+      "nom": "Francesco",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "BNTFNC03C61B563S",
+      "cog": "Benetti",
+      "nom": "Francesca",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "BRTPLG83P03L736E",
+      "cog": "Bertelli",
+      "nom": "Pierluigi",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "BRDLSE92L43B563M",
+      "cog": "Breda",
+      "nom": "Elisa",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CCCVNT95S69B563I",
+      "cog": "Caccin",
+      "nom": "Valentina",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CRRSML94P12B563I",
+      "cog": "Carraro",
+      "nom": "Samuele",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CCCDRD08S25G224G",
+      "cog": "Cecchinato",
+      "nom": "Edoardo",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "DMNMLI04B65Z154W",
+      "cog": "Demina",
+      "nom": "Mila",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "GMBNTN75D02B563Y",
+      "cog": "Gamba",
+      "nom": "Antonio",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "GRNRNN93S53B563V",
+      "cog": "Geron",
+      "nom": "Arianna",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "MGGCHR07R56G224D",
+      "cog": "Maggio",
+      "nom": "Chiara",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "MGGFNC73M01D761A",
+      "cog": "Maggio",
+      "nom": "Francesco",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "MNFGCM96C07B563N",
+      "cog": "Manfrin",
+      "nom": "Giacomo",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "MRCCRS86E26L781Z",
+      "cog": "Marcato",
+      "nom": "Christopher",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "MRTDVD00C14L157K",
+      "cog": "Martello",
+      "nom": "Davide",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "MSAMRC90S03F241J",
+      "cog": "Maso",
+      "nom": "Marco",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "PCCVTR99C43G224A",
+      "cog": "Paccagnella",
+      "nom": "Vittoria",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "PNTNNL64D67G224P",
+      "cog": "Pinton",
+      "nom": "Antonella",
+      "attivita": ""
+    },
+    {
+      "cf": "RNSSMN74T19B564M",
+      "cog": "Rensi",
+      "nom": "Simone",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "RNCDMN88E05B563G",
+      "cog": "Roncato",
+      "nom": "Damiano",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "SCRLRT66S27B563J",
+      "cog": "Scarin",
+      "nom": "Alberto",
+      "attivita": ""
+    },
+    {
+      "cf": "SCRLGU76S09B563V",
+      "cog": "Scarin",
+      "nom": "Luigi",
+      "attivita": ""
+    },
+    {
+      "cf": "SZBPRC02B41Z134C",
+      "cog": "Szabo",
+      "nom": "Patricia",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "TMMSLV14A45G224B",
+      "cog": "Tommasin",
+      "nom": "Silvia",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TNOLXA09A01B563I",
+      "cog": "Ton",
+      "nom": "Alex",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TNOGNN66T27G224X",
+      "cog": "Ton",
+      "nom": "Gianni",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TNDLNZ05C07B563P",
+      "cog": "Tondello",
+      "nom": "Lorenzo",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TNLGCM07M03B563K",
+      "cog": "Toniolo",
+      "nom": "Giacomo",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "ZNLGCR80D04H501T",
+      "cog": "Zanella",
+      "nom": "Giancarlo",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "ZCCNMR57S44G587L",
+      "cog": "Zecchinato",
+      "nom": "Nadia Maria",
+      "attivita": ""
+    },
+    {
+      "cf": "ZCCMTT96R13B563P",
+      "cog": "Zoccarato",
+      "nom": "Matteo",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "ZRZVNT91L54B563I",
+      "cog": "Zorzi",
+      "nom": "Valentina",
+      "attivita": "PVO"
+    }
+  ],
+  "2023-24": [
+    {
+      "cf": "BRZFNC06R30C957B",
+      "cog": "Barzi",
+      "nom": "Francesco",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "BNTFNC03C61B563S",
+      "cog": "Benetti",
+      "nom": "Francesca",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "BRGCRD68R07B563Q",
+      "cog": "Brogio",
+      "nom": "Corrado",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CCCVNT95S69B563I",
+      "cog": "Caccin",
+      "nom": "Valentina",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CLLSRA98R63G888S",
+      "cog": "Callegaro",
+      "nom": "Sara",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CRRSML94P12B563I",
+      "cog": "Carraro",
+      "nom": "Samuele",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CCCDRD08S25G224G",
+      "cog": "Cecchinato",
+      "nom": "Edoardo",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "CHRVNT78T22G224S",
+      "cog": "Chiarello",
+      "nom": "Valentino",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "CGULRT00C22B563B",
+      "cog": "Cuogo",
+      "nom": "Alberto",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "DMNMLI04B65Z154W",
+      "cog": "Demina",
+      "nom": "Mila",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "GRNRNN93S53B563V",
+      "cog": "Geron",
+      "nom": "Arianna",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "MGGCHR07R56G224D",
+      "cog": "Maggio",
+      "nom": "Chiara",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "MGGFNC73M01D761A",
+      "cog": "Maggio",
+      "nom": "Francesco",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "MNFGCM93C07B563K",
+      "cog": "Manfrin",
+      "nom": "Giacomo",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "MRTDVD00C14L157K",
+      "cog": "Martello",
+      "nom": "Davide",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "MSAMRC90S03F241J",
+      "cog": "Maso",
+      "nom": "Marco",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "NVLMTT94B11L840V",
+      "cog": "Novello",
+      "nom": "Matteo",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "PNTNNL64D67G224P",
+      "cog": "Pinton",
+      "nom": "Antonella",
+      "attivita": ""
+    },
+    {
+      "cf": "RNCDMN88E05B563G",
+      "cog": "Roncato",
+      "nom": "Damiano",
+      "attivita": "PVO"
+    },
+    {
+      "cf": "SCRLRT66S27B563J",
+      "cog": "Scarin",
+      "nom": "Alberto",
+      "attivita": ""
+    },
+    {
+      "cf": "SCRLGU76S09B563V",
+      "cog": "Scarin",
+      "nom": "Luigi",
+      "attivita": ""
+    },
+    {
+      "cf": "SDRMTT10A27G224G",
+      "cog": "Sedran",
+      "nom": "Mattia",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "SPCDVD78D24G224J",
+      "cog": "Specchi",
+      "nom": "Davide",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "SPCGLI07H05B563L",
+      "cog": "Specchi",
+      "nom": "Gioele",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TMMSLV14A45G224B",
+      "cog": "Tommasin",
+      "nom": "Silvia",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TNOLXA09A01B563I",
+      "cog": "Ton",
+      "nom": "Alex",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TNOGNN66T27G224X",
+      "cog": "Ton",
+      "nom": "Gianni",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "TNLGCM07M03B563K",
+      "cog": "Toniolo",
+      "nom": "Giacomo",
+      "attivita": "PCA"
+    },
+    {
+      "cf": "ZCCNMR57S44G587L",
+      "cog": "Zecchinato",
+      "nom": "Nadia Maria",
+      "attivita": ""
+    },
+    {
+      "cf": "ZCCMTT96R13B563P",
+      "cog": "Zoccarato",
+      "nom": "Matteo",
+      "attivita": "PVO"
+    }
+  ]
+};
+
+function importaIscrizioniCSI(){
+  if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
+  if(!confirm("Importa iscrizioni CSI da elenchi 2023-24 e 2025-26?\nNon sovrascrive dati esistenti."))return;
+
+  var nuove=0,gia=0,nontrovati=[];
+
+  Object.keys(ELENCO_CSI).sort().forEach(function(stagione){
+    var tesserati=ELENCO_CSI[stagione];
+    var nNuove=0,nGia=0,nNon=0;
+
+    tesserati.forEach(function(t){
+      var cf=(t.cf||'').toUpperCase();
+      var a=DB.atleti.find(function(x){return (x.cf||'').toUpperCase()===cf;});
+      if(!a){
+        nNon++;
+        nontrovati.push(cf+' '+t.cog+' '+t.nom+' ('+stagione+')');
+        return;
+      }
+      if(!a.iscrizioni)a.iscrizioni=[];
+      var gia_presente=a.iscrizioni.some(function(i){return i.anno===stagione&&i.fed==='CSI';});
+      if(gia_presente){nGia++;gia++;return;}
+      a.iscrizioni.push({
+        anno: stagione,
+        fed: 'CSI',
+        attivita: t.attivita||'',
+        fonte: 'elenco'
+      });
+      nNuove++;nuove++;
+    });
+
+    log(stagione+' CSI: +'+nNuove+' nuove, '+nGia+' già presenti, '+nNon+' non trovati','info');
+  });
+
+  if(nuove>0){
+    saveDB();
+    log('TOTALE CSI: '+nuove+' iscrizioni aggiunte.','ok');
+    if(typeof _initReportStagioni==='function')_initReportStagioni();
+  } else {
+    log('Nessuna iscrizione CSI nuova ('+gia+' già presenti).','warn');
+  }
+
+  if(nontrovati.length){
+    log(nontrovati.length+' non trovati nel DB:','warn');
+    nontrovati.slice(0,10).forEach(function(s){log('  '+s,'warn');});
+  }
+}
+
 </script>
 <script>
 window.addEventListener("load",function(){if(typeof _diagShow==="function")_diagShow();if(typeof fbInit==="function")setTimeout(fbInit,200);});
@@ -1838,7 +2355,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v5.5 · 21/03/2026 13:39";
+var BUILD_VERSION = "v5.6 · 21/03/2026 14:04";
 
 // var DB = null; → core
 // var _db = null; → core
