@@ -53,7 +53,20 @@
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js'></script>
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'></script>
   <!-- Core libreria condivisa -->
-  <script src='basket-core.js?v=20260321_1101'></script>
+  <script src='basket-core.js?v=20260321_1101' onerror="document.body.innerHTML='<div style=\'padding:20px;color:#c8a84b;font-family:monospace\'>ERRORE: basket-core.js non caricato.<br>Verificare che il file sia nella stessa cartella.<br>URL: '+window.location.href+'</div>'"></script>
+  <script>
+  // Fallback: se basket-core.js non è ancora eseguito, definisce _diagToggle inline
+  if(typeof _diagToggle === 'undefined'){
+    window._diagToggle = function(){
+      var msg = 'basket-core.js non ancora caricato.\n';
+      msg += 'Controlla:\n';
+      msg += '1. Il file basket-core.js è su GitHub?\n';
+      msg += '2. URL corretto: ' + window.location.href + '\n';
+      msg += '3. Apri DevTools → Console per errori';
+      alert(msg);
+    };
+  }
+  </script>
 
 <script>
 // Registrazione Service Worker per aggiornamenti automatici cache
@@ -1113,9 +1126,23 @@ function esportaReportSociCSV(){
 
 // Avvia Firebase Auth all'apertura della pagina
 window.addEventListener("load", function(){
+  // Verifica che basket-core.js sia caricato
+  if(typeof _diagLog === 'undefined'){
+    var logEl = document.getElementById('log');
+    if(logEl) logEl.innerHTML = '<span class="err">[ERRORE] basket-core.js non caricato! Verificare che il file sia nella stessa cartella su GitHub.</span>\n';
+    alert('ERRORE: basket-core.js non caricato.\nVerifica che il file sia su GitHub nella stessa cartella.');
+    return;
+  }
+  // Apri diagnostica automaticamente
+  _diagShow();
   _diagLog("Admin caricato — avvio fbInit...");
   setTimeout(function(){ fbInit(); }, 200);
 });
+// Chiudi diagnostica dopo login
+window._onAuthOK = function(user){
+  _diagLog("Login OK: "+user.email, "#22a85a");
+  setTimeout(function(){ _diagHide(); }, 2000);
+};
 
 </script>
 </div><!-- /main-scr -->

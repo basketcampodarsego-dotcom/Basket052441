@@ -31,7 +31,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 #login-btn:disabled{opacity:.5;cursor:not-allowed;}
 #login-btn:hover:not(:disabled){opacity:.9;}
 #login-err{color:var(--red);font-size:12px;margin-top:8px;min-height:16px;}
-#login-diag{margin-top:12px;text-align:left;background:#040c18;border:1px solid var(--border);border-radius:8px;padding:10px;font-size:10px;font-family:monospace;color:var(--muted);max-height:140px;overflow-y:auto;display:none;}
+
 .ldiag-btn{margin-top:8px;background:none;border:none;color:var(--dark);font-size:10px;cursor:pointer;font-family:inherit;}
 
 /* TOPBAR */
@@ -227,12 +227,16 @@ textarea{resize:vertical;min-height:60px;}
 <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'></script>
 <script src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src='basket-core.js?v=20260321_1101'></script>
+    <script src='basket-core.js?v=20260321_1101' onerror="alert('ERRORE: basket-core.js non trovato. Ricaricare la pagina o verificare la connessione.')"></script>
+    <script>
+    if(typeof _diagToggle==='undefined'){
+      window._diagToggle=function(){alert('basket-core.js non caricato.\nVerifica connessione e aggiorna la pagina.');};
+    }
+    </script>
 </head>
 <body>
 
 
-<!-- DIAGNOSTICA -->
 
 <div id="toast-msg"></div>
 
@@ -246,8 +250,8 @@ textarea{resize:vertical;min-height:60px;}
   <div class='lfield'><label>Password</label><input type='password' id='login-pwd' placeholder='Password' autocomplete='current-password' onkeydown="if(event.key==='Enter')doLogin()"></div>
   <button id='login-btn' onclick='doLogin()'>Accedi</button>
   <div id='login-err'></div>
-  <div id='login-diag'><div style='color:var(--gold);font-weight:bold;margin-bottom:4px'>Diagnostica</div><div id='login-diag-log'></div></div>
-  <button class='ldiag-btn' onclick="var d=g('login-diag');d.style.display=d.style.display==='block'?'none':'block'">Mostra/nascondi diagnostica</button>
+  
+  <button class='ldiag-btn' onclick="_diagToggle()" style="min-height:44px;padding:10px 20px;background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;border-radius:8px;font-size:13px;cursor:pointer;width:100%;margin-top:4px">🔧 Diagnostica</button>
 </div></div>
 
 <!-- TOPBAR -->
@@ -3004,11 +3008,20 @@ function col(r,nome){var i=headers.indexOf(nome);return i>=0?(r.split('\t')[i]||
 
 
 buildSearchIndex();
-if(document.readyState==='loading'){
-  document.addEventListener('DOMContentLoaded',function(){fbInit();});
-}else{
+function _avviaApp(){
+  // Apri diagnostica automaticamente finché non loggato
+  if(typeof _diagShow==='function') _diagShow();
   fbInit();
 }
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded', _avviaApp);
+}else{
+  _avviaApp();
+}
+// Chiudi diagnostica dopo login riuscito
+window._onAuthOK = function(user){
+  if(typeof _diagHide==='function') _diagHide();
+};
 if(navigator.share&&navigator.canShare){
   var _bc=document.getElementById('btn-condividi');
   if(_bc)_bc.style.display='inline-block';
