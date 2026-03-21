@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.1 · 21/03/2026 23:44<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.2 · 21/03/2026 23:53<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v9.1 · 21/03/2026 23:44</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v9.2 · 21/03/2026 23:53</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -355,7 +355,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v9.1 · 21/03/2026 23:44";
+var BUILD_VERSION = "v9.2 · 21/03/2026 23:53";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1371,7 +1371,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v9.1 · 21/03/2026 23:44";
+var BUILD_VERSION="v9.2 · 21/03/2026 23:53";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1874,17 +1874,8 @@ function generaReportSoci(){
     return eta<18;
   }
   // Escludi ritirati/Ex
-  // Diagnostica: campiona le iscrizioni del primo atleta
-  var _campione=(DB.atleti||[]).find(function(a){return a.iscrizioni&&a.iscrizioni.length>0;});
-  if(_campione){
-    var _isc0=_campione.iscrizioni[0];
-    log('DIAG iscrizione campione: anno='+JSON.stringify(_isc0.anno)+' fed='+_isc0.fed+' tipo='+typeof _isc0.anno,'info');
-    log('DIAG annata cercata: '+JSON.stringify(annata)+' tipo='+typeof annata,'info');
-    log('DIAG totale atleti con iscrizioni: '+(DB.atleti||[]).filter(function(a){return a.iscrizioni&&a.iscrizioni.length>0;}).length,'info');
-  }
   var iscritti=(DB.atleti||[]).filter(function(a){
-    return !a.ritirato && a.cat!=='Ex' &&
-      (a.iscrizioni||[]).some(function(i){return i.anno===annata;});
+    return (a.iscrizioni||[]).some(function(i){return i.anno===annata;});
   });
   if(!iscritti.length){log('Nessun socio per l\'annata '+annata,'warn');return;}
   var stagione=annata;
@@ -1947,7 +1938,7 @@ function _renderReportSoci(){
     atleti.sort(function(a,b){return a.cog.localeCompare(b.cog)||a.nom.localeCompare(b.nom);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
-      var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
+      var flag=(a._flagMagg?' <span class="flag">★</span>':'')+(a.ritirato?' <span style="color:#e07040;font-size:10px">(rit.)</span>':''),s10='style="font-size:10px"';
       t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,d.annata||d.stagione,d.annata||d.stagione)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.annata||d.stagione)+'</td>':'')+'</tr>';
     });
     t+='</tbody></table>';return t;
@@ -1963,7 +1954,7 @@ function _renderReportSoci(){
     arr.sort(function(a,b){return a.cog.localeCompare(b.cog);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
-      var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
+      var flag=(a._flagMagg?' <span class="flag">★</span>':'')+(a.ritirato?' <span style="color:#e07040;font-size:10px">(rit.)</span>':''),s10='style="font-size:10px"';
       html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,d.annata||d.stagione,d.annata||d.stagione)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.annata||d.stagione)+'</td>':'')+'</tr>';
     });
     html+='</tbody></table>';
@@ -2747,17 +2738,8 @@ function generaReportSoci(){
     return eta<18;
   }
   // Escludi ritirati/Ex
-  // Diagnostica: campiona le iscrizioni del primo atleta
-  var _campione=(DB.atleti||[]).find(function(a){return a.iscrizioni&&a.iscrizioni.length>0;});
-  if(_campione){
-    var _isc0=_campione.iscrizioni[0];
-    log('DIAG iscrizione campione: anno='+JSON.stringify(_isc0.anno)+' fed='+_isc0.fed+' tipo='+typeof _isc0.anno,'info');
-    log('DIAG annata cercata: '+JSON.stringify(annata)+' tipo='+typeof annata,'info');
-    log('DIAG totale atleti con iscrizioni: '+(DB.atleti||[]).filter(function(a){return a.iscrizioni&&a.iscrizioni.length>0;}).length,'info');
-  }
   var iscritti=(DB.atleti||[]).filter(function(a){
-    return !a.ritirato && a.cat!=='Ex' &&
-      (a.iscrizioni||[]).some(function(i){return i.anno===annata;});
+    return (a.iscrizioni||[]).some(function(i){return i.anno===annata;});
   });
   if(!iscritti.length){log('Nessun socio per l\'annata '+annata,'warn');return;}
   var stagione=annata;
