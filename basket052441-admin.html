@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v7.2 · 21/03/2026 18:55<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v7.3 · 21/03/2026 19:11<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v7.2 · 21/03/2026 18:55</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v7.3 · 21/03/2026 19:11</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -355,7 +355,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v7.2 · 21/03/2026 18:55";
+var BUILD_VERSION = "v7.3 · 21/03/2026 19:11";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1329,7 +1329,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v7.2 · 21/03/2026 18:55";
+var BUILD_VERSION="v7.3 · 21/03/2026 19:11";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1374,10 +1374,12 @@ function connectDB(){
         if(typeof _initReportStagioni==='function')_initReportStagioni();
         var n=(DB&&DB.atleti)?DB.atleti.length:0;
         log('DB: '+n+' atleti.','ok');
-        setDot('ok'); setBtns(true); document.getElementById('btn-connect').disabled=false;
+        setDot('ok'); setBtns(true);
+        var btn=document.getElementById('btn-connect');
+        if(btn){btn.textContent='Disconnetti Firebase';btn.onclick=function(){DB=null;setDot('');setBtns(false);btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;log('DB disconnesso.','warn');}; btn.disabled=false;}
       };
       loadDB();
-      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&document.getElementById('btn-connect').disabled){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); document.getElementById('btn-connect').disabled=false; } else if(document.getElementById('btn-connect').disabled){ log('Firebase connesso. In attesa dati...','info'); } },3000);
+      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&document.getElementById('btn-connect').disabled){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); var _b=document.getElementById('btn-connect'); if(_b){_b.textContent='Disconnetti Firebase';_b.onclick=function(){DB=null;setDot('');setBtns(false);_b.textContent='Connetti Firebase';_b.onclick=connectDB;_b.disabled=false;log('DB disconnesso.','warn');};_b.disabled=false;} } else if(document.getElementById('btn-connect').disabled){ log('Firebase connesso. In attesa dati...','info'); } },3000);
     },
     function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot(''); document.getElementById('btn-connect').disabled=false; }
   );
@@ -1700,11 +1702,12 @@ window._onAuthOK = function(user){
 window._onAuthLogout=function(){
   log('Sessione terminata.','warn');
   setDot(''); setBtns(false);
-  // Torna alla schermata login
   var loginScr=document.getElementById('login-scr');
   var mainScr=document.getElementById('main-scr');
   if(mainScr) mainScr.style.display='none';
   if(loginScr) loginScr.style.display='';
+  var btn=document.getElementById('btn-connect');
+  if(btn){btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;}
 };
 
 // Avvio automatico Firebase Auth
@@ -1841,7 +1844,7 @@ function generaReportSoci(){
       res:arr.filter(function(a){return _comuneAtleta(a).indexOf(comuneRef)>-1;}).length,
       noRes:arr.filter(function(a){return _comuneAtleta(a).indexOf(comuneRef)<0;}).length};
   }
-  window._rptData={stagione:annata,annoInizio:annoInizio,annoFine:annoFine,comuneRef:comuneRef,dataStampa:dataStampa,
+  window._rptData={stagione:annata,annata:annata,annoInizio:annoInizio,annoFine:annoFine,comuneRef:comuneRef,dataStampa:dataStampa,
     maggiorenni:maggiorenni,minorenni:minorenni,perAnno:perAnno,perAnnoStat:perAnnoStat,
     statMagg:stat(maggiorenni),statMin:stat(minorenni),statTot:stat(iscritti)};
   _renderReportSoci();
@@ -1882,7 +1885,7 @@ function _renderReportSoci(){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,d.annata,d.annata)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.annata)+'</td>':'')+'</tr>';
     });
     t+='</tbody></table>';return t;
   }
@@ -1898,7 +1901,7 @@ function _renderReportSoci(){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,d.annata,d.annata)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.annata)+'</td>':'')+'</tr>';
     });
     html+='</tbody></table>';
   });
@@ -1940,8 +1943,8 @@ function esportaReportSociCSV(){
       if(CHDR.telefono)row.push(_telefonoAtleta(a));
       if(CHDR.email)row.push(_emailAtleta(a));
       if(CHDR.tutore)row.push(_tutoreAtleta(a));
-      if(CHDR.dataiscrizione)row.push(_dataIscrizioneAtleta(a,annata_prec,annata_curr));
-      if(CHDR.note)row.push(_noteIscrizione(a,d.stagione));
+      if(CHDR.dataiscrizione)row.push(_dataIscrizioneAtleta(a,d.annata,d.annata));
+      if(CHDR.note)row.push(_noteIscrizione(a,d.annata));
       row.push(a._flagMagg?"SI":"NO");
       rows.push(row);
     });
@@ -2195,7 +2198,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v7.2 · 21/03/2026 18:55";
+var BUILD_VERSION = "v7.3 · 21/03/2026 19:11";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -2240,7 +2243,7 @@ function connectDB(){
         if(typeof _initReportStagioni==='function')_initReportStagioni();
         log('DB: '+((DB&&DB.atleti)?DB.atleti.length:0)+' atleti.','ok');
       loadDB();
-      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&document.getElementById('btn-connect').disabled){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); document.getElementById('btn-connect').disabled=false; } },3000);
+      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&document.getElementById('btn-connect').disabled){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); var _b=document.getElementById('btn-connect'); if(_b){_b.textContent='Disconnetti Firebase';_b.onclick=function(){DB=null;setDot('');setBtns(false);_b.textContent='Connetti Firebase';_b.onclick=connectDB;_b.disabled=false;log('DB disconnesso.','warn');};_b.disabled=false;} } },3000);
     },
     function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot(''); document.getElementById('btn-connect').disabled=false; }
   );
@@ -2560,7 +2563,16 @@ window._onAuthOK = function(user){
   },3000);
   window._onDBLoaded=function(){ clearTimeout(_t); window._onDBLoaded=null; if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+((DB&&DB.atleti)?DB.atleti.length:0)+' atleti.','ok'); setDot('ok'); setBtns(true); };
 };
-window._onAuthLogout=function(){ log('Sessione terminata.','warn'); setDot(''); setBtns(false); };
+window._onAuthLogout=function(){
+  log('Sessione terminata.','warn'); setDot(''); setBtns(false);
+  var loginScr=document.getElementById('login-scr');
+  var mainScr=document.getElementById('main-scr');
+  if(mainScr) mainScr.style.display='none';
+  if(loginScr) loginScr.style.display='';
+  // Reset pulsante connetti
+  var btn=document.getElementById('btn-connect');
+  if(btn){btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;}
+};
 
 // Avvio automatico Firebase Auth
 window.addEventListener('load',function(){
@@ -2630,7 +2642,7 @@ function _tutoreAtleta(a){var c=(a.tutCog||'').trim(),n=(a.tutNom||'').trim();if
 function _certAtleta(a){if(!a.cs)return'—';var cs=a.cs;if(cs.indexOf('/')>-1){var p=cs.split('/');return p[2]+'/'+p[1]+'/'+p[0];}return cs;}
 function _noteIscrizione(a,stagione){var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});return isc?(isc.note||''):'';}
 
-function _dataIscrizioneAtleta(a,annata_prec,annata_curr){
+function _dataIscrizioneAtleta(a,d.annata,d.annata){
   var iscs=(a.iscrizioni||[]).filter(function(i){return i.anno===annata_prec||i.anno===annata_curr;});
   if(!iscs.length)return'—';
   // Ordina per data e prendi la più antica
@@ -2717,7 +2729,7 @@ function _renderReportSoci(){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      t+='<tr class="'+classeRiga+'"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,d.annata,d.annata)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.annata)+'</td>':'')+'</tr>';
     });
     t+='</tbody></table>';return t;
   }
@@ -2734,7 +2746,7 @@ function _renderReportSoci(){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=a._flagMagg?' <span class="flag">★</span>':'',s10='style="font-size:10px"';
-      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,annata_prec,annata_curr)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.stagione)+'</td>':'')+'</tr>';
+      html+='<tr class="min-row"><td class="left">'+a.cog+' '+a.nom+flag+'</td><td>'+dn+'</td><td>'+((a.sex||'M')==='M'?'M':'F')+'</td><td '+s10+'>'+(a.cf||'—')+'</td>'+(C.indirizzo?'<td class="left" '+s10+'>'+(_indirizzoCompleto(a)||com)+'</td>':'<td>'+com+'</td>')+'<td>'+cat+'</td><td>'+fed+'</td>'+(C.dataiscrizione?'<td>'+_dataIscrizioneAtleta(a,d.annata,d.annata)+'</td>':'')+(C.certmedico?'<td>'+_certAtleta(a)+'</td>':'')+(C.telefono?'<td '+s10+'>'+_telefonoAtleta(a)+'</td>':'')+(C.email?'<td '+s10+'>'+_emailAtleta(a)+'</td>':'')+(C.tutore?'<td '+s10+'>'+_tutoreAtleta(a)+'</td>':'')+(C.note?'<td '+s10+'>'+_noteIscrizione(a,d.annata)+'</td>':'')+'</tr>';
     });
     html+='</tbody></table>';
   });
