@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════
 // basket-core.js — ASD Basket Campodarsego
 // Libreria condivisa per tutti i moduli
-// Versione: v4.8 — Build 21/03/2026
+// Versione: v4.9 — Build 21/03/2026
 // ════════════════════════════════════════════════════════
 
 // ── COSTANTI IMMAGINI ──
@@ -13,7 +13,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
-var BUILD_VERSION = "v4.8";
+var BUILD_VERSION = "v4.9";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -23,6 +23,132 @@ var BANCA_DATA = [], BANCA_SEL = {};
 var _ricTipo = "detraibile", _ricDati = null, _ricNumeroCorrente = null;
 var _LOGO_READY = null, _FIRMA_READY = null;
 var _searchIndex = null;
+
+// ════════════════════════════════════════════════════════
+// PANNELLO DIAGNOSTICA — iniettato a runtime
+// Attivazione: scuotere il telefono o triplo tap su logo, o ?diag nell'URL
+// ════════════════════════════════════════════════════════
+
+var _diagLines = [];
+var _diagVisible = false;
+var _diagPanel = null;
+
+function _diagLog(msg, color){
+  var ts = new Date().toLocaleTimeString('it-IT');
+  _diagLines.push({ts:ts, msg:String(msg), color:color||'#c8d8e8'});
+  if(_diagLines.length > 200) _diagLines.shift();
+  if(_diagVisible && _diagPanel) _diagRender();
+  // Anche console
+  console.log('[DIAG '+ts+'] '+msg);
+}
+
+function _diagRender(){
+  if(!_diagPanel) return;
+  var log = _diagPanel.querySelector('#_diag_log');
+  if(!log) return;
+  log.innerHTML = _diagLines.slice().reverse().map(function(l){
+    return '<div style="padding:2px 0;border-bottom:1px solid #1a2a3a;color:'+l.color+';font-size:11px">'+
+      '<span style="color:#4a6a8a;margin-right:6px">'+l.ts+'</span>'+
+      l.msg.replace(/</g,'&lt;')+'</div>';
+  }).join('');
+}
+
+function _diagCreate(){
+  if(_diagPanel) return;
+  var el = document.createElement('div');
+  el.id = '_diag_panel';
+  el.style.cssText = [
+    'position:fixed','bottom:0','left:0','right:0',
+    'max-height:50vh','background:#060e18',
+    'border-top:2px solid #c8a84b','z-index:99999',
+    'display:flex','flex-direction:column',
+    'font-family:monospace','transition:transform .3s',
+  ].join(';');
+  el.innerHTML =
+    '<div style="display:flex;align-items:center;padding:6px 10px;background:#0d1a2a;border-bottom:1px solid #1a2a3a;min-height:44px">' +
+      '<span style="color:#c8a84b;font-weight:bold;font-size:13px;flex:1">🔧 Diagnostica</span>' +
+      '<span id="_diag_fb" style="font-size:10px;margin-right:12px;color:#4a6a8a">Firebase: —</span>' +
+      '<span id="_diag_db" style="font-size:10px;margin-right:12px;color:#4a6a8a">DB: —</span>' +
+      '<button onclick="_diagClear()" style="background:#1a2a3a;border:none;color:#8a9aaa;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;min-width:44px;min-height:44px;margin-right:6px">🗑</button>' +
+      '<button onclick="_diagCopy()" style="background:#1a2a3a;border:none;color:#8a9aaa;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:11px;min-width:44px;min-height:44px;margin-right:6px">📋</button>' +
+      '<button onclick="_diagHide()" style="background:#8a2a2a;border:none;color:#ffaaaa;padding:6px 10px;border-radius:4px;cursor:pointer;font-size:13px;min-width:44px;min-height:44px">✕</button>' +
+    '</div>' +
+    '<div id="_diag_log" style="overflow-y:auto;flex:1;padding:6px 10px"></div>';
+  document.body.appendChild(el);
+  _diagPanel = el;
+}
+
+function _diagShow(){
+  _diagCreate();
+  _diagVisible = true;
+  _diagPanel.style.display = 'flex';
+  _diagUpdateStatus();
+  _diagRender();
+}
+
+function _diagHide(){
+  _diagVisible = false;
+  if(_diagPanel) _diagPanel.style.display = 'none';
+}
+
+function _diagToggle(){
+  if(_diagVisible) _diagHide(); else _diagShow();
+}
+
+function _diagClear(){
+  _diagLines = [];
+  _diagRender();
+}
+
+function _diagCopy(){
+  var txt = _diagLines.map(function(l){return l.ts+' '+l.msg;}).join('\n');
+  navigator.clipboard ? navigator.clipboard.writeText(txt) : (function(){
+    var ta=document.createElement('textarea');
+    ta.value=txt; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+  })();
+  _diagLog('Log copiato negli appunti (' + _diagLines.length + ' righe)', '#22a85a');
+}
+
+function _diagUpdateStatus(){
+  if(!_diagPanel) return;
+  var fb = _diagPanel.querySelector('#_diag_fb');
+  var db = _diagPanel.querySelector('#_diag_db');
+  if(fb) fb.innerHTML = 'Firebase: <span style="color:'+(_fbReady?'#22a85a':'#e03545')+'">'+(_fbReady?'OK':'OFF')+'</span>';
+  if(db){
+    var nAtl = DB&&DB.atleti?DB.atleti.length:0;
+    db.innerHTML = 'DB: <span style="color:'+( nAtl>0?'#22a85a':'#e03545')+'">'+( nAtl>0?nAtl+' atleti':'vuoto')+'</span>';
+  }
+}
+
+// Attivazione: triplo tap su documento o ?diag nell'URL
+(function(){
+  // URL param
+  if(window.location.search.indexOf('diag')>-1){ 
+    window.addEventListener('load', function(){ setTimeout(_diagShow, 500); });
+  }
+  // Triplo tap rapido
+  var _taps=0, _tapTimer=null;
+  document.addEventListener('touchstart', function(e){
+    if(e.touches.length===3){
+      _taps++;
+      clearTimeout(_tapTimer);
+      _tapTimer=setTimeout(function(){_taps=0;},600);
+      if(_taps>=2){ _diagToggle(); _taps=0; }
+    }
+  });
+  // Scorciatoia tastiera: Ctrl+Shift+D
+  document.addEventListener('keydown', function(e){
+    if(e.ctrlKey&&e.shiftKey&&e.key==='D'){ e.preventDefault(); _diagToggle(); }
+  });
+})();
+
+// Aggiorna stato ogni 5 secondi quando visibile
+setInterval(function(){
+  if(_diagVisible) _diagUpdateStatus();
+}, 5000);
+
 
 // ── FIREBASE CONFIG ──
 var _fbConfig={apiKey:"AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",authDomain:"basket052441.firebaseapp.com",projectId:"basket052441",storageBucket:"basket052441.appspot.com",messagingSenderId:"708269881035",appId:"1:708269881035:web:62a9d32bad5de2c68d0d4e"};
@@ -314,6 +440,43 @@ function fbInit() {
     _fbReady = false;
   }
 }
+
+// ── Firebase init per Admin (solo Firestore, senza Auth flow) ──
+function fbInitAdmin(onReady, onError) {
+  _diagLog("fbInitAdmin() avviato");
+  try {
+    _diagLog("Firebase SDK: "+(typeof firebase !== "undefined" ? "OK" : "NON TROVATO"), "#c8a84b");
+    if(typeof firebase === "undefined") {
+      var msg = "Firebase SDK non caricato. Verifica connessione internet.";
+      _diagLog(msg, "#e03545");
+      if(onError) onError(msg); return;
+    }
+    if(!firebase.apps.length) {
+      var cfg = {
+        apiKey:"AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",
+        authDomain:"basket052441.firebaseapp.com",
+        projectId:"basket052441",
+        storageBucket:"basket052441.appspot.com",
+        messagingSenderId:"708269881035",
+        appId:"1:708269881035:web:62a9d32bad5de2c68d0d4e"
+      };
+      _fbApp = firebase.initializeApp(cfg);
+      _diagLog("App Firebase inizializzata", "#22a85a");
+    } else {
+      _fbApp = firebase.app();
+      _diagLog("App Firebase già attiva", "#22a85a");
+    }
+    _db = firebase.firestore();
+    _fbReady = true;
+    _diagLog("Firestore pronto", "#22a85a");
+    if(onReady) onReady();
+  } catch(e) {
+    _diagLog("ERRORE fbInitAdmin: "+e.message, "#e03545");
+    _fbReady = false;
+    if(onError) onError(e.message);
+  }
+}
+
 
 function loadDB(){
   diag("loadDB: carico da localStorage...");

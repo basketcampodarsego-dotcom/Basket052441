@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Basket052441 — Admin DB v4.8</title>
+<title>Basket052441 — Admin DB v4.9</title>
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:Arial,sans-serif;background:#0d1a2a;color:#c8d8e8;min-height:100vh;padding:20px;}
@@ -58,7 +58,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v4.8 · 21/03/2026</div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v4.9 · 21/03/2026</div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -72,9 +72,9 @@
 </div>
 
 <div id="main-scr" style="display:none">
-<h1>⚙️ Basket052441 — Admin DB</h1>
+<h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:none;border:1px solid #2a3a4a;color:#4a6a8a;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:6px;min-height:44px;vertical-align:middle;margin-left:8px">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v4.8 · 21/03/2026</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v4.9 · 21/03/2026</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -272,6 +272,12 @@ return false; // non salvare"></textarea>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <script>
+// diag() = alias verso pannello diagnostica (non confondere con log() admin)
+function diag(msg, tipo){ 
+  _diagLog(msg, tipo==='ok'?'#22a85a':tipo==='err'?'#e03545':tipo==='warn'?'#c8a84b':'#c8d8e8'); 
+}
+
+
 // Variabili core (DB, _db, _fbReady, _fbConfig) ereditate da basket-core.js
 var FB_COL = 'basket052441';
 
@@ -296,31 +302,61 @@ function setBtns(on){
 // --- CONNESSIONE ---
 // function doLogin → basket-core.js
 
-function connectDB() {
-  log('Admin v4.8 · 21/03/2026','info');
-  log('Connessione a Firebase...','info');
+function connectDB(){
+  log('Admin v4.9 · 21/03/2026','info');
+  log('Connessione a Firebase in corso...','info');
   setDot('loading');
-  document.getElementById('btn-connect').disabled=true;
-  // Usa fbInit() del core che gestisce Firebase Auth + Firestore
-  fbInit();
-  if(!_fbReady){ log('Errore inizializzazione Firebase','err'); setDot(''); document.getElementById('btn-connect').disabled=false; return; }
-  _db = window._db || firebase.firestore();
-  // Carica DB via core loadDB (async via Firebase)
-  loadDB();
-  // Attendi caricamento e poi aggiorna UI
-  setTimeout(function(){
-    if(DB && DB.atleti && DB.atleti.length > 0){
-      _initReportStagioni();
-      log('Connesso. Atleti: '+DB.atleti.length+', Pagamenti: '+Object.keys(DB.pagamenti||{}).length,'ok');
-      setDot('ok');
-      setBtns(true);
-    } else {
-      log('Connesso ma DB vuoto — attendere sincronizzazione Firebase...','warn');
-      setDot('warn');
-      setBtns(true);
+  document.getElementById('btn-connect').disabled = true;
+
+  fbInitAdmin(
+    function onReady(){
+      // Firebase pronto — carica DB
+      log('Firebase connesso. Carico DB...','info');
+      setDot('loading');
+      // loadDB è asincrono via Firebase — usa callback interno
+      var _timeout = setTimeout(function(){
+        log('Timeout caricamento DB (10s). Verifica connessione.','warn');
+        setDot('warn');
+        setBtns(true);
+        document.getElementById('btn-connect').disabled = false;
+      }, 10000);
+
+      // Override temporaneo di saveDB per intercettare il caricamento iniziale
+      var _origLoaded = window._onDBLoaded;
+      window._onDBLoaded = function(){
+        clearTimeout(_timeout);
+        window._onDBLoaded = _origLoaded;
+        _initReportStagioni();
+        var nAtl = (DB&&DB.atleti)?DB.atleti.length:0;
+        var nPag = DB?Object.keys(DB.pagamenti||{}).length:0;
+        _diagLog('DB caricato: '+nAtl+' atleti, '+nPag+' con pagamenti', '#22a85a');
+        log('DB caricato: '+nAtl+' atleti, '+nPag+' atleti con pagamenti.','ok');
+        setDot('ok');
+        setBtns(true);
+        document.getElementById('btn-connect').disabled = false;
+      };
+
+      loadDB();
+
+      // Fallback se _onDBLoaded non viene mai chiamato
+      setTimeout(function(){
+        if(DB && DB.atleti && DB.atleti.length > 0 && document.getElementById('btn-connect').disabled){
+          clearTimeout(_timeout);
+          _initReportStagioni();
+          log('DB disponibile: '+DB.atleti.length+' atleti.','ok');
+          setDot('ok');
+          setBtns(true);
+          document.getElementById('btn-connect').disabled = false;
+        }
+      }, 3000);
+    },
+    function onError(msg){
+      _diagLog('ERRORE Firebase: '+msg, '#e03545');
+      log('ERRORE Firebase: '+msg,'err');
+      setDot('');
+      document.getElementById('btn-connect').disabled = false;
     }
-    document.getElementById('btn-connect').disabled=false;
-  }, 2500);
+  );
 }
 
 // --- SALVA ---
