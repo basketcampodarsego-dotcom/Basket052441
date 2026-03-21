@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v6.9 · 21/03/2026 18:09<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v7.0 · 21/03/2026 18:34<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v6.9 · 21/03/2026 18:09</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v7.0 · 21/03/2026 18:34</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -353,7 +353,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v6.9 · 21/03/2026 18:09";
+var BUILD_VERSION = "v7.0 · 21/03/2026 18:34";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1327,7 +1327,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION="v6.9 · 21/03/2026 18:09";
+var BUILD_VERSION="v7.0 · 21/03/2026 18:34";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -1830,14 +1830,14 @@ function generaReportSoci(){
   // Per statistiche: una categoria per atleta (la principale)
   var perAnnoStat={};
   minorenni.forEach(function(a){
-    var cat=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno(a,stagione)||'—'):'—';
+    var cat=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno(a,annata_prec)||'—'):'—';
     if(!perAnnoStat[cat])perAnnoStat[cat]=[];perAnnoStat[cat].push(a);
   });
   // Per elenco: tutte le categorie (atleta può apparire in più riquadri)
   var perAnno={};
   minorenni.forEach(function(a){
-    var cats=(typeof _catMultiplaAtleta==='function')?_catMultiplaAtleta(a,stagione):[];
-    if(!cats||!cats.length)cats=[_catAtleta(a,stagione)||'—'];
+    var cats=(typeof _catMultiplaAtleta==='function')?_catMultiplaAtleta(a,annata_prec):[];
+    if(!cats||!cats.length)cats=[_catAtleta(a,annata_prec)||'—'];
     cats.forEach(function(cat){if(!perAnno[cat])perAnno[cat]=[];perAnno[cat].push(a);});
   });
   // Ordine categorie standard
@@ -2207,7 +2207,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v6.9 · 21/03/2026 18:09";
+var BUILD_VERSION = "v7.0 · 21/03/2026 18:34";
 
 // var DB = null; → core
 // var _db = null; → core
@@ -2663,14 +2663,14 @@ function generaReportSoci(){
   // Per statistiche: una categoria per atleta (la principale)
   var perAnnoStat={};
   minorenni.forEach(function(a){
-    var cat=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno(a,stagione)||'—'):'—';
+    var cat=(typeof _catAtletaPerAnno==='function')?(_catAtletaPerAnno(a,annata_prec)||'—'):'—';
     if(!perAnnoStat[cat])perAnnoStat[cat]=[];perAnnoStat[cat].push(a);
   });
   // Per elenco: tutte le categorie (atleta può apparire in più riquadri)
   var perAnno={};
   minorenni.forEach(function(a){
-    var cats=(typeof _catMultiplaAtleta==='function')?_catMultiplaAtleta(a,stagione):[];
-    if(!cats||!cats.length)cats=[_catAtleta(a,stagione)||'—'];
+    var cats=(typeof _catMultiplaAtleta==='function')?_catMultiplaAtleta(a,annata_prec):[];
+    if(!cats||!cats.length)cats=[_catAtleta(a,annata_prec)||'—'];
     cats.forEach(function(cat){if(!perAnno[cat])perAnno[cat]=[];perAnno[cat].push(a);});
   });
   function stat(arr){
