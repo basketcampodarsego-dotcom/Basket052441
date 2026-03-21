@@ -13,7 +13,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
-var BUILD_VERSION = "v4.9";
+var BUILD_VERSION = "v5.0 · 21/03/2026 11:01";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -337,19 +337,7 @@ function diag(msg, type) {
   console.log('[DIAG '+type.toUpperCase()+'] '+msg);
 }
 
-function _diagLog(msg, color) {
-  var el = document.getElementById("login-diag-log");
-  if(!el) { console.log("[DIAG] "+msg); return; }
-  var ts = new Date().toLocaleTimeString("it-IT");
-  var d = document.createElement("div");
-  d.style.cssText = "padding:2px 0;border-bottom:1px solid #1e3050;color:"+(color||"#7a8fa8");
-  d.textContent = "["+ts+"] "+msg;
-  el.appendChild(d);
-  el.scrollTop = el.scrollHeight;
-  var panel = document.getElementById("login-diag");
-  if(panel) panel.style.display = "block";
-  console.log("[DIAG] "+msg);
-}
+
 
 function diagToggle(){
   var p=document.getElementById('diag-panel');
@@ -636,7 +624,13 @@ function buildRicevutaDoc(a, pagsAnno, det, annoForzato){
   var nomeFisc=det?(((a.tutCog||"")+" "+(a.tutNom||"")).trim()||(a.gen||"")||(a.cog+" "+a.nom)):(a.cog+" "+a.nom);
   var cfFisc=det?(a.tutCf||a.cfTut||a.cf):a.cf;
   var cats={Pulcini:"MINIBASKET",Scoiattoli:"MINIBASKET",Aquilotti:"MINIBASKET",Esordienti:"MINIBASKET",Special:"SPECIAL OLYMPICS",AmaBasket:"BASKET",AmaVolley:"PALLAVOLO",Dirigente:"ATTIVITA\' DIRIGENZIALE",Volontario:"ATTIVITA\' VOLONTARIATO"};
-  var causale="QUOTA ATTIVITA\' SPORTIVA "+(cats[a.cat]||"BASKET");
+  // Categoria dell'atleta nell'annata sportiva corrispondente all'anno solare della ricevuta
+  var annoSolareRic=anno||(new Date().getFullYear().toString());
+  var annoBaseRic=parseInt(annoSolareRic);
+  var mese=new Date().getMonth()+1;
+  var stagRic=annoBaseRic+"-"+String(annoBaseRic+1).slice(-2);
+  var catRic=_catAtletaPerAnno(a,stagRic)||a.cat||"";
+  var causale="QUOTA ATTIVITA\' SPORTIVA "+(cats[catRic]||"BASKET");
   var dn=a.dn||"";
   var dnFmt=dn.indexOf("-")>-1?dn.split("-").reverse().join("/"):(dn.indexOf("/")>-1?dn:"");
   if(typeof arricchisciDaCF==="function")arricchisciDaCF(a);
@@ -659,7 +653,10 @@ function buildRicevutaDoc(a, pagsAnno, det, annoForzato){
   if(_LOGO_B64_APP)LOGO_SRC="data:image/jpeg;base64,"+_LOGO_B64_APP;
   if(_FIRMA_B64_APP)FIRMA_SRC="data:image/png;base64,"+_FIRMA_B64_APP;
   var docHTML=
-    '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>'+nomePDF+'</title>'+
+    '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0"><title>'+nomePDF+'</title>'+
     '<style>body{font-family:Arial,sans-serif;color:#111;margin:0;padding:0}'+
     '.pagina{max-width:650px;margin:0 auto;padding:14mm 16mm}table{border-collapse:collapse;width:100%}'+
     '.btn-print{display:block;margin:16px auto;padding:12px 30px;background:#1a2a4a;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer}'+
@@ -759,4 +756,219 @@ function buildSearchIndex() {
   DB.atleti.forEach(function(a) {
     _searchIndex[a.id] = (a.cog+" "+a.nom+" "+a.cf+" "+a.cat).toLowerCase();
   });
+}
+
+function _annoDaStagione(dataISO){
+  // Mappa una data ISO (AAAA-MM-GG) alla stagione sportiva (es. "2024-25")
+  // Stagione: settembre anno X → agosto anno X+1
+  if(!dataISO) return null;
+  var anno = parseInt(dataISO.substring(0,4));
+  var mese = parseInt(dataISO.substring(5,7));
+  var base = mese >= 9 ? anno : anno - 1;
+  return base + '-' + String(base+1).slice(-2);
+}
+
+function _stagioneCorrente(){
+  return _annoDaStagione(new Date().toISOString().split('T')[0]);
+}
+
+function _annoNascitaAtleta(a){
+  // Estrae anno di nascita dal campo dn (AAAA-MM-GG o GG/MM/AAAA)
+  if(a.dn){
+    var dn = a.dn;
+    if(dn.indexOf('-')>-1) return parseInt(dn.substring(0,4));
+    if(dn.indexOf('/')>-1){ var p=dn.split('/'); return parseInt(p[2]); }
+  }
+  // Fallback: dal CF (posizioni 6-7 = anno 2 cifre)
+  if(a.cf && a.cf.length>=8){
+    var aa = parseInt(a.cf.substring(6,8));
+    if(!isNaN(aa)) return aa <= 25 ? 2000+aa : 1900+aa;
+  }
+  return null;
+}
+
+function _catAtletaPerAnno(a, annoStr){
+  // Categoria principale di un atleta in una stagione specifica
+  var tabella = DB.categorie && DB.categorie[annoStr];
+  var annoNasc = _annoNascitaAtleta(a);
+  if(tabella && annoNasc){
+    for(var cat in tabella){
+      if(tabella[cat].indexOf(annoNasc) > -1) return cat;
+    }
+  }
+  // Categorie non vincolate all'età: leggi dall'iscrizione
+  var isc = a.iscrizioni && a.iscrizioni.find(function(i){return i.anno===annoStr;});
+  if(isc && isc.cat1) return isc.cat1;
+  return a.cat || '';
+}
+
+function _catMultiplaAtleta(a, annoStr){
+  // Array di tutte le categorie valide per un atleta in una stagione
+  // (un anno di nascita può stare in 2 categorie per overlap)
+  var tabella = DB.categorie && DB.categorie[annoStr];
+  var annoNasc = _annoNascitaAtleta(a);
+  var cats = [];
+  if(tabella && annoNasc){
+    for(var cat in tabella){
+      if(tabella[cat].indexOf(annoNasc) > -1) cats.push(cat);
+    }
+  }
+  if(!cats.length){
+    var isc = a.iscrizioni && a.iscrizioni.find(function(i){return i.anno===annoStr;});
+    if(isc && isc.cat1) cats.push(isc.cat1);
+    if(isc && isc.cat2 && cats.indexOf(isc.cat2)<0) cats.push(isc.cat2);
+    if(!cats.length && a.cat) cats.push(a.cat);
+  }
+  return cats;
+}
+
+function _calcolaStoricoAtleta(atletaId){
+  // Calcola storico presenze per stagione per un atleta
+  var a = DB.atleti.find(function(x){return x.id===atletaId;});
+  if(!a) return [];
+  // Raccogli tutte le stagioni in cui ha presenze o iscrizioni
+  var stagioni = {};
+  // Da iscrizioni
+  (a.iscrizioni||[]).forEach(function(isc){
+    if(!stagioni[isc.anno]) stagioni[isc.anno] = {anno:isc.anno, iscrizione:isc};
+    else stagioni[isc.anno].iscrizione = isc;
+  });
+  // Da presenze
+  DB.presenze.forEach(function(p){
+    if(p.atid !== atletaId) return;
+    var al = DB.allenamenti.find(function(x){return x.id===p.aid;});
+    if(!al) return;
+    var st = _annoDaStagione(al.data);
+    if(!st) return;
+    if(!stagioni[st]) stagioni[st] = {anno:st, iscrizione:null};
+    var s = stagioni[st];
+    if(!s.presenze) s.presenze = [];
+    s.presenze.push({data:al.data, stato:p.stato, cat:al.cat});
+  });
+  // Calcola aggregati per stagione
+  return Object.keys(stagioni).sort().reverse().map(function(st){
+    var s = stagioni[st];
+    var pres = s.presenze || [];
+    var nP = pres.filter(function(p){return p.stato==='P';}).length;
+    var nR = pres.filter(function(p){return p.stato==='R';}).length;
+    var nG = pres.filter(function(p){return p.stato==='G';}).length;
+    var nA = pres.filter(function(p){return p.stato==='A';}).length;
+    var tot = pres.length;
+    var catAnno = _catAtletaPerAnno(a, st);
+    var dateP = pres.map(function(p){return p.data;}).filter(Boolean).sort();
+    return {
+      anno: st,
+      cat: catAnno,
+      iscrizione: s.iscrizione,
+      nAllenamenti: tot,
+      nPresenze: nP,
+      nRitardi: nR,
+      nGiustificati: nG,
+      nAssenze: nA,
+      percPresenza: tot > 0 ? Math.round((nP+nR)/tot*100) : 0,
+      primaPresenza: dateP[0] || null,
+      ultimaPresenza: dateP[dateP.length-1] || null,
+    };
+  });
+}
+
+function _pagDuplicato(pags, nuovoPag){
+  // Duplicato = stessa data + stesso importo (tolleranza 0.01€)
+  return pags.some(function(p){
+    return p.data===nuovoPag.data && Math.abs((+p.importo||0)-(+nuovoPag.importo||0))<0.01;
+  });
+}
+
+function _pagAnno(pags, anno){
+  // Conta pagamenti per anno solare
+  return pags.filter(function(p){return p.data&&p.data.startsWith(anno);});
+}
+
+function _aggiungiPagamento(id, nuovoPag, report){
+  // report = array a cui appendere messaggi
+  if(!DB.pagamenti[id]) DB.pagamenti[id]=[];
+  var pags = DB.pagamenti[id];
+  var anno = nuovoPag.data?nuovoPag.data.substring(0,4):new Date().getFullYear().toString();
+  var pagsAnno = _pagAnno(pags, anno);
+  if(_pagDuplicato(pags, nuovoPag)){
+    report.push({tipo:'skip', msg:'Duplicato ignorato: '+esc(nuovoPag.data)+' €'+Number(nuovoPag.importo).toFixed(2)});
+    return false;
+  }
+  if(pagsAnno.length>=5){
+    report.push({tipo:'warn', msg:'Max 5 pagamenti/anno raggiunto per '+anno+': €'+Number(nuovoPag.importo).toFixed(2)+' non aggiunto'});
+    return false;
+  }
+  pags.push(nuovoPag);
+  report.push({tipo:'ok', msg:'Aggiunto: '+esc(nuovoPag.data)+' €'+Number(nuovoPag.importo).toFixed(2)+(nuovoPag.tipo?' ('+nuovoPag.tipo+')':'')});
+  return true;
+}
+
+function _mostraReportImport(titolo, righe){
+  var ok=righe.filter(function(r){return r.tipo==='ok';}).length;
+  var skip=righe.filter(function(r){return r.tipo==='skip';}).length;
+  var warn=righe.filter(function(r){return r.tipo==='warn';}).length;
+  var err=righe.filter(function(r){return r.tipo==='err';}).length;
+  var dubbi=righe.filter(function(r){return r.tipo==='dubbio';});
+
+  var h='<div style="margin-bottom:10px;display:flex;gap:12px;flex-wrap:wrap;font-size:13px">';
+  if(ok)   h+='<span style="color:#4aaa6a">&#10003; '+ok+' aggiunti</span>';
+  if(skip) h+='<span style="color:var(--muted)">&#8594; '+skip+' saltati (dup.)</span>';
+  if(warn) h+='<span style="color:#c8a84b">&#9888; '+warn+' avvisi</span>';
+  if(err)  h+='<span style="color:#cc4444">&#10060; '+err+' errori</span>';
+  h+='</div>';
+
+  if(dubbi.length){
+    h+='<div style="background:#1a2a0a;border:1px solid #4aaa6a;border-radius:8px;padding:10px;margin-bottom:10px">';
+    h+='<div style="font-weight:bold;color:#4aaa6a;margin-bottom:6px">&#10067; Casi da verificare ('+dubbi.length+')</div>';
+    dubbi.forEach(function(r){h+='<div style="font-size:12px;color:var(--text);padding:3px 0;border-bottom:1px solid #1a3a1a">'+r.msg+'</div>';});
+    h+='</div>';
+  }
+
+  h+='<div style="max-height:40vh;overflow-y:auto;font-size:11px">';
+  righe.forEach(function(r){
+    if(r.tipo==='dubbio')return;
+    var col=r.tipo==='ok'?'#4aaa6a':r.tipo==='skip'?'#555':r.tipo==='warn'?'#c8a84b':'#cc4444';
+    h+='<div style="padding:2px 0;border-bottom:1px solid #1a2a3a;color:'+col+'">'+r.msg+'</div>';
+  });
+  h+='</div>';
+
+  // Pulsante esporta CSV
+  h+='<div style="margin-top:10px;text-align:right">';
+  h+='<button class="btn btn-gray btn-sm" onclick="_esportaReportImport()">&#128196; Esporta CSV</button>';
+  h+='</div>';
+
+  window._lastImportReport = {titolo:titolo, righe:righe};
+
+  // Mostra in modal diagnostica o crea un div temporaneo
+  if(g('diag-panel')){
+    diag('=== REPORT: '+titolo+' ===','ok');
+    righe.forEach(function(r){diag(r.msg, r.tipo==='ok'?'ok':r.tipo==='warn'?'warn':r.tipo==='err'?'err':'');});
+  }
+  // Alert semplice + offerta CSV
+  var sommario=titolo+'\n';
+  if(ok)   sommario+='✓ '+ok+' aggiunti\n';
+  if(skip) sommario+='→ '+skip+' duplicati ignorati\n';
+  if(warn) sommario+='⚠ '+warn+' avvisi\n';
+  if(err)  sommario+='✗ '+err+' errori\n';
+  if(dubbi.length) sommario+='? '+dubbi.length+' casi da verificare\n';
+  alert(sommario);
+  if(dubbi.length && confirm('Vuoi esportare il report completo come CSV?')){
+    _esportaReportImport();
+  }
+}
+
+function _esportaReportImport(){
+  var r=window._lastImportReport;
+  if(!r)return;
+  var csv='Tipo,Messaggio\n';
+  r.righe.forEach(function(riga){
+    csv+='"'+riga.tipo+'","'+riga.msg.replace(/"/g,"'").replace(/<[^>]+>/g,'')+'"\n';
+  });
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var lnk=document.createElement('a');
+  lnk.href=url;
+  lnk.download='report_import_'+new Date().toISOString().substring(0,10)+'.csv';
+  document.body.appendChild(lnk);lnk.click();document.body.removeChild(lnk);
+  setTimeout(function(){URL.revokeObjectURL(url);},3000);
 }

@@ -2,6 +2,9 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Basket052441 — Admin DB v4.9</title>
 <style>
@@ -50,7 +53,36 @@
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js'></script>
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'></script>
   <!-- Core libreria condivisa -->
-  <script src='basket-core.js'></script>
+  <script src='basket-core.js?v=20260321_1101'></script>
+
+<script>
+// Registrazione Service Worker per aggiornamenti automatici cache
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('./sw.js').then(function(reg) {
+      // Controlla aggiornamenti ad ogni avvio
+      reg.update();
+      reg.addEventListener('updatefound', function() {
+        var newSW = reg.installing;
+        newSW.addEventListener('statechange', function() {
+          if(newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            // Nuova versione disponibile — ricarica automaticamente
+            _diagLog && _diagLog('Nuova versione rilevata — ricarico...', '#c8a84b');
+            setTimeout(function() { window.location.reload(); }, 1500);
+          }
+        });
+      });
+    }).catch(function(e) {
+      console.log('SW non registrato:', e);
+    });
+    // Se il SW ha preso controllo (nuovo attivato), ricarica una volta
+    var refreshed = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function() {
+      if(!refreshed) { refreshed = true; window.location.reload(); }
+    });
+  });
+}
+</script>
 </head>
 <body>
 
@@ -58,7 +90,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v4.9 · 21/03/2026</div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v5.0 · 21/03/2026 11:01<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -72,9 +104,9 @@
 </div>
 
 <div id="main-scr" style="display:none">
-<h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:none;border:1px solid #2a3a4a;color:#4a6a8a;font-size:14px;cursor:pointer;padding:6px 10px;border-radius:6px;min-height:44px;vertical-align:middle;margin-left:8px">🔧 Diag</button></h1>
+<h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v4.9 · 21/03/2026</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v5.0 · 21/03/2026 11:01</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -278,6 +310,42 @@ function diag(msg, tipo){
 }
 
 
+// Callback chiamata dal core dopo login Firebase riuscito
+window._onAuthOK = function(user){
+  _diagLog("Admin auth OK: "+user.email, "#22a85a");
+  log("Autenticato: "+user.email, "ok");
+  setDot("loading");
+  setBtns(false);
+  // loadDB è già chiamato dal core — attendiamo con fallback
+  var _t = setTimeout(function(){
+    var nAtl = DB&&DB.atleti ? DB.atleti.length : 0;
+    if(nAtl > 0){
+      _initReportStagioni();
+      log("DB caricato: "+nAtl+" atleti.", "ok");
+      setDot("ok"); setBtns(true);
+    } else {
+      log("DB in caricamento da Firebase...", "warn");
+      setDot("warn"); setBtns(true);
+    }
+  }, 3000);
+  // Intercetta completamento loadDB se possibile
+  window._onDBLoaded = function(){
+    clearTimeout(_t);
+    _initReportStagioni();
+    var nAtl = DB&&DB.atleti ? DB.atleti.length : 0;
+    log("DB caricato: "+nAtl+" atleti.", "ok");
+    setDot("ok"); setBtns(true);
+    window._onDBLoaded = null;
+  };
+};
+
+window._onAuthLogout = function(){
+  log("Sessione terminata.", "warn");
+  setDot("");
+  setBtns(false);
+};
+
+
 // Variabili core (DB, _db, _fbReady, _fbConfig) ereditate da basket-core.js
 var FB_COL = 'basket052441';
 
@@ -303,7 +371,7 @@ function setBtns(on){
 // function doLogin → basket-core.js
 
 function connectDB(){
-  log('Admin v4.9 · 21/03/2026','info');
+  log('Admin v4.9 · 21/03/2026 10:51','info');
   log('Connessione a Firebase in corso...','info');
   setDot('loading');
   document.getElementById('btn-connect').disabled = true;
@@ -1041,6 +1109,13 @@ function esportaReportSociCSV(){
   setTimeout(function(){URL.revokeObjectURL(url);},3000);
   log('CSV esportato: '+( rows.length-1)+' soci.','ok');
 }
+
+
+// Avvia Firebase Auth all'apertura della pagina
+window.addEventListener("load", function(){
+  _diagLog("Admin caricato — avvio fbInit...");
+  setTimeout(function(){ fbInit(); }, 200);
+});
 
 </script>
 </div><!-- /main-scr -->
