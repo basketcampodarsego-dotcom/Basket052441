@@ -409,32 +409,37 @@ function fbInit() {
     var auth = firebase.auth();
     _diagLog("Auth pronto, attendo stato utente...","#c8a84b");
     auth.onAuthStateChanged(function(user) {
+      var loginScr = document.getElementById("login-scr");
+      var mainScr  = document.getElementById("main-scr");
+      var authBadge = document.getElementById("auth-badge");
       if(user) {
-        _diagLog("Autenticato: "+user.email,"#22a85a"); diag("Login OK: "+user.email,"ok");
-        document.getElementById("login-scr").classList.add("hidden");
-        var b = document.getElementById("auth-badge");
-        if(b) { b.textContent = user.email; b.style.display = "inline-block"; }
-        // Assicura che dashboard sia visibile subito
-        document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active");});
-        var dp=document.getElementById("page-dashboard");
-        if(dp) dp.classList.add("active");
+        _diagLog("Autenticato: "+user.email,"#22a85a");
+        // Nascondi login
+        if(loginScr) loginScr.style.display = "none";
+        // Mostra contenuto principale — supporta sia app principale (main-scr) che admin
+        if(mainScr)  mainScr.style.display  = "block";
+        // Aggiorna badge
+        if(authBadge){ authBadge.textContent = user.email; authBadge.style.display = "inline-block"; }
+        // App principale: attiva page-dashboard se presente
+        var dp = document.getElementById("page-dashboard");
+        if(dp){
+          document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active");});
+          dp.classList.add("active");
+        }
+        // Carica DB
         loadDB();
+        // Callback personalizzata se definita dalla singola app
+        if(typeof window._onAuthOK === "function") window._onAuthOK(user);
       } else {
-        _diagLog("Nessun utente - mostra login","#7a8fa8");
-        document.getElementById("login-scr").classList.remove("hidden");
-        var b = document.getElementById("auth-badge");
-        if(b) b.style.display = "none";
+        _diagLog("Nessun utente — mostra login","#7a8fa8");
+        if(loginScr) loginScr.style.display = "";
+        if(mainScr)  mainScr.style.display  = "none";
+        if(authBadge) authBadge.style.display = "none";
+        if(typeof window._onAuthLogout === "function") window._onAuthLogout();
       }
     });
-    var _hidden=false;
-    document.addEventListener("visibilitychange", function() {
-      if(document.visibilityState === "hidden") {
-        _hidden = true;
-        setTimeout(function() { if(_hidden) firebase.auth().signOut(); }, 30000);
-      } else {
-        _hidden = false;
-      }
-    });
+    // Nessun logout automatico per inattività — sessione persistente
+    // firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL) è il default
   } catch(e) {
     _diagLog("ERRORE fbInit: "+e.message,"#e03545"); diag("ERRORE Firebase: "+e.message,"err");
     _fbReady = false;
