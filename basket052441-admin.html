@@ -94,11 +94,11 @@
 </head>
 <body>
 
-<div id="login-scr" style="max-width:360px;margin:80px auto;">
+<div id="login-scr" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.9 · 22/03/2026 23:41<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.10 · 22/03/2026 23:41<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -117,7 +117,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.9 · 22/03/2026 23:41</div>
+    <div class="topbar-sub">Build v9.10 · 22/03/2026 23:41</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -951,24 +951,16 @@ function doLogin() {
 }
 
 function doLogout() {
-  if(!confirm("Uscire dall'applicazione?")) return;
-  _clearAppCache();
-  DB=null; setDot(''); if(typeof setBtns==='function')setBtns(false);
-  var btn=null;
-  if(btn){btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;}
-  // signOut invalida la sessione → onAuthStateChanged mostra login automaticamente
+  if(!confirm("Uscire dall'applicazione?\nDovrai effettuare il login di nuovo.")) return;
+  DB=null;
+  if(typeof setBtns==='function')setBtns(false);
   if(typeof firebase!=='undefined'&&firebase.auth){
     firebase.auth().signOut().catch(function(){});
   }
-  // Chiudi tutti i modal aperti
-  document.querySelectorAll('.modal-ov').forEach(function(m){m.style.display='none';});
-  // Mostra login immediatamente senza aspettare Firebase
   var loginScr=document.getElementById('login-scr');
   var mainScr=document.getElementById('main-scr');
-  if(mainScr){ mainScr.style.display='none'; mainScr.style.visibility='hidden'; }
-  if(loginScr){
-    loginScr.style.cssText='display:flex;align-items:center;justify-content:center;position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#040c18,#08111f,#0f1e38);';
-  }
+  if(mainScr)mainScr.style.display='none';
+  if(loginScr)loginScr.style.display='flex';
 }
 
 
