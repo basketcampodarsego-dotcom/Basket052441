@@ -1913,17 +1913,32 @@ function _renderReportSoci(){
   var C=_campiSelezionati();
   var CSS='<style>.rpt{font-family:Arial,sans-serif;font-size:12px;color:#111;max-width:900px}.rpt h1{font-size:16px;font-weight:bold;margin-bottom:4px}.rpt h2{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:2px solid #1a2a4a;padding-bottom:3px;color:#1a2a4a}.rpt h3{font-size:12px;font-weight:bold;margin:12px 0 4px;color:#3a5a8a}.rpt table{border-collapse:collapse;width:100%;margin-bottom:12px}.rpt th{background:#1a2a4a;color:#fff;padding:5px 8px;text-align:center;font-size:11px}.rpt th.left{text-align:left}.rpt td{padding:4px 8px;border:1px solid #ccc;font-size:11px;text-align:center}.rpt td.left{text-align:left}.rpt tr.tot{background:#e8f0ff;font-weight:bold}.rpt tr.subtot{background:#f0f4ff}.rpt tr.magg-row:nth-child(even){background:#f8f8f8}.rpt tr.min-row:nth-child(even){background:#f8fff8}.rpt .flag{color:#c00;font-weight:bold}.rpt .meta{font-size:11px;color:#666;margin-bottom:12px}</style>';
   var html=CSS+'<div class="rpt">';
-  html+='<h1>A.S.D. Basket Campodarsego — Elenco Soci</h1>';
+  // Header con logo
+  html+='<div style="text-align:center;margin-bottom:8px">';
+  if(typeof _LOGO_B64!=='undefined'&&_LOGO_B64){
+    html+='<img src="data:image/jpeg;base64,'+_LOGO_B64+'" style="height:60px;" alt="Logo">';
+  }
+  html+='</div>';
+  html+='<h1 style="text-align:center">A.S.D. Basket Campodarsego<br><span style="font-size:14px;font-weight:normal">Report Tesserati — Annata sportiva '+d.stagione+'</span></h1>';
   html+='<div class="meta">Annata sportiva: <strong>'+d.stagione+'</strong> | Data stampa: <strong>'+d.dataStampa+'</strong> | Comune rif.: <strong>'+d.comuneRef+'</strong><br>Minorenne se nato dopo 01/08/'+(d.annoInizio||'?')+' | &#9733; = minorenne nell&#39;annata, maggiorenne oggi</div>';
   html+='<h2>Riepilogo statistico</h2>';
   html+='<table><thead><tr><th class="left">Sezione</th><th>Tot.</th><th>M</th><th>F</th><th>Res. '+d.comuneRef+'</th><th>Non res.</th></tr></thead><tbody>';
   var sm=d.statMagg;
   html+='<tr><td class="left">Maggiorenni (&ge;18 al 01/08/'+(d.annoInizio||'?')+')</td><td>'+sm.tot+'</td><td>'+sm.m+'</td><td>'+sm.f+'</td><td>'+sm.res+'</td><td>'+sm.noRes+'</td></tr>';
-  var anniOrd=Object.keys(d.perAnnoStat||d.perAnno).sort(function(a,b){ var oc=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—']; var ia=oc.indexOf(a),ib=oc.indexOf(b); if(ia<0)ia=99; if(ib<0)ib=99; return ia-ib; });
+  // Riepilogo per anno di nascita (minorenni)
+  var perAnnoNasc={};
+  d.minorenni.forEach(function(a){
+    var an=_annoNascitaAtleta(a);
+    if(!an && a.cf) { var aa=parseInt(a.cf.substring(6,8)); an=aa>30?1900+aa:2000+aa; }
+    var key=an?String(an):'?';
+    if(!perAnnoNasc[key])perAnnoNasc[key]=[];
+    perAnnoNasc[key].push(a);
+  });
+  var anniOrd=Object.keys(perAnnoNasc).sort(function(a,b){return parseInt(b)-parseInt(a);}); // dal più giovane
   anniOrd.forEach(function(an){
-    var arr=(d.perAnnoStat||d.perAnno)[an];var s={tot:0,m:0,f:0,res:0,noRes:0};
+    var arr=perAnnoNasc[an];var s={tot:0,m:0,f:0,res:0,noRes:0};
     arr.forEach(function(a){s.tot++;if((a.sex||'M')==='M')s.m++;else s.f++;if(_comuneAtleta(a).indexOf(d.comuneRef)>-1)s.res++;else s.noRes++;});
-    html+='<tr class="subtot"><td class="left">&nbsp;&nbsp;'+an+'</td><td>'+s.tot+'</td><td>'+s.m+'</td><td>'+s.f+'</td><td>'+s.res+'</td><td>'+s.noRes+'</td></tr>';
+    html+='<tr class="subtot"><td class="left">&nbsp;&nbsp;Nati '+an+'</td><td>'+s.tot+'</td><td>'+s.m+'</td><td>'+s.f+'</td><td>'+s.res+'</td><td>'+s.noRes+'</td></tr>';
   });
   var smin=d.statMin;
   html+='<tr class="subtot"><td class="left"><strong>Totale minorenni</strong></td><td>'+smin.tot+'</td><td>'+smin.m+'</td><td>'+smin.f+'</td><td>'+smin.res+'</td><td>'+smin.noRes+'</td></tr>';
@@ -1946,10 +1961,11 @@ function _renderReportSoci(){
 
   html+=tabellaElenco(d.maggiorenni,'Elenco soci maggiorenni','magg-row');
   html+='<h2>Elenco soci minorenni</h2>';
-  var anniOrdElenco=Object.keys(d.perAnno).sort(function(a,b){ var oc=['Pulcini','Scoiattoli','Aquilotti','Esordienti','Special','AmaBasket','AmaVolley','—']; var ia=oc.indexOf(a),ib=oc.indexOf(b); if(ia<0)ia=99; if(ib<0)ib=99; return ia-ib; });
+  // Elenco per anno di nascita (stesso perAnnoNasc calcolato sopra)
+  var anniOrdElenco=Object.keys(perAnnoNasc).sort(function(a,b){return parseInt(b)-parseInt(a);});
   anniOrdElenco.forEach(function(an){
-    var arr=d.perAnno[an];
-    html+='<h3>'+an+' ('+arr.length+')</h3>';
+    var arr=perAnnoNasc[an];
+    html+='<h3>Nati '+an+' ('+arr.length+')</h3>';
     html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.dataiscrizione?'<th>Iscr.</th>':'')+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
     arr.sort(function(a,b){return a.cog.localeCompare(b.cog);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
