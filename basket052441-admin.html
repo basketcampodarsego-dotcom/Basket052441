@@ -98,7 +98,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.10 · 22/03/2026 23:41<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.12 · 22/03/2026 23:52<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -117,7 +117,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.10 · 22/03/2026 23:41</div>
+    <div class="topbar-sub">Build v9.12 · 22/03/2026 23:52</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -1360,6 +1360,11 @@ var DB = window.DB || null;
 var _db = window._db || null;
 var FB_COL = 'basket052441';
 var FB_SEZIONI = ['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
+// Stub funzioni presenti solo nel gestionale
+if(typeof migraAtleti==='undefined') window.migraAtleti=function(){};
+if(typeof buildSearchIndex==='undefined') window.buildSearchIndex=function(){};
+if(typeof renderDashboard==='undefined') window.renderDashboard=function(){};
+if(typeof syncStatus==='undefined') window.syncStatus=function(){};
 
 
 // --- LOG ---
@@ -1416,24 +1421,36 @@ function connectDB(){
   log('Admin '+BUILD_VERSION,'info');
   log('Connessione Firebase...','info');
   setDot('loading');
-  
+  var _t=setTimeout(function(){ log('Timeout DB.','warn'); setDot('warn'); setBtns(true); },10000);
+  window._onDBLoaded=function(){
+    clearTimeout(_t); window._onDBLoaded=null;
+    if(typeof _initReportStagioni==='function')_initReportStagioni();
+    var n=(DB&&DB.atleti)?DB.atleti.length:0;
+    log('DB: '+n+' atleti.','ok');
+    setDot('ok'); setBtns(true);
+  };
+  // Se Firestore è già pronto, carica direttamente
+  if(_db){
+    log('Firestore già pronto, carico DB...','info');
+    loadDB();
+    return;
+  }
   fbInitAdmin(
     function(){
       log('Firebase OK. Carico DB...','info');
-      var _t=setTimeout(function(){ log('Timeout DB.','warn'); setDot('warn'); setBtns(true);  },10000);
-      window._onDBLoaded=function(){
-        clearTimeout(_t); window._onDBLoaded=null;
-        if(typeof _initReportStagioni==='function')_initReportStagioni();
-        var n=(DB&&DB.atleti)?DB.atleti.length:0;
-        log('DB: '+n+' atleti.','ok');
-        setDot('ok'); setBtns(true);
-        var btn=null;
-        if(btn){btn.textContent='Disconnetti Firebase';btn.onclick=function(){DB=null;setDot('');setBtns(false);btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;log('DB disconnesso.','warn');}; btn.disabled=false;}
-      };
       loadDB();
-      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&true){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); var _b=null; if(_b){_b.textContent='Disconnetti Firebase';_b.onclick=function(){DB=null;setDot('');setBtns(false);_b.textContent='Connetti Firebase';_b.onclick=connectDB;_b.disabled=false;log('DB disconnesso.','warn');};_b.disabled=false;} } else if(true){ log('Firebase connesso. In attesa dati...','info'); } },3000);
+      setTimeout(function(){
+        if(DB&&DB.atleti&&DB.atleti.length>0){
+          clearTimeout(_t);
+          if(typeof _initReportStagioni==='function')_initReportStagioni();
+          log('DB: '+DB.atleti.length+' atleti.','ok');
+          setDot('ok'); setBtns(true);
+        } else {
+          log('Firebase connesso. In attesa dati...','info');
+        }
+      },3000);
     },
-    function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot('');  }
+    function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot(''); clearTimeout(_t); }
   );
 }
 
@@ -2359,6 +2376,11 @@ var DB = window.DB || null;
 var _db = window._db || null;
 var FB_COL = 'basket052441';
 var FB_SEZIONI = ['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
+// Stub funzioni presenti solo nel gestionale
+if(typeof migraAtleti==='undefined') window.migraAtleti=function(){};
+if(typeof buildSearchIndex==='undefined') window.buildSearchIndex=function(){};
+if(typeof renderDashboard==='undefined') window.renderDashboard=function(){};
+if(typeof syncStatus==='undefined') window.syncStatus=function(){};
 
 
 // --- LOG ---
