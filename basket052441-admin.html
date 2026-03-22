@@ -1874,9 +1874,19 @@ function generaReportSoci(){
     return eta<18;
   }
   // Escludi ritirati/Ex
+  // Diagnostica: mostra formati anno presenti nel DB
+  var formatAnni={};
+  (DB.atleti||[]).forEach(function(a){
+    (a.iscrizioni||[]).forEach(function(i){
+      if(i.anno) formatAnni[i.anno]=(formatAnni[i.anno]||0)+1;
+    });
+  });
+  var topAnni=Object.keys(formatAnni).sort(function(a,b){return formatAnni[b]-formatAnni[a];}).slice(0,8);
+  log('DIAG anni iscrizioni DB: '+topAnni.map(function(a){return a+'('+formatAnni[a]+')';}).join(', '),'info');
   var iscritti=(DB.atleti||[]).filter(function(a){
     return (a.iscrizioni||[]).some(function(i){return i.anno===annata;});
   });
+  log('DIAG iscritti trovati per '+annata+': '+iscritti.length,'info');
   if(!iscritti.length){log('Nessun socio per l\'annata '+annata,'warn');return;}
   var stagione=annata;
   var maggiorenni=[],minorenni=[];
@@ -2780,9 +2790,19 @@ function generaReportSoci(){
     return eta<18;
   }
   // Escludi ritirati/Ex
+  // Diagnostica: mostra formati anno presenti nel DB
+  var formatAnni={};
+  (DB.atleti||[]).forEach(function(a){
+    (a.iscrizioni||[]).forEach(function(i){
+      if(i.anno) formatAnni[i.anno]=(formatAnni[i.anno]||0)+1;
+    });
+  });
+  var topAnni=Object.keys(formatAnni).sort(function(a,b){return formatAnni[b]-formatAnni[a];}).slice(0,8);
+  log('DIAG anni iscrizioni DB: '+topAnni.map(function(a){return a+'('+formatAnni[a]+')';}).join(', '),'info');
   var iscritti=(DB.atleti||[]).filter(function(a){
     return (a.iscrizioni||[]).some(function(i){return i.anno===annata;});
   });
+  log('DIAG iscritti trovati per '+annata+': '+iscritti.length,'info');
   if(!iscritti.length){log('Nessun socio per l\'annata '+annata,'warn');return;}
   var stagione=annata;
   var maggiorenni=[],minorenni=[];
