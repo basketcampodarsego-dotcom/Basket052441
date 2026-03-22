@@ -98,7 +98,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.8 · 22/03/2026 23:31<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.9 · 22/03/2026 23:41<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -117,7 +117,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.8 · 22/03/2026 23:31</div>
+    <div class="topbar-sub">Build v9.9 · 22/03/2026 23:41</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -138,44 +138,42 @@
 
 <!-- PAGE: DB -->
 <div class="adm-page active" id="adm-page-db">
-    <!-- OP 5: Script custom -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Script personalizzato <span class="badge badge-warn">AVANZATO</span></div>
-        <div class="op-desc">Esegui codice JS custom su DB. Variabili: <code>DB</code>, <code>log()</code>. Return true per salvare.</div>
-        <div class="params">
-          <label>Codice JS</label>
-          <textarea id="op-script" placeholder="// conta atleti senza CF&#10;var n=0;&#10;DB.atleti.forEach(function(a){ if(!a.cf) n++; });&#10;log('Senza CF: '+n);&#10;return false;"></textarea>
-        </div>
-      </div>
-      <button class="btn btn-red" onclick="runOp('script')" id="btn-script" disabled>Esegui</button>
+  <div class="card">
+    <div class="card-title">Stato database</div>
+    <div class="stats-row">
+      <div class="stat"><div class="stat-n" id="s-atleti">—</div><div class="stat-l">Atleti</div></div>
+      <div class="stat"><div class="stat-n" id="s-pag">—</div><div class="stat-l">Pagamenti</div></div>
     </div>
+    <button class="btn btn-gray btn-sm" onclick="clearLog()">Pulisci log</button>
+  </div>
 
-    <!-- Genera ZIP ricevute -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Genera ZIP ricevute PDF <span class="badge badge-safe">SOLA LETTURA</span></div>
-        <div class="op-desc">Archivio ZIP con ricevute PDF detraibili per anno/tipo.</div>
-        <div class="params" style="display:block">
-          <div class="grid2">
-            <div><label>Annata</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
-            <div><label>Tipo</label><select id="op-det-pdf"><option value="det">Solo detraibili</option><option value="ndet">Solo N-DET</option><option value="tutti">Tutti</option></select></div>
+  <div class="card">
+    <div class="card-title">📦 Utility DB</div>
+    <div class="op-list">
+      <!-- Genera ZIP ricevute -->
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Genera ZIP ricevute PDF <span class="badge badge-safe">SOLA LETTURA</span></div>
+          <div class="op-desc">Archivio ZIP con ricevute PDF detraibili per anno/tipo.</div>
+          <div class="params" style="display:block">
+            <div class="grid2">
+              <div><label>Annata</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
+              <div><label>Tipo</label><select id="op-det-pdf"><option value="det">Solo detraibili</option><option value="ndet">Solo N-DET</option><option value="tutti">Tutti</option></select></div>
+            </div>
           </div>
         </div>
+        <button class="btn btn-blue" onclick="runOp('ricevutePDF')" id="btn-ricevutePDF" disabled>Genera ZIP</button>
       </div>
-      <button class="btn btn-blue" onclick="runOp('ricevutePDF')" id="btn-ricevutePDF" disabled>Genera ZIP</button>
-    </div>
-
-    <!-- Backup -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Backup completo DB <span class="badge badge-safe">SOLA LETTURA</span></div>
-        <div class="op-desc">Scarica JSON con tutto il contenuto Firebase.</div>
+      <!-- Backup -->
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Backup completo DB <span class="badge badge-safe">SOLA LETTURA</span></div>
+          <div class="op-desc">Scarica JSON con tutto il contenuto Firebase.</div>
+        </div>
+        <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
       </div>
-      <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
     </div>
-
-  </div><!-- fine card DB -->
+  </div>
 </div><!-- fine adm-page-db -->
 
 <!-- PAGE: IMPORT -->
@@ -1366,11 +1364,10 @@ function _esportaReportImport(){
 <script>
 var BUILD_VERSION="v9.3 · 22/03/2026 00:17";
 
-// var DB = null; → core
-// var _db = null; → core
-// var FB_COL = 'basket052441'; → core
-// var FB_SEZIONI = ['atleti','pagamenti','allenamenti','presenze','ricevute','listar']; → core
-// Config Firebase nel core
+var DB = window.DB || null;
+var _db = window._db || null;
+var FB_COL = 'basket052441';
+var FB_SEZIONI = ['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
 
 
 // --- LOG ---
@@ -1463,7 +1460,7 @@ function runOp(op) {
   if(!DB){ log('DB non caricato.','err'); return; }
 
   if(op==='script'||op==='script2') {
-    var _sid=op==='script2'?'op-script2':'op-script';
+    var _sid='op-script2';
     var codice=document.getElementById(_sid).value.trim();
     if(!codice){ log('Inserisci il codice da eseguire.','warn'); return; }
     if(!_doppioControllo('Eseguire lo script personalizzato?\nAssicurati di aver riletto il codice.','ESEGUI')) return;
@@ -2366,11 +2363,10 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 <script>
 var BUILD_VERSION = "v5.6 · 21/03/2026 14:04";
 
-// var DB = null; → core
-// var _db = null; → core
-// var FB_COL = 'basket052441'; → core
-// var FB_SEZIONI = ['atleti','pagamenti','allenamenti','presenze','ricevute','listar']; → core
-// Config Firebase nel core
+var DB = window.DB || null;
+var _db = window._db || null;
+var FB_COL = 'basket052441';
+var FB_SEZIONI = ['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
 
 
 // --- LOG ---
@@ -2460,7 +2456,7 @@ function runOp(op) {
   if(!DB){ log('DB non caricato.','err'); return; }
 
   if(op==='script'||op==='script2') {
-    var _sid=op==='script2'?'op-script2':'op-script';
+    var _sid='op-script2';
     var codice=document.getElementById(_sid).value.trim();
     if(!codice){ log('Inserisci il codice da eseguire.','warn'); return; }
     if(!_doppioControllo('Eseguire lo script personalizzato?\nAssicurati di aver riletto il codice.','ESEGUI')) return;
