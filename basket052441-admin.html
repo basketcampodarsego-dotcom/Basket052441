@@ -6,45 +6,80 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Basket052441 — Admin DB v6.0</title>
 <style>
+  :root{
+    --bg:#0d1117;--bg2:#161b22;--bg3:#1a2332;
+    --border:#2a3a4a;--gold:#c8a84b;--text:#c8d8e8;--muted:#6a8a9a;
+    --green:#2ea043;--red:#da3633;--blue:#388bfd;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:Arial,sans-serif;background:#0d1a2a;color:#c8d8e8;min-height:100vh;padding:20px;}
-  h1{color:#c8a84b;font-size:22px;margin-bottom:4px;}
-  .subtitle{color:#6a8a9a;font-size:13px;margin-bottom:20px;}
-  .card{background:#1a2a3a;border:1px solid #2a3a4a;border-radius:8px;padding:16px;margin-bottom:16px;}
-  .card-title{color:#c8a84b;font-size:14px;font-weight:bold;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
-  label{font-size:12px;color:#8a9aaa;display:block;margin-bottom:4px;}
-  input,select,textarea{width:100%;padding:8px 10px;background:#0d1a2a;border:1px solid #2a3a4a;border-radius:5px;color:#c8d8e8;font-size:13px;margin-bottom:10px;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  /* TOPBAR */
+  .topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+  .topbar-logo{width:36px;height:36px;border-radius:50%;object-fit:cover;}
+  .topbar-title{font-size:15px;font-weight:700;color:var(--gold);flex:1;}
+  .topbar-sub{font-size:10px;color:var(--muted);}
+  .topbar-right{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);}
+  /* NAV TABS */
+  .nav-tabs{display:flex;overflow-x:auto;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 8px;gap:2px;scrollbar-width:none;}
+  .nav-tabs::-webkit-scrollbar{display:none;}
+  .nav-tab{padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;}
+  .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
+  .nav-tab:hover:not(.active){color:var(--text);}
+  /* PAGES */
+  .adm-page{display:none;padding:16px;max-width:760px;margin:0 auto;}
+  .adm-page.active{display:block;}
+  /* CARDS */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px;}
+  .card-title{color:var(--gold);font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .card-desc{font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;}
+  /* FORM */
+  label{font-size:11px;color:var(--muted);display:block;margin-bottom:3px;}
+  input,select,textarea{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;margin-bottom:10px;}
   textarea{height:160px;font-family:'Courier New',monospace;font-size:12px;resize:vertical;}
-  .btn{padding:9px 18px;border:none;border-radius:5px;cursor:pointer;font-size:13px;font-weight:bold;}
-  .btn-gold{background:#c8a84b;color:#0d1a2a;}
-  .btn-red{background:#8a2a2a;color:#ffaaaa;}
-  .btn-blue{background:#1a4a7a;color:#aad0ff;}
-  .btn-green{background:#1a4a1a;color:#aaffaa;}
-  .btn-gray{background:#2a3a4a;color:#8a9aaa;}
-  .btn:disabled{opacity:0.4;cursor:not-allowed;}
-  .log{background:#060e18;border:1px solid #1a2a3a;border-radius:5px;padding:12px;font-family:'Courier New',monospace;font-size:12px;height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
-  .log .ok{color:#4aaa6a;}
-  .log .warn{color:#c8a84b;}
-  .log .err{color:#cc4444;}
-  .log .info{color:#4a9aaa;}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .stat{background:#0d1a2a;border:1px solid #2a3a4a;border-radius:5px;padding:10px;text-align:center;}
-  .stat-n{font-size:28px;font-weight:bold;color:#c8a84b;}
-  .stat-l{font-size:11px;color:#6a8a9a;margin-top:2px;}
-  .sep{border:none;border-top:1px solid #2a3a4a;margin:14px 0;}
+  /* BUTTONS */
+  .btn{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;min-height:36px;}
+  .btn-gold{background:var(--gold);color:#0d1117;}
+  .btn-red{background:#3a1010;color:#ff9090;border:1px solid #6a2020;}
+  .btn-blue{background:#0d2a4a;color:#88c0ff;border:1px solid #1a4a7a;}
+  .btn-green{background:#0d2a1a;color:#88ffaa;border:1px solid #1a4a2a;}
+  .btn-gray{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
+  .btn:disabled{opacity:0.35;cursor:not-allowed;}
+  .btn-sm{padding:5px 12px;font-size:11px;min-height:28px;}
+  /* STATS */
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:14px;}
+  .stat{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;}
+  .stat-n{font-size:26px;font-weight:700;color:var(--gold);}
+  .stat-l{font-size:10px;color:var(--muted);margin-top:2px;}
+  /* STATUS */
+  #status-dot{width:9px;height:9px;border-radius:50%;background:var(--red);display:inline-block;margin-right:6px;vertical-align:middle;}
+  #status-dot.ok{background:var(--green);}
+  #status-dot.loading{background:var(--gold);animation:pulse .8s infinite alternate;}
+  @keyframes pulse{from{opacity:.5}to{opacity:1}}
+  /* OP ROWS */
   .op-list{display:flex;flex-direction:column;gap:8px;}
-  .op-row{display:flex;align-items:flex-start;gap:10px;padding:10px;background:#0d1a2a;border:1px solid #2a3a4a;border-radius:5px;}
+  .op-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;}
   .op-info{flex:1;}
-  .op-title{font-size:13px;font-weight:bold;color:#c8d8e8;margin-bottom:2px;}
-  .op-desc{font-size:11px;color:#6a8a9a;}
-  .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:bold;}
-  .badge-warn{background:#4a3a00;color:#c8a84b;}
-  .badge-safe{background:#1a3a1a;color:#4aaa6a;}
-  .params{margin-top:8px;display:none;}
-  .params.show{display:block;}
-  #status-dot{width:10px;height:10px;border-radius:50%;background:#cc4444;display:inline-block;margin-right:6px;}
-  #status-dot.ok{background:#4aaa6a;}
-  #status-dot.loading{background:#c8a84b;}
+  .op-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;}
+  .op-desc{font-size:11px;color:var(--muted);}
+  .params{margin-top:8px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  /* BADGES */
+  .badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;}
+  .badge-warn{background:#3a2a00;color:var(--gold);}
+  .badge-safe{background:#0d2a1a;color:#88ffaa;}
+  .badge-mod{background:#0d1a3a;color:#88c0ff;}
+  /* LOG */
+  .log{background:#060e18;border:1px solid var(--border);border-radius:5px;padding:12px;font-family:'Courier New',monospace;font-size:11px;height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
+  .log .ok{color:#4aaa6a;} .log .warn{color:var(--gold);} .log .err{color:#cc4444;} .log .info{color:#4a9aaa;}
+  .sep{border:none;border-top:1px solid var(--border);margin:12px 0;}
+  /* DANGER ZONE */
+  .card-danger{border-color:#6a2020;}
+  .card-danger .card-title{color:#ff7070;}
+  /* REPORT */
+  #rpt-output{max-height:60vh;overflow-y:auto;font-size:12px;}
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
 </style>
   <!-- Firebase SDK 10.12 -->
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js'></script>
@@ -63,7 +98,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.5 · 22/03/2026 20:33<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.8 · 22/03/2026 23:31<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -77,54 +112,53 @@
 </div>
 
 <div id="main-scr" style="display:none">
-<h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
-<p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v9.5 · 22/03/2026 20:33</span></p>
-<div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
-<!-- CONNESSIONE -->
-<div class="card">
-  <div class="card-title"><span id="status-dot"></span> Connessione Firebase</div>
-  <div class="grid2">
-    <div class="stat"><div class="stat-n" id="s-atleti">—</div><div class="stat-l">Atleti</div></div>
-    <div class="stat"><div class="stat-n" id="s-pag">—</div><div class="stat-l">Pagamenti</div></div>
+<!-- TOPBAR -->
+<div class="topbar">
+  <div>
+    <div class="topbar-title">⚙️ Admin · Basket 052441</div>
+    <div class="topbar-sub">Build v9.8 · 22/03/2026 23:31</div>
   </div>
-  <hr class="sep">
-  <button class="btn btn-blue" onclick="connectDB()" id="btn-connect">Connetti Firebase</button>
-  &nbsp;
-  <button class="btn btn-gray" onclick="clearLog()">Pulisci log</button>
+  <div class="topbar-right">
+    <span id="status-dot"></span>
+    <span id="admin-user-label"></span>
+    <button class="btn btn-gray btn-sm" onclick="_diagToggle()">🔧</button>
+    <button class="btn btn-gray btn-sm" onclick="doLogout()">↪ Esci</button>
+  </div>
 </div>
 
-<!-- OPERAZIONI -->
-<div class="card">
-  <div class="card-title">🔧 Operazioni disponibili</div>
-  <div class="op-list">
+<!-- NAV TABS -->
+<div class="nav-tabs">
+  <div class="nav-tab active" onclick="admGoTab('db')">🗄 DB</div>
+  <div class="nav-tab" onclick="admGoTab('import')">📥 Import</div>
+  <div class="nav-tab" onclick="admGoTab('report')">📊 Report</div>
+  <div class="nav-tab" onclick="admGoTab('ops')">🔧 Operazioni</div>
+  <div class="nav-tab" onclick="admGoTab('log')">📋 Log</div>
+</div>
 
+<!-- PAGE: DB -->
+<div class="adm-page active" id="adm-page-db">
     <!-- OP 5: Script custom -->
     <div class="op-row">
       <div class="op-info">
         <div class="op-title">Script personalizzato <span class="badge badge-warn">AVANZATO</span></div>
-        <div class="op-desc">Esegui codice JS custom su DB.atleti o DB.pagamenti. Variabili disponibili: <code>DB</code>, <code>log()</code>. Restituisci true per salvare, false per simulare.</div>
-        <div class="params show">
+        <div class="op-desc">Esegui codice JS custom su DB. Variabili: <code>DB</code>, <code>log()</code>. Return true per salvare.</div>
+        <div class="params">
           <label>Codice JS</label>
-          <textarea id="op-script" placeholder="// Esempio: conta atleti senza CF
-var n=0;
-DB.atleti.forEach(function(a){ if(!a.cf) n++; });
-log('Atleti senza CF: '+n);
-return false; // non salvare"></textarea>
+          <textarea id="op-script" placeholder="// conta atleti senza CF&#10;var n=0;&#10;DB.atleti.forEach(function(a){ if(!a.cf) n++; });&#10;log('Senza CF: '+n);&#10;return false;"></textarea>
         </div>
       </div>
       <button class="btn btn-red" onclick="runOp('script')" id="btn-script" disabled>Esegui</button>
     </div>
 
-    <!-- OP 6 BIS: Genera ZIP ricevute PDF -->
+    <!-- Genera ZIP ricevute -->
     <div class="op-row">
       <div class="op-info">
-        <div class="op-title">Genera ZIP ricevute PDF 2025 <span class="badge badge-safe">SOLA LETTURA</span></div>
-        <div class="op-desc">Genera un file ZIP con tutte le ricevute PDF detraibili dell'anno 2025. Nome file: annonascita_cognome_nome_25.pdf</div>
-        <div class="params show">
+        <div class="op-title">Genera ZIP ricevute PDF <span class="badge badge-safe">SOLA LETTURA</span></div>
+        <div class="op-desc">Archivio ZIP con ricevute PDF detraibili per anno/tipo.</div>
+        <div class="params" style="display:block">
           <div class="grid2">
-            <div><label>Annata sportiva</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
+            <div><label>Annata</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
             <div><label>Tipo</label><select id="op-det-pdf"><option value="det">Solo detraibili</option><option value="ndet">Solo N-DET</option><option value="tutti">Tutti</option></select></div>
           </div>
         </div>
@@ -132,101 +166,136 @@ return false; // non salvare"></textarea>
       <button class="btn btn-blue" onclick="runOp('ricevutePDF')" id="btn-ricevutePDF" disabled>Genera ZIP</button>
     </div>
 
-    <!-- OP 6: Backup JSON -->
+    <!-- Backup -->
     <div class="op-row">
       <div class="op-info">
         <div class="op-title">Backup completo DB <span class="badge badge-safe">SOLA LETTURA</span></div>
-        <div class="op-desc">Scarica un file JSON con tutto il contenuto del database Firebase.</div>
+        <div class="op-desc">Scarica JSON con tutto il contenuto Firebase.</div>
       </div>
       <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
     </div>
 
-  </div>
-</div>
+  </div><!-- fine card DB -->
+</div><!-- fine adm-page-db -->
 
-<!-- LOG -->
+<!-- PAGE: IMPORT -->
+<div class="adm-page" id="adm-page-import">
 
-<!-- ═══════════════════════════════════════════════════ -->
-<!-- REPORT SOCI                                         -->
-<!-- ═══════════════════════════════════════════════════ -->
-<div class="card">
-  <div class="card-title">📋 Import Iscrizioni da Statino FIP</div>
-  <p style="font-size:12px;color:#6a8a9a;margin-bottom:10px">
-    Importa le iscrizioni FIP da statini 2013/14–2025/26 (13 annate, ~359 atleti).<br>
-    <strong>Non sovrascrive</strong> dati già presenti.
-  </p>
-  <div class="op-row">
-    <div class="op-info">
-      <div class="op-title">Importa iscrizioni da statini FIP</div>
-      <div class="op-desc">Aggiunge iscrizione FIP per ogni annata in cui l'atleta era nello statino. Prerequisito: DB caricato.</div>
-    </div>
-    <button class="btn btn-gold" onclick="importaIscrizioniStatino()" style="min-height:44px;white-space:nowrap">📋 FIP</button>
-  </div>
-  <div class="op-row" style="margin-top:8px">
-    <div class="op-info">
-      <div class="op-title">Importa iscrizioni CSI (2023-24, 2025-26)</div>
-      <div class="op-desc">Aggiunge iscrizione CSI per adulti e atleti Special Olympics presenti negli elenchi tesserati.</div>
-    </div>
-    <button class="btn btn-blue" onclick="importaIscrizioniCSI()" style="min-height:44px;white-space:nowrap">📋 CSI</button>
-  </div>
-  <div class="op-row" style="margin-top:8px">
-    <div class="op-info">
-      <div class="op-title">Rigenera iscrizioni da file <span class="badge badge-mod">MODIFICA</span></div>
-      <div class="op-desc">Azzera tutte le iscrizioni e le ricostruisce da statini_fip.json + elenco_csi.json. I pagamenti non vengono toccati.</div>
-    </div>
-    <button class="btn btn-gold" onclick="rigeneraIscrizioni()" style="min-height:44px;white-space:nowrap;background:#c0392b">🔄 Rigenera</button>
-  </div>
-</div>
-<div class="card">
-  <div class="card-title">📊 Report Soci — Comunicazione Comunale</div>
-
-  <div class="grid2" style="margin-bottom:12px">
-    <div>
-      <label>Annata sportiva</label>
-      <select id="rpt-stagione">
-        <option value="">— seleziona anno —</option>
-      </select>
-    </div>
-    <div>
-      <label>Comune di riferimento (residenza)</label>
-      <input type="text" id="rpt-comune" value="CAMPODARSEGO" style="text-transform:uppercase">
+  <div class="card">
+    <div class="card-title">📋 Iscrizioni FIP</div>
+    <div class="card-desc">Importa iscrizioni FIP da statini storici (2013/14–oggi). Non sovrascrive dati esistenti.</div>
+    <div class="op-list">
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Statini FIP</div>
+          <div class="op-desc">Aggiunge iscrizione FIP per ogni annata presente negli statini.</div>
+        </div>
+        <button class="btn btn-gold" onclick="importaIscrizioniStatino()" disabled id="btn-fip">📋 FIP</button>
+      </div>
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Elenco CSI</div>
+          <div class="op-desc">Aggiunge iscrizione CSI per adulti e Special Olympics.</div>
+        </div>
+        <button class="btn btn-blue" onclick="importaIscrizioniCSI()" disabled id="btn-csi">📋 CSI</button>
+      </div>
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Rigenera iscrizioni <span class="badge badge-mod">MODIFICA</span></div>
+          <div class="op-desc">Azzera e ricostruisce da file FIP+CSI. I pagamenti NON vengono toccati.</div>
+        </div>
+        <button class="btn btn-red" onclick="rigeneraIscrizioni()" disabled id="btn-rigenera">🔄 Rigenera</button>
+      </div>
     </div>
   </div>
 
-  <div style="margin-bottom:12px">
-    <div style="font-size:11px;color:#8a9aaa;margin-bottom:6px;font-weight:bold">CAMPI AGGIUNTIVI NELL'ELENCO ANALITICO</div>
-    <div style="display:flex;flex-wrap:wrap;gap:8px">
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
-        <input type="checkbox" class="rpt-campo" value="indirizzo" id="rpt-indirizzo"> Indirizzo completo</label>
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
-        <input type="checkbox" class="rpt-campo" value="telefono"> Telefono</label>
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
-        <input type="checkbox" class="rpt-campo" value="email"> Email</label>
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
-        <input type="checkbox" class="rpt-campo" value="certmedico"> Cert. medico</label>
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
-        <input type="checkbox" class="rpt-campo" value="tutore"> Tutore</label>
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px">
-        <input type="checkbox" class="rpt-campo" value="note"> Note iscrizione</label>
-        <label style="display:inline-flex;align-items:center;gap:4px;min-height:44px;cursor:pointer">
-        <input type="checkbox" class="rpt-campo" value="dataiscrizione"> Data iscrizione</label>
+  <div class="card">
+    <div class="card-title">👨‍👩‍👦 Import Tutori da Ricevute</div>
+    <div class="card-desc">Carica ricevute DOCX/PDF degli anni precedenti. Estrae CF tutore, nome, indirizzo e aggiorna l'anagrafica senza sovrascrivere dati esistenti. Import multiplo supportato.</div>
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Carica ricevute <span class="badge badge-safe">NON DISTRUTTIVO</span></div>
+        <div class="op-desc">Seleziona uno o più file DOCX/PDF delle certificazioni fiscali.</div>
+      </div>
+      <div style="position:relative;display:inline-block">
+        <button class="btn btn-gold">📂 Carica</button>
+        <input type="file" id="tut-file" accept=".docx,.pdf" multiple style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="importaTutoriRicevute(this)">
+      </div>
+    </div>
+    <div id="tut-log" style="margin-top:10px;font-size:11px;color:var(--muted);display:none"></div>
+  </div>
+
+</div><!-- fine adm-page-import -->
+
+<!-- PAGE: REPORT -->
+<div class="adm-page" id="adm-page-report">
+
+  <div class="card">
+    <div class="card-title">📊 Report Soci — Comunicazione Comunale</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div>
+        <label>Annata sportiva</label>
+        <select id="rpt-stagione"><option value="">— seleziona anno —</option></select>
+      </div>
+      <div>
+        <label>Comune di riferimento</label>
+        <input type="text" id="rpt-comune" value="CAMPODARSEGO" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:6px;font-weight:700">CAMPI AGGIUNTIVI</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="rpt-campo" value="indirizzo" id="rpt-indirizzo"> Indirizzo</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="rpt-campo" value="telefono"> Telefono</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="rpt-campo" value="email"> Email</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="rpt-campo" value="certmedico"> Cert. medico</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="rpt-campo" value="tutore"> Tutore</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="rpt-campo" value="note"> Note</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="rpt-campo" value="dataiscrizione"> Data iscr.</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-gold" onclick="generaReportSoci()">📊 Genera</button>
+      <button class="btn btn-blue" id="rpt-btn-stampa" onclick="stampaReportSoci()" style="display:none">🖨️ Stampa</button>
+      <button class="btn btn-gray" id="rpt-btn-csv" onclick="esportaReportSociCSV()" style="display:none">⬇️ CSV</button>
+    </div>
+    <div id="rpt-anteprima" style="display:none;background:#060e18;border-radius:6px;padding:12px;overflow-x:auto">
+      <div id="rpt-output"></div>
     </div>
   </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-    <button class="btn btn-gold" onclick="generaReportSoci()">📊 Genera Report</button>
-    <button class="btn btn-blue" id="rpt-btn-stampa" onclick="stampaReportSoci()" style="display:none">🖨️ Stampa / PDF</button>
-    <button class="btn btn-gray" id="rpt-btn-csv" onclick="esportaReportSociCSV()" style="display:none">⬇️ Esporta CSV</button>
+
+</div><!-- fine adm-page-report -->
+
+<!-- PAGE: OPERAZIONI -->
+<div class="adm-page" id="adm-page-ops">
+
+  <div class="card card-danger">
+    <div class="card-title">⚠️ Zona Pericolosa</div>
+    <div class="card-desc">Operazioni irreversibili. Richiesto doppio controllo.</div>
+    <div class="op-list">
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Script personalizzato JS <span class="badge badge-warn">AVANZATO</span></div>
+          <div class="op-desc">Esegui codice JS su DB. Return true per salvare.</div>
+          <div class="params" style="display:block">
+            <textarea id="op-script2" placeholder="var n=0;&#10;DB.atleti.forEach(function(a){ if(!a.cf) n++; });&#10;log('Senza CF: '+n);&#10;return false;"></textarea>
+          </div>
+        </div>
+        <button class="btn btn-red" onclick="runOp('script2')" id="btn-script2" disabled>Esegui</button>
+      </div>
+    </div>
   </div>
 
-  <div id="rpt-anteprima" style="display:none;background:#060e18;border-radius:6px;padding:12px;overflow-x:auto">
-    <div id="rpt-output"></div>
-  </div>
-</div>
+</div><!-- fine adm-page-ops -->
 
-<div class="card">
-  <div class="card-title">📋 Log operazioni</div>
-  <div class="log" id="log"></div>
-</div>
+<!-- PAGE: LOG -->
+<div class="adm-page" id="adm-page-log">
+  <div class="card">
+    <div class="card-title">📋 Log operazioni</div>
+    <button class="btn btn-gray btn-sm" onclick="clearLog()" style="margin-bottom:10px">Pulisci</button>
+    <div class="log" id="log"></div>
+  </div>
+</div><!-- fine adm-page-log -->
 
 <!-- Firebase SDK -->
 
@@ -887,7 +956,7 @@ function doLogout() {
   if(!confirm("Uscire dall'applicazione?")) return;
   _clearAppCache();
   DB=null; setDot(''); if(typeof setBtns==='function')setBtns(false);
-  var btn=document.getElementById('btn-connect');
+  var btn=null;
   if(btn){btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;}
   // signOut invalida la sessione → onAuthStateChanged mostra login automaticamente
   if(typeof firebase!=='undefined'&&firebase.auth){
@@ -1315,11 +1384,39 @@ function log(msg, tipo) {
 function escLog(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function clearLog(){ document.getElementById('log').innerHTML=''; }
 function setDot(s){ var d=document.getElementById('status-dot'); d.className=s; }
+
+function _doppioControllo(messaggio, parola){
+  if(!confirm(messaggio)) return false;
+  var inp=prompt('⚠️ Operazione irreversibile.\nDigita "'+parola+'" per confermare:','');
+  if(inp===null) return false;
+  if(inp.trim().toUpperCase()!==parola.toUpperCase()){
+    log('Conferma non valida — operazione annullata.','warn');
+    return false;
+  }
+  return true;
+}
+
+function admGoTab(tab){
+  document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.adm-page').forEach(function(p){p.classList.remove('active');});
+  var el=document.getElementById('adm-page-'+tab);
+  if(el)el.classList.add('active');
+  var tabs=document.querySelectorAll('.nav-tab');
+  var map={db:0,import:1,report:2,ops:3,log:4};
+  if(map[tab]!==undefined&&tabs[map[tab]])tabs[map[tab]].classList.add('active');
+}
+
 function setBtns(on){
-  ['script','backup','ricevutePDF'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b) b.disabled=!on;
   });
+  // aggiorna s-atleti e s-pag
+  if(on&&DB&&DB.atleti){
+    var sa=document.getElementById('s-atleti');var sp=document.getElementById('s-pag');
+    if(sa)sa.textContent=DB.atleti.length;
+    if(sp)sp.textContent=Object.values(DB.pagamenti||{}).reduce(function(s,a){return s+a.length;},0);
+  }
 }
 
 // --- CONNESSIONE ---
@@ -1330,24 +1427,24 @@ function connectDB(){
   log('Admin '+BUILD_VERSION,'info');
   log('Connessione Firebase...','info');
   setDot('loading');
-  document.getElementById('btn-connect').disabled=true;
+  
   fbInitAdmin(
     function(){
       log('Firebase OK. Carico DB...','info');
-      var _t=setTimeout(function(){ log('Timeout DB.','warn'); setDot('warn'); setBtns(true); document.getElementById('btn-connect').disabled=false; },10000);
+      var _t=setTimeout(function(){ log('Timeout DB.','warn'); setDot('warn'); setBtns(true);  },10000);
       window._onDBLoaded=function(){
         clearTimeout(_t); window._onDBLoaded=null;
         if(typeof _initReportStagioni==='function')_initReportStagioni();
         var n=(DB&&DB.atleti)?DB.atleti.length:0;
         log('DB: '+n+' atleti.','ok');
         setDot('ok'); setBtns(true);
-        var btn=document.getElementById('btn-connect');
+        var btn=null;
         if(btn){btn.textContent='Disconnetti Firebase';btn.onclick=function(){DB=null;setDot('');setBtns(false);btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;log('DB disconnesso.','warn');}; btn.disabled=false;}
       };
       loadDB();
-      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&document.getElementById('btn-connect').disabled){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); var _b=document.getElementById('btn-connect'); if(_b){_b.textContent='Disconnetti Firebase';_b.onclick=function(){DB=null;setDot('');setBtns(false);_b.textContent='Connetti Firebase';_b.onclick=connectDB;_b.disabled=false;log('DB disconnesso.','warn');};_b.disabled=false;} } else if(document.getElementById('btn-connect').disabled){ log('Firebase connesso. In attesa dati...','info'); } },3000);
+      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&true){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); var _b=null; if(_b){_b.textContent='Disconnetti Firebase';_b.onclick=function(){DB=null;setDot('');setBtns(false);_b.textContent='Connetti Firebase';_b.onclick=connectDB;_b.disabled=false;log('DB disconnesso.','warn');};_b.disabled=false;} } else if(true){ log('Firebase connesso. In attesa dati...','info'); } },3000);
     },
-    function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot(''); document.getElementById('btn-connect').disabled=false; }
+    function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot('');  }
   );
 }
 
@@ -1365,10 +1462,11 @@ function salvaSezione(sez, data, callback) {
 function runOp(op) {
   if(!DB){ log('DB non caricato.','err'); return; }
 
-  if(op==='script') {
-    var codice=document.getElementById('op-script').value.trim();
+  if(op==='script'||op==='script2') {
+    var _sid=op==='script2'?'op-script2':'op-script';
+    var codice=document.getElementById(_sid).value.trim();
     if(!codice){ log('Inserisci il codice da eseguire.','warn'); return; }
-    if(!confirm('Eseguire lo script personalizzato?\nAssicurati di aver riletto il codice prima di procedere.')) return;
+    if(!_doppioControllo('Eseguire lo script personalizzato?\nAssicurati di aver riletto il codice.','ESEGUI')) return;
     try {
       var logLines=[];
       var logFn=function(m){ logLines.push(m); };
@@ -1592,11 +1690,8 @@ window._onAuthOK = function(user){
   _diagLog&&_diagLog('Admin auth OK: '+user.email,'#22a85a');
   log('Autenticato: '+user.email,'ok');
   setDot('loading'); setBtns(false);
-  var _t=setTimeout(function(){
-    if(DB&&DB.atleti&&DB.atleti.length>0){ if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); }
-    else { log('DB vuoto.','warn'); setDot('warn'); setBtns(true); }
-  },3000);
-  window._onDBLoaded=function(){ clearTimeout(_t); window._onDBLoaded=null; if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+((DB&&DB.atleti)?DB.atleti.length:0)+' atleti.','ok'); setDot('ok'); setBtns(true); };
+  // Connessione automatica al DB dopo il login
+  setTimeout(function(){ if(typeof connectDB==='function') connectDB(); }, 300);
 };
 window._onAuthLogout=function(){
   log('Sessione terminata.','warn');
@@ -1605,7 +1700,7 @@ window._onAuthLogout=function(){
   var mainScr=document.getElementById('main-scr');
   if(mainScr) mainScr.style.display='none';
   if(loginScr) loginScr.style.display='';
-  var btn=document.getElementById('btn-connect');
+  var btn=null;
   if(btn){btn.textContent='Connetti Firebase';btn.onclick=connectDB;btn.disabled=false;}
 };
 
@@ -1614,6 +1709,7 @@ window.addEventListener('load',function(){
   if(typeof _diagShow==='function') _diagShow();
   if(typeof fbInit==='function') setTimeout(fbInit,200);
   else log('basket-core.js non caricato!','err');
+  // Connessione automatica avviene in _onAuthOK dopo il login
 });
 
 // ── INIT CATEGORIE ──
@@ -1996,9 +2092,136 @@ function importaIscrizioniCSI(){
   inp.click();
 }
 
+function importaTutoriRicevute(input){
+  if(!DB||!DB.atleti){log('DB non caricato.','err');return;}
+  var files=Array.from(input.files); if(!files.length)return;
+  input.value='';
+  var logEl=document.getElementById('tut-log');
+  if(logEl){logEl.style.display='block';logEl.innerHTML='';}
+  function addLog(msg,tipo){
+    log(msg,tipo||'info');
+    if(logEl)logEl.innerHTML+='<div style="color:'+(tipo==='ok'?'#22a85a':tipo==='err'?'#e03545':'#8a9aaa')+'">'+escLog(msg)+'</div>';
+  }
+  addLog('Import tutori: '+files.length+' file selezionati');
+  var aggiornati=0, saltati=0, nonTrovati=0;
+  var idx=0;
+  function processNext(){
+    if(idx>=files.length){
+      if(aggiornati>0){
+        salvaSezione('atleti',DB.atleti,function(){
+          addLog('Completato: '+aggiornati+' atleti aggiornati, '+saltati+' già completi, '+nonTrovati+' atleti non trovati in DB.','ok');
+        });
+      } else {
+        addLog('Completato: nessun dato nuovo da aggiornare ('+saltati+' già completi, '+nonTrovati+' non trovati).','warn');
+      }
+      return;
+    }
+    var file=files[idx]; idx++;
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var ab=e.target.result;
+      // Usa mammoth.js per DOCX, altrimenti tenta estrazione testo da PDF
+      if(file.name.toLowerCase().endsWith('.docx')&&typeof mammoth!=='undefined'){
+        mammoth.extractRawText({arrayBuffer:ab}).then(function(result){
+          _parsaTutoreRicevuta(result.value,file.name,function(r){
+            _aggiornaTutoreInDB(r,file.name,function(esito){
+              if(esito==='ok')aggiornati++;
+              else if(esito==='skip')saltati++;
+              else nonTrovati++;
+              processNext();
+            });
+          });
+        }).catch(function(e){addLog('Errore DOCX '+file.name+': '+e.message,'err');processNext();});
+      } else {
+        // Tenta lettura come testo (PDF già convertito o file .txt)
+        var txt=new TextDecoder('utf-8').decode(new Uint8Array(ab));
+        _parsaTutoreRicevuta(txt,file.name,function(r){
+          _aggiornaTutoreInDB(r,file.name,function(esito){
+            if(esito==='ok')aggiornati++;
+            else if(esito==='skip')saltati++;
+            else nonTrovati++;
+            processNext();
+          });
+        });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+  // Carica mammoth se non presente
+  if(typeof mammoth==='undefined'){
+    var s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+    s.onload=processNext;
+    s.onerror=function(){addLog('Impossibile caricare mammoth.js — verifica connessione','err');};
+    document.head.appendChild(s);
+  } else {
+    processNext();
+  }
+}
+
+function _parsaTutoreRicevuta(txt, nomeFile, cb){
+  // Estrae dati da testo ricevuta (formato ASD Basket Campodarsego)
+  var r={cfAtleta:'',nomeAtleta:'',cfTutore:'',nomeTutore:'',via:'',comune:'',prov:'',cap:''};
+  // CF atleta
+  var mCfAtl=txt.match(/Codice\s+Fiscale\s*[\r\n\s]+([A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z])/i);
+  // Il secondo CF è il tutore (primo = tutore, secondo = atleta secondo l'ordine del documento)
+  var allCf=txt.match(/[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]/g)||[];
+  if(allCf.length>=2){r.cfTutore=allCf[0];r.cfAtleta=allCf[1];}
+  else if(allCf.length===1){r.cfAtleta=allCf[0];}
+  // Nome tutore: "Dal sig./sig.ra COGNOME NOME"
+  var mTut=txt.match(/Dal\s+sig\.?\/?sig\.?ra\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s']{2,40}?)[\r\n]/i);
+  if(mTut)r.nomeTutore=mTut[1].trim();
+  // Nome atleta
+  var mAtl=txt.match(/Atleta\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s']{2,40}?)[\r\n]/i);
+  if(mAtl)r.nomeAtleta=mAtl[1].trim();
+  // Indirizzo tutore: "Via VIA ROMA 10"
+  var mVia=txt.match(/Via\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s0-9\/]+?)[\r\n]/i);
+  if(mVia)r.via=mVia[1].trim();
+  // Comune: "Residente in CAMPODARSEGO (PD)"
+  var mCom=txt.match(/Residente\s+in\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s]+?)\s*(?:\(([A-Z]{2})\))?[\r\n]/i);
+  if(mCom){r.comune=mCom[1].trim();r.prov=mCom[2]||'';}
+  cb(r);
+}
+
+function _aggiornaTutoreInDB(r, nomeFile, cb){
+  if(!r.cfAtleta){
+    log('Import tutori ['+nomeFile+']: CF atleta non trovato','warn');
+    cb('notfound');return;
+  }
+  var a=DB.atleti.find(function(x){return x.cf&&x.cf.toUpperCase()===r.cfAtleta.toUpperCase();});
+  if(!a){
+    log('Import tutori ['+nomeFile+']: atleta CF '+r.cfAtleta+' non in DB','warn');
+    cb('notfound');return;
+  }
+  var changed=false;
+  // Aggiorna CF tutore
+  if(r.cfTutore&&!(a.tutCf||a.cfTut)){a.tutCf=r.cfTutore;changed=true;}
+  // Aggiorna nome tutore (split cognome/nome)
+  if(r.nomeTutore&&!a.tutCog){
+    var parti=r.nomeTutore.trim().split(/\s+/);
+    if(parti.length>=2){
+      a.tutCog=parti[0];
+      a.tutNom=parti.slice(1).join(' ');
+    } else {
+      a.tutCog=r.nomeTutore;
+    }
+    changed=true;
+  }
+  // Aggiorna indirizzo tutore
+  if(r.via&&!a.tutVia){a.tutVia=r.via;changed=true;}
+  if(r.comune&&!a.tutComune){a.tutComune=r.comune;changed=true;}
+  if(r.prov&&!a.tutProv){a.tutProv=r.prov;changed=true;}
+  if(changed){
+    log('Import tutori ['+nomeFile+']: aggiornato '+a.cog+' '+a.nom+' (CF '+r.cfAtleta+')','ok');
+    cb('ok');
+  } else {
+    cb('skip');
+  }
+}
+
 function rigeneraIscrizioni(){
   if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
-  if(!confirm("ATTENZIONE: azzera le iscrizioni FIP e/o CSI e le ricostruisce dai file selezionati.\n\nI pagamenti NON vengono toccati.\n\nSeleziona uno o entrambi i file nel picker (tieni premuto per selezione multipla).\n\nProcedere?"))return;
+  if(!_doppioControllo("ATTENZIONE: azzera le iscrizioni FIP e/o CSI.\nI pagamenti NON vengono toccati.\nProcedere?","RIGENERA"))return;
 
   var inp=document.createElement('input');
   inp.type='file'; inp.accept='.json'; inp.multiple=true;
@@ -2161,11 +2384,39 @@ function log(msg, tipo) {
 function escLog(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function clearLog(){ document.getElementById('log').innerHTML=''; }
 function setDot(s){ var d=document.getElementById('status-dot'); d.className=s; }
+
+function _doppioControllo(messaggio, parola){
+  if(!confirm(messaggio)) return false;
+  var inp=prompt('⚠️ Operazione irreversibile.\nDigita "'+parola+'" per confermare:','');
+  if(inp===null) return false;
+  if(inp.trim().toUpperCase()!==parola.toUpperCase()){
+    log('Conferma non valida — operazione annullata.','warn');
+    return false;
+  }
+  return true;
+}
+
+function admGoTab(tab){
+  document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active');});
+  document.querySelectorAll('.adm-page').forEach(function(p){p.classList.remove('active');});
+  var el=document.getElementById('adm-page-'+tab);
+  if(el)el.classList.add('active');
+  var tabs=document.querySelectorAll('.nav-tab');
+  var map={db:0,import:1,report:2,ops:3,log:4};
+  if(map[tab]!==undefined&&tabs[map[tab]])tabs[map[tab]].classList.add('active');
+}
+
 function setBtns(on){
-  ['script','backup','ricevutePDF'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b) b.disabled=!on;
   });
+  // aggiorna s-atleti e s-pag
+  if(on&&DB&&DB.atleti){
+    var sa=document.getElementById('s-atleti');var sp=document.getElementById('s-pag');
+    if(sa)sa.textContent=DB.atleti.length;
+    if(sp)sp.textContent=Object.values(DB.pagamenti||{}).reduce(function(s,a){return s+a.length;},0);
+  }
 }
 
 // --- CONNESSIONE ---
@@ -2176,21 +2427,21 @@ function connectDB(){
   log('Admin '+BUILD_VERSION,'info');
   log('Connessione Firebase...','info');
   setDot('loading');
-  document.getElementById('btn-connect').disabled=true;
+  
   fbInitAdmin(
     function(){
       log('Firebase OK. Carico DB...','info');
-      var _t=setTimeout(function(){ log('Timeout DB.','warn'); setDot('warn'); setBtns(true); document.getElementById('btn-connect').disabled=false; },10000);
+      var _t=setTimeout(function(){ log('Timeout DB.','warn'); setDot('warn'); setBtns(true);  },10000);
       window._onDBLoaded=function(){
         clearTimeout(_t); window._onDBLoaded=null;
         if(typeof _initReportStagioni==='function')_initReportStagioni();
         log('DB: '+DB.atleti.length+' atleti.','ok');
-        setDot('ok'); setBtns(true); document.getElementById('btn-connect').disabled=false;
+        setDot('ok'); setBtns(true); 
       };
       loadDB();
-      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&document.getElementById('btn-connect').disabled){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true); document.getElementById('btn-connect').disabled=false; } },3000);
+      setTimeout(function(){ if(DB&&DB.atleti&&DB.atleti.length>0&&true){ clearTimeout(_t); if(typeof _initReportStagioni==='function')_initReportStagioni(); log('DB: '+DB.atleti.length+' atleti.','ok'); setDot('ok'); setBtns(true);  } },3000);
     },
-    function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot(''); document.getElementById('btn-connect').disabled=false; }
+    function(msg){ log('ERRORE Firebase: '+msg,'err'); setDot('');  }
   );
 }
 
@@ -2208,10 +2459,11 @@ function salvaSezione(sez, data, callback) {
 function runOp(op) {
   if(!DB){ log('DB non caricato.','err'); return; }
 
-  if(op==='script') {
-    var codice=document.getElementById('op-script').value.trim();
+  if(op==='script'||op==='script2') {
+    var _sid=op==='script2'?'op-script2':'op-script';
+    var codice=document.getElementById(_sid).value.trim();
     if(!codice){ log('Inserisci il codice da eseguire.','warn'); return; }
-    if(!confirm('Eseguire lo script personalizzato?\nAssicurati di aver riletto il codice prima di procedere.')) return;
+    if(!_doppioControllo('Eseguire lo script personalizzato?\nAssicurati di aver riletto il codice.','ESEGUI')) return;
     try {
       var logLines=[];
       var logFn=function(m){ logLines.push(m); };
