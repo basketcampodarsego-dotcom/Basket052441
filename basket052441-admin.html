@@ -98,7 +98,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.14 · 23/03/2026 00:01<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.15 · 23/03/2026 00:12<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -117,7 +117,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.14 · 23/03/2026 00:01</div>
+    <div class="topbar-sub">Build v9.15 · 23/03/2026 00:12</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -871,10 +871,17 @@ function loadDB(){
       buildSearchIndex();
       localStorage.setItem(DB_KEY,JSON.stringify(DB));
       migraAtleti();
+      // Aggiorna UI admin direttamente
+      var n=(DB&&DB.atleti)?DB.atleti.length:0;
+      var p=DB&&DB.pagamenti?Object.values(DB.pagamenti).reduce(function(s,a){return s+a.length;},0):0;
+      var sa=document.getElementById('s-atleti'); if(sa)sa.textContent=n;
+      var sp=document.getElementById('s-pag'); if(sp)sp.textContent=p;
+      setDot('ok');
+      if(typeof setBtns==='function')setBtns(true);
       if(typeof window._onDBLoaded === 'function'){ window._onDBLoaded(); }
       else if(typeof renderDashboard === 'function'){ renderDashboard(); }
       syncStatus(false);
-      console.log("[FB] DB caricato dal cloud"); diag("Firebase OK: atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pagamenti="+Object.keys(DB.pagamenti||{}).length,"ok");
+      diag('Firebase OK: atleti='+n+', pagamenti='+Object.keys(DB.pagamenti||{}).length,'ok');
     }).catch(function(e){
       syncStatus(false);
       console.error("[FB] Errore lettura sezioni:",e);
