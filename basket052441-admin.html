@@ -63,7 +63,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.4 · 22/03/2026 19:31<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.5 · 22/03/2026 20:33<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -79,7 +79,7 @@
 <div id="main-scr" style="display:none">
 <h1>⚙️ Basket052441 — Admin DB <button onclick="_diagToggle()" title="Diagnostica (Ctrl+Shift+D)" style="background:rgba(200,168,75,0.15);border:1px solid rgba(200,168,75,0.4);color:#c8a84b;font-size:13px;cursor:pointer;padding:0 12px;border-radius:6px;height:44px;vertical-align:middle;margin-left:10px;font-weight:bold">🔧 Diag</button></h1>
 <p class="subtitle">Operazioni una tantum sul database Firebase · Solo per amministratori</p>
-<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v9.4 · 22/03/2026 19:31</span></p>
+<p style="text-align:center;margin-top:2px"><span style="font-size:10px;color:#3a5070">Build v9.5 · 22/03/2026 20:33</span></p>
 <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin:8px 0 0"><span id="admin-user-label" style="font-size:11px;color:#6a8a9a"></span><button class="btn btn-gray btn-sm" onclick="doLogout()">&#x1F6AA; Logout</button></div>
 
 <!-- CONNESSIONE -->
@@ -99,77 +99,6 @@
 <div class="card">
   <div class="card-title">🔧 Operazioni disponibili</div>
   <div class="op-list">
-
-    <!-- OP 1: Ritirati → Ex -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Ritirati → categoria Ex <span class="badge badge-safe">SAFE</span></div>
-        <div class="op-desc">Imposta cat="Ex" su tutti gli atleti con ritirato=true che non sono già Ex.</div>
-      </div>
-      <button class="btn btn-green" onclick="runOp('ex')" id="btn-ex" disabled>Esegui</button>
-    </div>
-
-    <!-- OP 2: Cambio categoria -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Cambio categoria in blocco <span class="badge badge-warn">MODIFICA</span></div>
-        <div class="op-desc">Cambia categoria a tutti gli atleti di una categoria specifica.</div>
-        <div class="params show">
-          <div class="grid2">
-            <div>
-              <label>Da categoria</label>
-              <select id="op-cat-da">
-                <option value="">— seleziona —</option>
-                <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
-                <option>Esordienti</option><option>Special</option><option>AmaBasket</option>
-                <option>AmaVolley</option><option>Dirigente</option><option>Volontario</option><option>Ex</option>
-              </select>
-            </div>
-            <div>
-              <label>A categoria</label>
-              <select id="op-cat-a">
-                <option value="">— seleziona —</option>
-                <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
-                <option>Esordienti</option><option>Special</option><option>AmaBasket</option>
-                <option>AmaVolley</option><option>Dirigente</option><option>Volontario</option><option>Ex</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-      <button class="btn btn-gold" onclick="runOp('cat')" id="btn-cat" disabled>Esegui</button>
-    </div>
-
-    <!-- OP 3: Azzera certificati scaduti -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Azzera certificati medici scaduti <span class="badge badge-warn">MODIFICA</span></div>
-        <div class="op-desc">Svuota il campo cs (data certificato medico) per tutti gli atleti il cui certificato è scaduto prima della data indicata.</div>
-        <div class="params show">
-          <label>Scaduti prima del</label>
-          <input type="date" id="op-cs-data" value="">
-        </div>
-      </div>
-      <button class="btn btn-gold" onclick="runOp('cs')" id="btn-cs" disabled>Esegui</button>
-    </div>
-
-    <!-- OP 4: Imposta ritirato -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Segna come ritirati per categoria <span class="badge badge-warn">MODIFICA</span></div>
-        <div class="op-desc">Imposta ritirato=true su tutti gli atleti attivi di una categoria specificata.</div>
-        <div class="params show">
-          <label>Categoria</label>
-          <select id="op-rit-cat">
-            <option value="">— seleziona —</option>
-            <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
-            <option>Esordienti</option><option>Special</option><option>AmaBasket</option>
-            <option>AmaVolley</option><option>Dirigente</option><option>Volontario</option>
-          </select>
-        </div>
-      </div>
-      <button class="btn btn-red" onclick="runOp('rit')" id="btn-rit" disabled>Esegui</button>
-    </div>
 
     <!-- OP 5: Script custom -->
     <div class="op-row">
@@ -210,15 +139,6 @@ return false; // non salvare"></textarea>
         <div class="op-desc">Scarica un file JSON con tutto il contenuto del database Firebase.</div>
       </div>
       <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
-    </div>
-
-    <!-- OP 7: Normalizza CAP/Comune -->
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Normalizza CAP / Comune <span class="badge badge-mod">MODIFICA</span></div>
-        <div class="op-desc">Corregge gli atleti dove il campo Comune contiene il CAP (es. "30035 Mirano" → CAP "30035", Comune "Mirano"). Agisce su atleta e tutore.</div>
-      </div>
-      <button class="btn btn-gold" onclick="normalizzaCAP()" id="btn-normcap" disabled>Esegui</button>
     </div>
 
   </div>
@@ -1396,7 +1316,7 @@ function escLog(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 function clearLog(){ document.getElementById('log').innerHTML=''; }
 function setDot(s){ var d=document.getElementById('status-dot'); d.className=s; }
 function setBtns(on){
-  ['ex','cat','cs','rit','script','backup','ricevutePDF','normcap'].forEach(function(id){
+  ['script','backup','ricevutePDF'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b) b.disabled=!on;
   });
@@ -1444,73 +1364,6 @@ function salvaSezione(sez, data, callback) {
 // --- OPERAZIONI ---
 function runOp(op) {
   if(!DB){ log('DB non caricato.','err'); return; }
-
-  if(op==='ex') {
-    var n=0;
-    var preview=[];
-    DB.atleti.forEach(function(a){
-      if(a.ritirato && a.cat!=='Ex'){ preview.push('['+a.id+'] '+a.cog+' '+a.nom+' ('+( a.cat||'—')+')'); n++; }
-    });
-    if(n===0){ log('Nessun atleta da aggiornare.','warn'); return; }
-    log('Atleti da impostare come Ex: '+n,'warn');
-    preview.slice(0,20).forEach(function(r){ log('  '+r,'info'); });
-    if(preview.length>20) log('  ... e altri '+(preview.length-20),'info');
-    if(!confirm('Impostare cat="Ex" per '+n+' atleti ritirati?\nL\'operazione è irreversibile.')) return;
-    DB.atleti.forEach(function(a){ if(a.ritirato&&a.cat!=='Ex'){ a.cat='Ex'; } });
-    salvaSezione('atleti', DB.atleti, function(){ log('Operazione completata: '+n+' atleti → Ex.','ok'); });
-    return;
-  }
-
-  if(op==='cat') {
-    var da=document.getElementById('op-cat-da').value;
-    var a2=document.getElementById('op-cat-a').value;
-    if(!da||!a2){ log('Seleziona entrambe le categorie.','warn'); return; }
-    if(da===a2){ log('Le due categorie sono uguali.','warn'); return; }
-    var n2=0;
-    var _sc=_stagioneCorrente(); DB.atleti.forEach(function(a){ if((_catAtletaPerAnno(a,_sc)||a.cat)===da) n2++; });
-    if(n2===0){ log('Nessun atleta con categoria "'+da+'".','warn'); return; }
-    if(!confirm('Cambiare categoria da "'+da+'" a "'+a2+'" per '+n2+' atleti?')) return;
-    var _sc2=_stagioneCorrente(); DB.atleti.forEach(function(a){ if((_catAtletaPerAnno(a,_sc2)||a.cat)===da){ a.cat=a2; var _i=(a.iscrizioni||[]).find(function(x){return x.anno===_sc2;}); if(_i)_i.cat1=a2; } });
-    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n2+' atleti da "'+da+'" a "'+a2+'".','ok'); });
-    return;
-  }
-
-  if(op==='cs') {
-    var limite=document.getElementById('op-cs-data').value;
-    if(!limite){ log('Inserisci una data limite.','warn'); return; }
-    var n3=0;
-    DB.atleti.forEach(function(a){
-      if(a.cs){
-        // Normalizza formato
-        var cs=a.cs;
-        if(cs.indexOf('/')>-1){ var p=cs.split('/'); cs=p[2]+'-'+p[1]+'-'+p[0]; }
-        if(cs<limite) n3++;
-      }
-    });
-    if(n3===0){ log('Nessun certificato scaduto prima del '+limite+'.','warn'); return; }
-    if(!confirm('Azzerare il campo certificato medico per '+n3+' atleti (scaduto prima del '+limite+')?')) return;
-    DB.atleti.forEach(function(a){
-      if(a.cs){
-        var cs=a.cs;
-        if(cs.indexOf('/')>-1){ var p=cs.split('/'); cs=p[2]+'-'+p[1]+'-'+p[0]; }
-        if(cs<limite) a.cs='';
-      }
-    });
-    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n3+' certificati azzerati.','ok'); });
-    return;
-  }
-
-  if(op==='rit') {
-    var cat=document.getElementById('op-rit-cat').value;
-    if(!cat){ log('Seleziona una categoria.','warn'); return; }
-    var n4=0;
-    var _scR=_stagioneCorrente(); DB.atleti.forEach(function(a){ if((_catAtletaPerAnno(a,_scR)||a.cat)===cat&&!a.ritirato) n4++; });
-    if(n4===0){ log('Nessun atleta attivo con categoria "'+cat+'".','warn'); return; }
-    if(!confirm('Segnare come RITIRATI '+n4+' atleti della categoria "'+cat+'"?\nQuesta operazione è difficilmente reversibile.')) return;
-    DB.atleti.forEach(function(a){ if(a.cat===cat&&!a.ritirato) a.ritirato=true; });
-    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n4+' atleti segnati come ritirati.','ok'); });
-    return;
-  }
 
   if(op==='script') {
     var codice=document.getElementById('op-script').value.trim();
@@ -2278,30 +2131,7 @@ function rigeneraIscrizioni(){
   inp.click();
 }
 
-function normalizzaCAP(){
-  if(!DB||!DB.atleti){log("DB non caricato.",'err');return;}
-  var fixati=0, lista=[];
-  function _fixComuneCAP(cap,comune){
-    if(comune&&/^\d{5}\s+/.test(comune)){
-      var m=comune.match(/^(\d{5})\s+(.+)$/);
-      if(m){return{cap:cap||m[1],comune:m[2]};}
-    }
-    return null;
-  }
-  DB.atleti.forEach(function(a){
-    var dirty=false;
-    var fixInd=_fixComuneCAP(a.indCap||'',a.indComune||'');
-    if(fixInd){lista.push('['+a.id+'] '+a.cog+' '+a.nom+': ind "'+a.indComune+'" → CAP "'+fixInd.cap+'", Comune "'+fixInd.comune+'"');a.indCap=fixInd.cap;a.indComune=fixInd.comune;dirty=true;}
-    var fixTut=_fixComuneCAP(a.tutCap||'',a.tutComune||'');
-    if(fixTut){lista.push('['+a.id+'] '+a.cog+' '+a.nom+' (tut): "'+a.tutComune+'" → CAP "'+fixTut.cap+'", Comune "'+fixTut.comune+'"');a.tutCap=fixTut.cap;a.tutComune=fixTut.comune;dirty=true;}
-    if(dirty)fixati++;
-  });
-  if(fixati===0){log('Nessun record da correggere.','ok');return;}
-  log(fixati+' atleti corretti:','info');
-  lista.forEach(function(s){log('  '+s,'info');});
-  saveDB();
-  log('Normalizzazione CAP/Comune completata.','ok');
-}
+
 
 
 </script>
@@ -2332,7 +2162,7 @@ function escLog(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
 function clearLog(){ document.getElementById('log').innerHTML=''; }
 function setDot(s){ var d=document.getElementById('status-dot'); d.className=s; }
 function setBtns(on){
-  ['ex','cat','cs','rit','script','backup','ricevutePDF'].forEach(function(id){
+  ['script','backup','ricevutePDF'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b) b.disabled=!on;
   });
@@ -2377,73 +2207,6 @@ function salvaSezione(sez, data, callback) {
 // --- OPERAZIONI ---
 function runOp(op) {
   if(!DB){ log('DB non caricato.','err'); return; }
-
-  if(op==='ex') {
-    var n=0;
-    var preview=[];
-    DB.atleti.forEach(function(a){
-      if(a.ritirato && a.cat!=='Ex'){ preview.push('['+a.id+'] '+a.cog+' '+a.nom+' ('+( a.cat||'—')+')'); n++; }
-    });
-    if(n===0){ log('Nessun atleta da aggiornare.','warn'); return; }
-    log('Atleti da impostare come Ex: '+n,'warn');
-    preview.slice(0,20).forEach(function(r){ log('  '+r,'info'); });
-    if(preview.length>20) log('  ... e altri '+(preview.length-20),'info');
-    if(!confirm('Impostare cat="Ex" per '+n+' atleti ritirati?\nL\'operazione è irreversibile.')) return;
-    DB.atleti.forEach(function(a){ if(a.ritirato&&a.cat!=='Ex'){ a.cat='Ex'; } });
-    salvaSezione('atleti', DB.atleti, function(){ log('Operazione completata: '+n+' atleti → Ex.','ok'); });
-    return;
-  }
-
-  if(op==='cat') {
-    var da=document.getElementById('op-cat-da').value;
-    var a2=document.getElementById('op-cat-a').value;
-    if(!da||!a2){ log('Seleziona entrambe le categorie.','warn'); return; }
-    if(da===a2){ log('Le due categorie sono uguali.','warn'); return; }
-    var n2=0;
-    var _sc=_stagioneCorrente(); DB.atleti.forEach(function(a){ if((_catAtletaPerAnno(a,_sc)||a.cat)===da) n2++; });
-    if(n2===0){ log('Nessun atleta con categoria "'+da+'".','warn'); return; }
-    if(!confirm('Cambiare categoria da "'+da+'" a "'+a2+'" per '+n2+' atleti?')) return;
-    var _sc2=_stagioneCorrente(); DB.atleti.forEach(function(a){ if((_catAtletaPerAnno(a,_sc2)||a.cat)===da){ a.cat=a2; var _i=(a.iscrizioni||[]).find(function(x){return x.anno===_sc2;}); if(_i)_i.cat1=a2; } });
-    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n2+' atleti da "'+da+'" a "'+a2+'".','ok'); });
-    return;
-  }
-
-  if(op==='cs') {
-    var limite=document.getElementById('op-cs-data').value;
-    if(!limite){ log('Inserisci una data limite.','warn'); return; }
-    var n3=0;
-    DB.atleti.forEach(function(a){
-      if(a.cs){
-        // Normalizza formato
-        var cs=a.cs;
-        if(cs.indexOf('/')>-1){ var p=cs.split('/'); cs=p[2]+'-'+p[1]+'-'+p[0]; }
-        if(cs<limite) n3++;
-      }
-    });
-    if(n3===0){ log('Nessun certificato scaduto prima del '+limite+'.','warn'); return; }
-    if(!confirm('Azzerare il campo certificato medico per '+n3+' atleti (scaduto prima del '+limite+')?')) return;
-    DB.atleti.forEach(function(a){
-      if(a.cs){
-        var cs=a.cs;
-        if(cs.indexOf('/')>-1){ var p=cs.split('/'); cs=p[2]+'-'+p[1]+'-'+p[0]; }
-        if(cs<limite) a.cs='';
-      }
-    });
-    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n3+' certificati azzerati.','ok'); });
-    return;
-  }
-
-  if(op==='rit') {
-    var cat=document.getElementById('op-rit-cat').value;
-    if(!cat){ log('Seleziona una categoria.','warn'); return; }
-    var n4=0;
-    var _scR=_stagioneCorrente(); DB.atleti.forEach(function(a){ if((_catAtletaPerAnno(a,_scR)||a.cat)===cat&&!a.ritirato) n4++; });
-    if(n4===0){ log('Nessun atleta attivo con categoria "'+cat+'".','warn'); return; }
-    if(!confirm('Segnare come RITIRATI '+n4+' atleti della categoria "'+cat+'"?\nQuesta operazione è difficilmente reversibile.')) return;
-    DB.atleti.forEach(function(a){ if(a.cat===cat&&!a.ritirato) a.ritirato=true; });
-    salvaSezione('atleti', DB.atleti, function(){ log('Completato: '+n4+' atleti segnati come ritirati.','ok'); });
-    return;
-  }
 
   if(op==='script') {
     var codice=document.getElementById('op-script').value.trim();
