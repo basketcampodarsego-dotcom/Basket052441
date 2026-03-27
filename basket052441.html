@@ -1108,29 +1108,6 @@ function _stagioneCorrente(){
   return _annoDaStagione(new Date().toISOString().split('T')[0]);
 }
 
-function _popolaSelectStagioni(selectId, includiVuoto){
-  var sel=g(selectId); if(!sel)return;
-  var stagioni={};
-  (DB.atleti||[]).forEach(function(a){
-    (a.iscrizioni||[]).forEach(function(i){if(i.anno)stagioni[i.anno]=1;});
-  });
-  var sorted=Object.keys(stagioni).sort().reverse();
-  var corrente=_stagioneCorrente();
-  if(!stagioni[corrente])sorted.unshift(corrente);
-  var prev=sel.value;
-  sel.innerHTML=(includiVuoto?'<option value="">\u2014 tutte le stagioni \u2014</option>':'')+
-    sorted.map(function(s){
-      return '<option value="'+s+'">'+s+(s===corrente?' \u2605':'')+' </option>';
-    }).join('');
-  if(prev&&stagioni[prev])sel.value=prev;
-}
-
-function _isAttivoCorrente(a){
-  if(!a || a.ritirato) return false;
-  var stagione = _stagioneCorrente();
-  return (a.iscrizioni||[]).some(function(i){ return i.anno === stagione; });
-}
-
 function _annoNascitaAtleta(a){
   // Estrae anno di nascita dal campo dn (AAAA-MM-GG o GG/MM/AAAA)
   if(a.dn){
@@ -1473,9 +1450,6 @@ function _esportaReportImport(){
       <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
       <option>Esordienti</option><option>Special</option><option>AmaBasket</option><option>AmaVolley</option><option>Dirigente</option><option>Volontario</option><option>Ex</option>
     </select>
-    <select id="ana-stagione" onchange="renderAnagrafica()" title="Stagione sportiva">
-      <option value="">— tutte le stagioni —</option>
-    </select>
     <select id="ana-filtro-extra" onchange="renderAnagrafica()">
       <option value="attivi">Solo attivi</option>
       <option value="tutti">Tutti (att.+rit.)</option>
@@ -1506,12 +1480,6 @@ function _esportaReportImport(){
         <option value="">Tutte</option>
         <option>Pulcini</option><option>Scoiattoli</option><option>Aquilotti</option>
         <option>Esordienti</option><option>Special</option><option>AmaBasket</option><option>AmaVolley</option><option>Dirigente</option><option>Volontario</option>
-      </select>
-    </div>
-    <div>
-      <label>Stagione</label>
-      <select id="pag-stagione" onchange="renderPagamenti()" title="Filtra per stagione sportiva">
-        <option value="">— tutte le stagioni —</option>
       </select>
     </div>
     <div>
@@ -1735,13 +1703,13 @@ function _esportaReportImport(){
   </table>
   <div id="ricevute-registro"></div>
 </div>
-<div class="card" style="border-color:var(--red)">
-  <div class="card-title" style="color:var(--red)">Zona Pericolosa</div>
-  <div style="display:flex;flex-wrap:wrap;gap:10px">
-    
-    <button class="btn btn-red" onclick="resetDB()">Cancella tutti i dati</button>
-  </div>
-</div>
+  <div class="card" style="border-color:var(--border)">
+  <div class="card-title" style="color:var(--muted)">&#128465; Reset Database</div>
+  <p style="font-size:13px;color:var(--muted);line-height:1.5">
+    La funzione di reset completo del database &egrave; stata spostata nel pannello
+    <strong style="color:var(--gold)">Admin</strong> per maggiore sicurezza.<br>
+    Accedi all&apos;admin e vai nella sezione <em>Operazioni &rarr; Zona Pericolosa</em>.
+  </p>
 </div>
 
 </div>
@@ -2226,9 +2194,6 @@ function buildSearchIndex() {
 
 function renderDashboard() {
   diag("renderDashboard: atleti="+DB.atleti.length+", allenamenti="+DB.allenamenti.length);
-  // Popola selettori stagione in tutte le pagine
-  _popolaSelectStagioni('ana-stagione', true);
-  _popolaSelectStagioni('pag-stagione', true);
   // Stagione corrente: agosto-luglio
   var stagCorrente=_stagioneCorrente();
   // Attivi = iscritti nella stagione corrente
@@ -2591,24 +2556,19 @@ function renderAnagrafica(){
   var search=(g("ana-search").value||"").toLowerCase();
   var cat=g("ana-cat").value;
   var filtroExtra=g("ana-filtro-extra")?g("ana-filtro-extra").value:"";
-  var stagSel=(g("ana-stagione")&&g("ana-stagione").value)||"";
-  var stagCorrente=_stagioneCorrente();
-  var stagUso=stagSel||stagCorrente;
   var lista=DB.atleti.filter(function(a){
     if(!a||!a.cog)return false;
+    // Filtro ritirati/attivi/tutti
     var isRit=!!a.ritirato;
-    if(stagSel){
-      var haStagione=(a.iscrizioni||[]).some(function(i){return i.anno===stagSel;});
-      if(filtroExtra==="ritirati"){if(!isRit)return false;}
-      else if(!haStagione)return false;
-    } else {
-      var isAttivo=_isAttivoCorrente(a);
-      if(filtroExtra==="attivi"&&!isAttivo)return false;
-      if(filtroExtra==="ritirati"&&!isRit)return false;
-    }
+    if(filtroExtra==="attivi"&&isRit)return false;
+    if(filtroExtra==="ritirati"&&!isRit)return false;
+    // Filtro testo
     var haystack=((a.cog||"")+(" ")+(a.nom||"")+(" ")+(a.cf||"")+(" ")+(a.cat||"")).toLowerCase();
-    if(search&&haystack.indexOf(search)<0)return false;
-    if(cat){var catAnno=_catAtletaPerAnno(a,stagUso)||a.cat||"";if(catAnno!==cat)return false;}
+    var ms=!search||haystack.indexOf(search)>-1;
+    if(!ms)return false;
+    // Filtro categoria
+    if(cat&&a.cat!==cat)return false;
+    // Filtri extra
     if(filtroExtra==="no-tel")return !a.tel&&!a.tutCell1;
     if(filtroExtra==="no-email")return !a.email&&!a.tutEmail;
     if(filtroExtra==="no-cert")return !a.cs;
@@ -2616,21 +2576,19 @@ function renderAnagrafica(){
     if(filtroExtra==="no-pag"){if(isRit)return false; var pp=DB.pagamenti[a.id]||[]; return pp.length===0;}
     return true;
   }).sort(function(a,b){return (a.cog||"").localeCompare(b.cog||"");});
-  g("ana-count").innerHTML=lista.length+' atleti'+(stagSel?' &mdash; stagione <strong>'+stagSel+'</strong>':'');
+  g("ana-count").textContent=lista.length+" atleti";
   var h="";
   lista.forEach(function(a,i){
-    var certTxt=a.cs?(certScaduto(a.cs)?'<span class="cert-no" title="Scaduto il '+a.cs+'">&#10060;</span>':\'<span class="cert-ok" title="Valido fino al '+a.cs+'">&#10003;</span>'):'<span class="cert-no" title="Certificato mancante">&#9888;</span>';
+    var certTxt=a.cs?(certScaduto(a.cs)?'<span class="cert-no" title="Scaduto il '+a.cs+'">&#10060;</span>':'<span class="cert-ok" title="Valido fino al '+a.cs+'">&#10003;</span>'):'<span class="cert-no" title="Certificato mancante">&#9888;</span>';
     h+='<tr><td style="color:var(--muted);font-size:11px">'+(i+1)+'</td>';
     h+='<td><strong>'+esc(a.cog)+'</strong> '+esc(a.nom)+(a.sex==="F"?' <span style="color:#ff8ac0;font-size:10px">&#9792;</span>':'')+'<div style="font-size:10px;color:var(--muted)">'+a.dn+'</div></td>';
-    var catAnno=a.ritirato?"Ritirato":(_catAtletaPerAnno(a,stagUso)||a.cat||"");
+    var catLabel=a.ritirato?"Ritirato":(a.cat||"");
     var iscLabel="";
     if(!a.ritirato&&a.iscrizioni&&a.iscrizioni.length){
-      var iscStagione=a.iscrizioni.find(function(i){return i.anno===stagUso;});
-      var iscMostra=iscStagione||a.iscrizioni[a.iscrizioni.length-1];
-      var nonCorrente=!iscStagione&&!stagSel;
-      iscLabel='<div style="font-size:9px;color:'+(iscStagione?'var(--muted)':'#aa6622')+'">'+esc(iscMostra.anno||"")+(iscMostra.fed?" \u00b7 "+iscMostra.fed:"")+(nonCorrente?' \u26a0':'')+'</div>';
+      var lastIsc=a.iscrizioni[a.iscrizioni.length-1];
+      iscLabel='<div style="font-size:9px;color:var(--muted)">'+esc(lastIsc.anno||"")+(lastIsc.fed?" · "+lastIsc.fed:"")+'</div>';
     }
-    h+='<td><span class="badge '+(a.ritirato?"Ritirato":catAnno)+'">'+ esc(catAnno)+'</span>'+iscLabel+'</td>';
+    h+='<td><span class="badge '+(a.ritirato?"Ritirato":catLabel)+'">'+esc(catLabel)+'</span>'+iscLabel+'</td>';
     h+='<td style="color:var(--gold);font-weight:bold">'+(a.mag?"#"+a.mag:"&mdash;")+'</td>';
     h+='<td>'+certTxt+'</td>';
     h+='<td><div style="display:flex;gap:6px;flex-wrap:wrap">';
@@ -2965,51 +2923,8 @@ function renderPagamenti(){
   var cat=g("pag-cat").value;
   var da=g("pag-da")&&g("pag-da").value?g("pag-da").value:null;
   var al=g("pag-a")&&g("pag-a").value?g("pag-a").value:null;
-  var stagSel=(g("pag-stagione")&&g("pag-stagione").value)||"";
-  var stagUso=stagSel||_stagioneCorrente();
-  var lista=DB.atleti.filter(function(a){
-    if(!a||a.ritirato)return false;
-    if(stagSel){
-      var haStagione=(a.iscrizioni||[]).some(function(i){return i.anno===stagSel;});
-      if(!haStagione)return false;
-    }
-    if(cat){var catAnno=_catAtletaPerAnno(a,stagUso)||a.cat||"";if(catAnno!==cat)return false;}
-    return true;
-  }).sort(function(a,b){return a.cog.localeCompare(b.cog);});
-  function pagsFiltrati(id){
-    var pp=DB.pagamenti[id]||[];
-    if(!da&&!al)return pp;
-    return pp.filter(function(p){
-      if(!p.data)return false;
-      if(da&&p.data<da)return false;
-      if(al&&p.data>al)return false;
-      return true;
-    });
-  }
-  var totTot=0,nPag=0;
-  lista.forEach(function(a){var p=pagsFiltrati(a.id);totTot+=p.reduce(function(s,x){return s+(+x.importo||0);},0);nPag+=p.length;});
-  g("pag-stats").innerHTML=
-    '<div class="stat-card"><div style="font-size:18px;font-weight:bold;color:#4aaa6a">&#8364;'+totTot.toFixed(0)+'</div><div class="stat-lbl">Totale incassato</div></div>'+
-    '<div class="stat-card"><div style="font-size:18px;font-weight:bold;color:var(--gold)">'+nPag+'</div><div class="stat-lbl">Transazioni</div></div>'+
-    '<div class="stat-card"><div style="font-size:18px;font-weight:bold;color:#4a8aff">'+DB.ricevute.length+'</div><div class="stat-lbl">Ricevute emesse</div></div>';
-  var h="";
-  lista.forEach(function(a){
-    var pags=pagsFiltrati(a.id);
-    if(da||al){if(!pags.length)return;}
-    if(stagSel&&!pags.length)return;
-    var tot=pags.reduce(function(s,p){return s+(+p.importo||0);},0);
-    var ultimo=pags.length?pags[pags.length-1]:{};
-    var catAnno=_catAtletaPerAnno(a,stagUso)||a.cat||"";
-    h+='<tr><td><strong>'+esc(a.cog)+'</strong> '+esc(a.nom)+'</td>';
-    h+='<td><span class="badge '+catAnno+'">'+catAnno+'</span></td>';
-    h+='<td style="text-align:center;color:var(--gold)">'+pags.length+'/5</td>';
-    h+='<td style="color:'+(tot>0?"var(--gold)":"var(--dark)")+';font-weight:bold">'+(tot>0?"&#8364;"+tot.toFixed(2):"&mdash;")+'</td>';
-    h+='<td style="font-size:11px;color:var(--muted)">'+(ultimo.data?fmtData(ultimo.data)+" "+esc(ultimo.tipo||""):"&mdash;")+'</td>';
-    h+='<td><button class="btn btn-gold btn-sm" onclick="openModalPag('+a.id+')">&#128176;</button></td></tr>';
-  });
-  g("pag-tbody").innerHTML=h||'<tr><td colspan="6" class="empty">Nessun atleta</td></tr>';
-}
-
+  var lista=DB.atleti.filter(function(a){return!a.ritirato&&(!cat||a.cat===cat);}).sort(function(a,b){return a.cog.localeCompare(b.cog);});
+  // Filtra pagamenti per periodo se specificato
   function pagsFiltrati(id){
     var pp=DB.pagamenti[id]||[];
     if(!da&&!al)return pp;
@@ -3578,23 +3493,16 @@ function lrSetFiltro(cat,btn){LR_FILTRO=cat;document.querySelectorAll("#lr-filtr
 function lrFiltraCategoria(){var cat=g("lr-cat").value;LR_FILTRO=cat;document.querySelectorAll("#lr-filtri .fb").forEach(function(b){b.classList.toggle("active",b.textContent===cat);});lrRenderAtleti();}
 
 function lrRenderAtleti(){
-  var stagLR=_stagioneCorrente();
-  var lista=DB.atleti.filter(function(a){
-    if(a.ritirato)return false;
-    if(LR_FILTRO==="Tutti")return true;
-    var catA=_catAtletaPerAnno(a,stagLR)||a.cat||"";
-    return catA===LR_FILTRO;
-  }).sort(function(a,b){return a.cog.localeCompare(b.cog);});
+  var lista=DB.atleti.filter(function(a){return!a.ritirato&&(LR_FILTRO==="Tutti"||a.cat===LR_FILTRO);}).sort(function(a,b){return a.cog.localeCompare(b.cog);});
   g("lr-atleti").innerHTML=lista.map(function(a){
     var sel=!!LR_CONV[a.id];
-    var catA=_catAtletaPerAnno(a,stagLR)||a.cat||"";
-    var ct=a.cs?(certScaduto(a.cs)?'<span class="cert-no">&#10060; '+a.cs+'</span>':\'<span class="cert-ok">&#10003; '+a.cs+'</span>'):'<span class="cert-no">&#9888;</span>';
+    var ct=a.cs?(certScaduto(a.cs)?'<span class="cert-no">&#10060; '+a.cs+'</span>':'<span class="cert-ok">&#10003; '+a.cs+'</span>'):'<span class="cert-no">&#9888;</span>';
     return '<div class="a-row'+(sel?" sel":"")+'" onclick="lrTog('+a.id+')" id="lrr'+a.id+'">'+
-      '<div class="chk'+(sel?" on":"")+'" id="lrk'+a.id+'">'+( sel?"&#10003;":"")+'</div>'+
+      '<div class="chk'+(sel?" on":"")+'" id="lrk'+a.id+'">'+(sel?"&#10003;":"")+'</div>'+
       '<div class="a-mag">'+(a.mag?"#"+a.mag:"&mdash;")+'</div>'+
       '<div class="a-info"><strong>'+esc(a.cog)+'</strong> '+esc(a.nom)+(a.sex==="F"?' <span style="color:#ff8ac0;font-size:10px">&#9792;</span>':'')+
       '<div class="a-sub">'+a.dn+' &middot; '+a.cf+' &middot; '+ct+'</div></div>'+
-      '<span class="badge '+catA+'">'+catA+'</span></div>';
+      '<span class="badge '+a.cat+'">'+a.cat+'</span></div>';
   }).join("")||'<div class="empty">Nessun atleta</div>';
 }
 
@@ -3608,7 +3516,7 @@ function lrTog(id){
 }
 
 function lrSelTutti(checked){
-  DB.atleti.filter(function(a){if(a.ritirato)return false;var stagLRS=_stagioneCorrente();return LR_FILTRO==="Tutti"||(_catAtletaPerAnno(a,stagLRS)||a.cat||"")=== LR_FILTRO;}).forEach(function(a){if(checked)LR_CONV[a.id]=true;else delete LR_CONV[a.id];});
+  DB.atleti.filter(function(a){return!a.ritirato&&(LR_FILTRO==="Tutti"||a.cat===LR_FILTRO);}).forEach(function(a){if(checked)LR_CONV[a.id]=true;else delete LR_CONV[a.id];});
   lrRenderAtleti();g("lr-cnt").textContent=Object.keys(LR_CONV).length;
 }
 
@@ -4717,6 +4625,7 @@ function _importaGruppoStatino(risultati, annoStr, oggi){
   var aggiunti=0, aggiornati=0;
   var annoInizio=parseInt(annoStr.substring(0,4));
   risultati.forEach(function(r){
+    // Calcola categoria da anno nascita se disponibile
     var annoNasc=r.dn?parseInt(r.dn.substring(0,4)):null;
     var catCalc={cat1:'',cat2:''};
     if(r.fascia==='Under'){
@@ -4727,16 +4636,12 @@ function _importaGruppoStatino(risultati, annoStr, oggi){
     } else {
       catCalc={cat1:'Aquilotti',cat2:''};
     }
-    // Log diagnostico per verificare calcolo categoria
-    var d=annoNasc?(annoInizio-annoNasc):'?';
-    diag('FIP '+annoStr+': '+r.cog+' '+r.nom+' nato:'+( annoNasc||'?')+ ' d='+d+' fascia:'+( r.fascia||'?')+ ' -> cat:'+catCalc.cat1+(catCalc.cat2?'+'+catCalc.cat2:''), 'ok');
     if(r.atleta){
       var a=DB.atleti.find(function(x){return x.id===r.atleta.id;});
       if(!a)return;
       if(!a.iscrizioni)a.iscrizioni=[];
       var isc=a.iscrizioni.find(function(i){return i.anno===annoStr;});
       if(isc){
-        // Aggiorna solo i campi iscrizione — MAI a.cat (ogni stagione e' indipendente)
         isc.fed=isc.fed==='CSI'?'FIP+CSI':'FIP';
         if(!isc.cat1)isc.cat1=catCalc.cat1;
         if(!isc.cat2&&catCalc.cat2)isc.cat2=catCalc.cat2;
@@ -4744,13 +4649,12 @@ function _importaGruppoStatino(risultati, annoStr, oggi){
       }else{
         a.iscrizioni.push({anno:annoStr,fed:'FIP',cat1:catCalc.cat1,cat2:catCalc.cat2,dataIscr:oggi,note:'Da statino FIP'});
       }
-      // NON aggiornare a.cat — ogni stagione ha la propria categoria nell'iscrizione
       _arricchisciAtleta(a);
       aggiornati++;
     }else if(r.cf&&r.cog){
       var newA={
         id:nextId(DB.atleti),
-        cog:r.cog, nom:r.nom||''', sex:r.sesso||'M', dn:r.dn||''',
+        cog:r.cog, nom:r.nom||'', sex:r.sesso||'M', dn:r.dn||'',
         natoA:'', natoProv:'', cf:r.cf, naz:r.naz||'Italia',
         cit:'Italiana', docTipo:'', docNum:'',
         indVia:'', indNr:'', indCap:'', indComune:'', indProv:'',
@@ -4758,7 +4662,6 @@ function _importaGruppoStatino(risultati, annoStr, oggi){
         tutCell1:'', tutCell2:'', tutDn:'', tutNatoA:'', tutNatoProv:'',
         tutVia:'', tutNr:'', tutCap:'', tutComune:'', tutProv:'',
         iscrizioni:[{anno:annoStr,fed:'FIP',cat1:catCalc.cat1,cat2:catCalc.cat2,dataIscr:oggi,note:'Da statino FIP'}],
-        // cat legacy = cat1 della prima iscrizione (solo per compatibilita')
         cat:catCalc.cat1, mag:'', cs:'', note:'', scheda:{}, ritirato:false, convocabile:true,
         gen:'', tel:'', cfTut:'', indTut:'', email:'', ind:'',
       };
@@ -4769,7 +4672,6 @@ function _importaGruppoStatino(risultati, annoStr, oggi){
   });
   return {aggiunti:aggiunti, aggiornati:aggiornati};
 }
-
 
 
 function mostraRisultatiStatino(risultati){
