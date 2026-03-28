@@ -98,7 +98,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">build 20260327.01<button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.17 · 28/03/2026 08:57 onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -117,7 +117,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">build 20260327.01</div>
+    <div class="topbar-sub">Build v9.17 · 28/03/2026 08:57
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -271,17 +271,13 @@
     <div class="card-title">⚠️ Zona Pericolosa</div>
     <div class="card-desc">Operazioni irreversibili. Richiesto doppio controllo.</div>
     <div class="op-list">
-
-      <!-- RESET COMPLETO DB -->
       <div class="op-row">
         <div class="op-info">
-          <div class="op-title">Reset completo database <span class="badge badge-warn">IRREVERSIBILE</span></div>
-          <div class="op-desc">Cancella tutti gli atleti, pagamenti, presenze, ricevute e lista R sia da Firebase che dal localStorage. Richiede doppia conferma. Operazione asincrona: attende risposta Firebase prima di confermare.</div>
+          <div class="op-title">Cancella tutti i dati <span class="badge badge-warn">IRREVERSIBILE</span></div>
+          <div class="op-desc">Svuota completamente il database Firebase e il localStorage. Ripartenza da zero.</div>
         </div>
-        <button class="btn btn-red" onclick="resetDBCompleto()" id="btn-reset-db" disabled>🗑 Reset DB</button>
+        <button class="btn btn-red" onclick="adminResetDB()" id="btn-resetdb" disabled>🗑 Reset DB</button>
       </div>
-
-      <!-- SCRIPT JS -->
       <div class="op-row">
         <div class="op-info">
           <div class="op-title">Script personalizzato JS <span class="badge badge-warn">AVANZATO</span></div>
@@ -780,7 +776,8 @@ function fbInit() {
       }
     });
     // Nessun logout automatico per inattività — sessione persistente
-    // firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL) è il default
+    // Persistence LOCAL esplicita per evitare logout su mobile
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});
   } catch(e) {
     _diagLog("ERRORE fbInit: "+e.message,"#e03545"); diag("ERRORE Firebase: "+e.message,"err");
     _fbReady = false;
@@ -889,6 +886,7 @@ function loadDB(){
       var sp=document.getElementById('s-pag'); if(sp)sp.textContent=p;
       setDot('ok');
       if(typeof setBtns==='function')setBtns(true);
+      if(typeof _initReportStagioni==='function')_initReportStagioni();
       if(typeof window._onDBLoaded === 'function'){ window._onDBLoaded(); }
       else if(typeof renderDashboard === 'function'){ renderDashboard(); }
       syncStatus(false);
@@ -1410,6 +1408,28 @@ function _doppioControllo(messaggio, parola){
   return true;
 }
 
+function adminResetDB(){
+  if(!_doppioControllo('ATTENZIONE: cancellare TUTTI i dati Firebase?\nQuesta operazione è irreversibile.','CANCELLA'))return;
+  var vuoto={atleti:[],pagamenti:{},allenamenti:[],presenze:[],ricevute:[],listar:[]};
+  // Cancella Firebase
+  if(_db&&FB_COL){
+    var sezioni=['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
+    var ps=sezioni.map(function(s){
+      return _db.collection(FB_COL).doc(s).set({v:JSON.stringify(s==='pagamenti'?{}:[])});
+    });
+    Promise.all(ps).then(function(){
+      log('Firebase svuotato.','ok');
+    }).catch(function(e){log('Errore reset Firebase: '+e.message,'err');});
+  }
+  // Cancella localStorage
+  if(typeof DB_KEY!=='undefined')localStorage.removeItem(DB_KEY);
+  DB=vuoto;
+  setBtns(true);
+  log('DB azzerato. Atleti: 0, Pagamenti: 0.','ok');
+  var sa=document.getElementById('s-atleti');if(sa)sa.textContent='0';
+  var sp=document.getElementById('s-pag');if(sp)sp.textContent='0';
+}
+
 function admGoTab(tab){
   document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active');});
   document.querySelectorAll('.adm-page').forEach(function(p){p.classList.remove('active');});
@@ -1421,7 +1441,7 @@ function admGoTab(tab){
 }
 
 function setBtns(on){
-  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','reset-db'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b) b.disabled=!on;
   });
@@ -1752,10 +1772,10 @@ function _initReportStagioni(){
   (DB.atleti||[]).forEach(function(a){
     (a.iscrizioni||[]).forEach(function(i){if(i.anno)annate.add(i.anno);});
   });
-  // Annata corrente sempre presente
+  // Range fisso 2013-14 fino a stagione corrente+1 (funziona anche a DB vuoto)
   var now=new Date(),m=now.getMonth();
-  var annoInizio=m>=7?now.getFullYear():now.getFullYear()-1;
-  annate.add(annoInizio+'-'+String(annoInizio+1).slice(-2));
+  var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1)+1;
+  for(var yy=2013;yy<=annoFine;yy++){annate.add(yy+'-'+String(yy+1).slice(-2));}
   var sorted=Array.from(annate).sort().reverse();
   sel.innerHTML='<option value="">— seleziona annata —</option>'+sorted.map(function(a){return'<option value="'+a+'">'+a+'</option>';}).join('');
 }
@@ -2392,48 +2412,6 @@ function rigeneraIscrizioni(){
 <script>
 window.addEventListener("load",function(){if(typeof _diagShow==="function")_diagShow();if(typeof fbInit==="function")setTimeout(fbInit,200);});
 window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth OK: "+user.email,"#22a85a");setTimeout(function(){if(typeof _diagHide==="function")_diagHide();},2000);};
-
-// ── RESET COMPLETO DATABASE ──
-function resetDBCompleto(){
-  if(!_fbReady){log('Firebase non pronto. Impossibile procedere.','err');return;}
-  if(!confirm('ATTENZIONE\n\nStai per cancellare TUTTI i dati:\n- Atleti\n- Pagamenti\n- Presenze\n- Ricevute\n- Lista R\n\nQuesta operazione è IRREVERSIBILE.\n\nProcedere?'))return;
-  var inp=prompt('Digitare esattamente "CANCELLA" per confermare:','');
-  if(!inp||inp.trim().toUpperCase()!=='CANCELLA'){log('Reset annullato.','warn');return;}
-
-  log('Reset DB avviato...','warn');
-  var btn=document.getElementById('btn-reset-db');
-  if(btn){btn.disabled=true;btn.textContent='...';}
-
-  var DB_VUOTO={atleti:[],pagamenti:{},allenamenti:[],presenze:[],ricevute:[],listar:[]};
-  var FB_SEZIONI=['atleti','pagamenti','allenamenti','presenze','ricevute','listar'];
-
-  // 1. Scrivi su Firebase senza debounce — attende commit
-  var col=_db.collection('basket052441');
-  var batch=_db.batch();
-  FB_SEZIONI.forEach(function(sez){
-    batch.set(col.doc(sez),{v:JSON.stringify(DB_VUOTO[sez]),ts:new Date().toISOString()});
-  });
-
-  batch.commit().then(function(){
-    // 2. Solo dopo conferma Firebase: svuota localStorage e memoria
-    try{localStorage.removeItem('basket052441_v3');}catch(e){}
-    try{localStorage.removeItem('basket052441_v2');}catch(e){}
-    try{localStorage.removeItem('basket052441');}catch(e){}
-    DB=JSON.parse(JSON.stringify(DB_VUOTO));
-    log('✓ Database resettato con successo su Firebase e localStorage.','ok');
-    log('Atleti: '+DB.atleti.length+' | Pagamenti: '+Object.keys(DB.pagamenti).length,'ok');
-    // Aggiorna contatori UI
-    var sa=document.getElementById('s-atleti');var sp=document.getElementById('s-pag');
-    if(sa)sa.textContent='0';if(sp)sp.textContent='0';
-    if(btn){btn.disabled=false;btn.textContent='🗑 Reset DB';}
-    alert('Database svuotato con successo.\nAtleti: 0 | Pagamenti: 0\n\nRicarica il gestionale per verificare.');
-  }).catch(function(e){
-    log('ERRORE Firebase durante reset: '+e.message,'err');
-    log('localStorage NON cancellato per sicurezza.','warn');
-    if(btn){btn.disabled=false;btn.textContent='🗑 Reset DB';}
-    alert('Errore Firebase: '+e.message+'\n\nNessun dato è stato cancellato.');
-  });
-}
 </script>
 </body>
 <script>
@@ -2484,7 +2462,7 @@ function admGoTab(tab){
 }
 
 function setBtns(on){
-  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','reset-db'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b) b.disabled=!on;
   });
