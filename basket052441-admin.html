@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.18 · 29/03/2026 18:50 -->
+<!-- basket052441-admin.html | v9.18 · 29/03/2026 22:01 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 29/03/2026 18:50 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 29/03/2026 22:01 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.18 · 29/03/2026 18:50</div>
+    <div class="topbar-sub">Build v9.18 · 29/03/2026 22:01</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -299,6 +299,44 @@
     </div>
     <div id="rpt-anteprima" style="display:none;background:#060e18;border-radius:6px;padding:12px;overflow-x:auto">
       <div id="rpt-output"></div>
+    </div>
+  </div>
+
+
+  <div class="card" style="margin-top:16px">
+    <div class="card-title">📋 Tabulato Tesserati</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div>
+        <label>Stagione</label>
+        <select id="tab-stagione"><option value="">— tutte —</option></select>
+      </div>
+      <div>
+        <label>Stato atleti</label>
+        <select id="tab-stato">
+          <option value="attivi">Solo attivi</option>
+          <option value="ritirati">Solo ritirati</option>
+          <option value="tutti">Tutti</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px">CAMPI DA INCLUDERE</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="cat" checked> Categoria</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="dn" checked> Data nascita</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="cf" checked> Cod. fiscale</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="mag"> Maglia</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="tel"> Telefono</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="email"> Email</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="ind"> Indirizzo</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="cs"> Cert. medico</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="tut"> Tutore</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="note"> Note</label>
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="spunta"> □ Spunta</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-gold" onclick="stampaTabulatoTesserati()">🖨️ Stampa tabulato</button>
     </div>
   </div>
 
@@ -485,7 +523,7 @@ var _FIRMA_B64_APP = _FIRMA_B64;
 // ── VARIABILI GLOBALI ──
 var DB_KEY = "basket052441_v3";
 var DB = null;
-var BUILD_VERSION = "v9.18 · 29/03/2026 18:50";
+var BUILD_VERSION = "v9.18 · 29/03/2026 22:01";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1625,6 +1663,150 @@ function _arricchisciAtleta(a) {
 }
 
 
+
+
+function stampaTabulatoTesserati(){
+  if(!DB||!DB.atleti||!DB.atleti.length){log('DB vuoto','warn');return;}
+  var stagione=document.getElementById('tab-stagione').value;
+  var stato=document.getElementById('tab-stato').value;
+  var campi={};
+  document.querySelectorAll('.tab-campo:checked').forEach(function(cb){campi[cb.value]=true;});
+
+  // Filtra atleti
+  var lista=(DB.atleti||[]).filter(function(a){
+    if(!a||!a.cog)return false;
+    var isRit=!!a.ritirato;
+    if(stato==='attivi'&&isRit)return false;
+    if(stato==='ritirati'&&!isRit)return false;
+    if(stagione){
+      var haIscr=(a.iscrizioni||[]).some(function(i){return i.anno===stagione;});
+      if(!haIscr)return false;
+    }
+    return true;
+  });
+  lista.sort(function(a,b){return (a.cog||'').localeCompare(b.cog||'');});
+  if(!lista.length){log('Nessun atleta trovato','warn');return;}
+
+  // Costruisci colonne
+  var COLS=[];
+  if(campi.spunta) COLS.push({k:'spunta',  h:'✓',    w:'18px'});
+  COLS.push({k:'n',      h:'N.',     w:'28px'});
+  COLS.push({k:'cog',    h:'Cognome Nome', w:'auto'});
+  if(campi.cat)   COLS.push({k:'cat',    h:'Cat.',   w:'60px'});
+  if(campi.dn)    COLS.push({k:'dn',     h:'Nascita',w:'72px'});
+  if(campi.cf)    COLS.push({k:'cf',     h:'C.F.',   w:'110px'});
+  if(campi.mag)   COLS.push({k:'mag',    h:'#',      w:'28px'});
+  if(campi.tel)   COLS.push({k:'tel',    h:'Tel.',   w:'90px'});
+  if(campi.email) COLS.push({k:'email',  h:'Email',  w:'110px'});
+  if(campi.ind)   COLS.push({k:'ind',    h:'Indirizzo', w:'130px'});
+  if(campi.cs)    COLS.push({k:'cs',     h:'Cert.',  w:'68px'});
+  if(campi.tut)   COLS.push({k:'tut',    h:'Tutore', w:'120px'});
+  if(campi.note)  COLS.push({k:'note',   h:'Note',   w:'auto'});
+
+  // Helper dati atleta
+  function _val(a,k,stag){
+    if(k==='spunta')return '<td style="text-align:center;border:1px solid #aaa"><span style="display:inline-block;width:12px;height:12px;border:1px solid #555">&nbsp;</span></td>';
+    if(k==='n')return null; // gestito fuori
+    if(k==='cog')return (a.cog||'')+(a.nom?' '+a.nom:'');
+    if(k==='cat'){
+      var cats=typeof _catMultiplaAtleta==='function'?_catMultiplaAtleta(a,stag):[];
+      if(!cats||!cats.length)cats=[_catAtletaPerAnno(a,stag)||a.cat||''];
+      return cats.filter(Boolean).join('/');
+    }
+    if(k==='dn'){var d=a.dn||'';if(d.indexOf('-')>-1){var p=d.split('-');d=p[2]+'/'+p[1]+'/'+p[0];}return d;}
+    if(k==='cf') return a.cf||'';
+    if(k==='mag')return a.mag||'';
+    if(k==='tel')return _telefonoAtleta?_telefonoAtleta(a):(a.tel||a.tutCell1||'');
+    if(k==='email')return _emailAtleta?_emailAtleta(a):(a.email||a.tutEmail||'');
+    if(k==='ind')return _indirizzoCompleto?_indirizzoCompleto(a):((a.indVia||'')+(a.indNr?' '+a.indNr:'')+(a.indComune?', '+a.indComune:''));
+    if(k==='cs'){var cs=a.cs||'';if(cs.indexOf('-')>-1){var p=cs.split('-');cs=p[2]+'/'+p[1]+'/'+p[0];}return cs;}
+    if(k==='tut'){var t=[];if(a.tutCog)t.push(a.tutCog+(a.tutNom?' '+a.tutNom:''));if(a.tutCell1)t.push(a.tutCell1);return t.join(' ');}
+    if(k==='note')return a.note||'';
+    return '';
+  }
+
+  var oggi=new Date().toLocaleDateString('it-IT');
+  var titolo='ASD Basket Campodarsego 052441';
+  var sottotitolo='Tabulato Tesserati'+(stagione?' — Stagione '+stagione:'')+'   |   '+lista.length+' atleti   |   '+oggi;
+
+  var thCols=COLS.map(function(c){
+    return '<th style="background:#1a2a4a;color:#fff;padding:4px 5px;font-size:9pt;text-align:center;border:1px solid #999;white-space:nowrap;width:'+c.w+'">'+c.h+'</th>';
+  }).join('');
+
+  var rows='';
+  lista.forEach(function(a,idx){
+    var tds=COLS.map(function(c){
+      if(c.k==='spunta') return _val(a,'spunta',stagione);
+      if(c.k==='n') return '<td style="text-align:center;border:1px solid #ccc;font-size:8pt;padding:3px 4px">'+(idx+1)+'</td>';
+      var v=_val(a,c.k,stagione);
+      var align=(c.k==='cog'||c.k==='ind'||c.k==='tut'||c.k==='email'||c.k==='note')?'left':'center';
+      return '<td style="text-align:'+align+';border:1px solid #ccc;font-size:8pt;padding:3px 4px;overflow-wrap:break-word">'+v+'</td>';
+    }).join('');
+    var bg=idx%2===0?'#fff':'#f4f7ff';
+    rows+='<tr style="background:'+bg+'">'+tds+'</tr>';
+  });
+
+  var logoTag='';
+  if(typeof _LOGO_B64!=='undefined'&&_LOGO_B64){
+    logoTag='<img src="data:image/jpeg;base64,'+_LOGO_B64+'" style="height:38px;vertical-align:middle;margin-right:10px" alt="">';
+  }
+
+  var html='<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">'+
+    '<title>Tabulato Tesserati</title>'+
+    '<style>'+
+      '@page{size:A4 landscape;margin:12mm 10mm 14mm 10mm}'+
+      '@media print{'+
+        '.no-print{display:none!important}'+
+        'thead{display:table-header-group}'+
+        'tfoot{display:table-footer-group}'+
+        'body{margin:0}'+
+        'table{page-break-inside:auto}'+
+        'tr{page-break-inside:avoid}'+
+      '}'+
+      'body{font-family:Arial,sans-serif;font-size:9pt;color:#111;margin:0;padding:0}'+
+      '.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1a2a4a;padding-bottom:6px;margin-bottom:8px}'+
+      '.hdr-title{font-size:13pt;font-weight:bold;color:#1a2a4a}'+
+      '.hdr-sub{font-size:8pt;color:#555;margin-top:2px}'+
+      '.ftr{font-size:8pt;color:#888;text-align:right;margin-top:6px}'+
+      'table{border-collapse:collapse;width:100%;table-layout:fixed}'+
+      'th,td{overflow:hidden}'+
+    '</style>'+
+    '</head><body>'+
+    '<div class="no-print" style="padding:10px;background:#eee;text-align:center">'+
+      '<button onclick="window.print()" style="padding:10px 28px;background:#1a2a4a;color:#fff;border:none;border-radius:5px;font-size:13px;cursor:pointer">🖨️ Stampa / Salva PDF</button>'+
+    '</div>'+
+    '<table>'+
+      '<thead>'+
+        '<tr><td colspan="'+COLS.length+'" style="padding:0 0 6px 0;border:none">'+
+          '<div class="hdr">'+
+            '<div>'+logoTag+'<span class="hdr-title">'+titolo+'</span><div class="hdr-sub">'+sottotitolo+'</div></div>'+
+            '<div style="font-size:8pt;color:#888">Pag. <span class="pn"></span></div>'+
+          '</div>'+
+        '</td></tr>'+
+        '<tr>'+thCols+'</tr>'+
+      '</thead>'+
+      '<tfoot>'+
+        '<tr><td colspan="'+COLS.length+'" style="border:none">'+
+          '<div class="ftr">Stampato il '+oggi+' — ASD Basket Campodarsego 052441</div>'+
+        '</td></tr>'+
+      '</tfoot>'+
+      '<tbody>'+rows+'</tbody>'+
+    '</table>'+
+    '<script>'+
+      'var pn=document.querySelectorAll(".pn");'+
+      'window.addEventListener("load",function(){'+
+        'pn.forEach(function(el){el.textContent="(vedi piè pagina PDF)";});'+
+      '});'+
+    '<\/script>'+
+    '</body></html>';
+
+  var win=window.open('','_blank','width=1200,height=800');
+  win.document.write(html);
+  win.document.close();
+  log('Tabulato: '+lista.length+' atleti, '+COLS.length+' colonne','ok');
+}
+
+
 function salvaDati(){
   if(!DB||!DB.atleti||!DB.atleti.length){log('Nessun atleta in DB','warn');return;}
   var fields=Array.from(document.querySelectorAll('.snap-field:checked')).map(function(c){return c.value;});
@@ -2196,7 +2378,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.18 · 29/03/2026 18:50";
+var BUILD_VERSION = "v9.18 · 29/03/2026 22:01";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -2591,6 +2773,7 @@ window.addEventListener('load',function(){
 // ── INIT CATEGORIE ──
 function _initReportStagioni(){
   var sel=document.getElementById('rpt-stagione');
+  var selTab=document.getElementById('tab-stagione');
   if(!sel||!DB)return;
   // Ricava annate disponibili (formato "YYYY-YY")
   var annate=new Set();
@@ -2602,7 +2785,9 @@ function _initReportStagioni(){
   var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1)+1;
   for(var yy=2013;yy<=annoFine;yy++){annate.add(yy+'-'+String(yy+1).slice(-2));}
   var sorted=Array.from(annate).sort().reverse();
-  sel.innerHTML='<option value="">— seleziona annata —</option>'+sorted.map(function(a){return'<option value="'+a+'">'+a+'</option>';}).join('');
+  var optsHtml=sorted.map(function(a){return'<option value="'+a+'">'+a+'</option>';}).join('');
+  sel.innerHTML='<option value="">— seleziona annata —</option>'+optsHtml;
+  if(selTab)selTab.innerHTML='<option value="">— tutte —</option>'+optsHtml;
 }
 
 // ── HELPER REPORT ──
@@ -3240,7 +3425,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.18 · 29/03/2026 18:50";
+var BUILD_VERSION = "v9.18 · 29/03/2026 22:01";
 
 var DB = window.DB || null;
 var _db = window._db || null;
