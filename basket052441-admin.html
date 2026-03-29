@@ -105,7 +105,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 28/03/2026 14:14 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 28/03/2026 18:56 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -124,7 +124,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.18 · 28/03/2026 14:14</div>
+    <div class="topbar-sub">Build v9.18 · 28/03/2026 18:56</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -305,6 +305,30 @@
 
 <!-- PAGE: OPERAZIONI -->
 <div class="adm-page" id="adm-page-ops">
+
+  <div class="card">
+    <div class="card-title">&#128190; Salva / Recupera dati</div>
+    <div class="card-desc">Salva campi selezionati per ogni atleta (chiave: CF). Recupera solo i campi selezionati, indipendentemente da quanti ne contiene il file.</div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">CAMPI DA INCLUDERE</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="mag" checked> Maglia</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="cs"> Cert. medico</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="ind"> Indirizzo atleta</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="tut"> Tutore</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="note"> Note</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="iscr"> Iscrizioni</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-gold" onclick="salvaDati()" id="btn-salva-dati" disabled>&#128190; Salva dati</button>
+      <label class="btn btn-blue" style="cursor:pointer;position:relative;overflow:hidden" id="btn-recupera-dati-lbl">
+        &#128257; Recupera dati
+        <input type="file" id="recupera-dati-file" accept=".json" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="recuperaDati(this)">
+      </label>
+    </div>
+    <div id="snap-log" style="display:none;margin-top:10px;font-size:11px;max-height:150px;overflow-y:auto;background:var(--bg);border-radius:4px;padding:8px"></div>
+  </div>
 
   <div class="card card-danger">
     <div class="card-title">⚠️ Zona Pericolosa</div>
@@ -1489,13 +1513,10 @@ function _categoriaFIPDaAnnoNascita(annoNascita, annoStagione){
   if(d <= 5) return {cat1:'Pulcini', cat2:''};
   if(d === 6) return {cat1:'Pulcini', cat2:''};
   if(d === 7) return {cat1:'Scoiattoli', cat2:''};
-  if(d === 8) return {cat1:'Scoiattoli', cat2:''};
-  if(d === 9) return {cat1:'Scoiattoli', cat2:'Aquilotti'}; // anno doppio
-  if(d === 10) return {cat1:'Aquilotti', cat2:'Scoiattoli'}; // anno doppio
-  if(d === 11) return {cat1:'Aquilotti', cat2:''};
-  if(d === 12) return {cat1:'Aquilotti', cat2:'Esordienti'}; // anno doppio
-  if(d === 13) return {cat1:'Esordienti', cat2:''};
-  // Oltre: Under (giovanile FIP)
+  if(d === 8) return {cat1:'Scoiattoli', cat2:'Aquilotti'};
+  if(d === 9) return {cat1:'Aquilotti', cat2:''};
+  if(d === 10) return {cat1:'Aquilotti', cat2:'Esordienti'};
+  if(d === 11) return {cat1:'Esordienti', cat2:''};
   if(d <= 16) return {cat1:'Under', cat2:''};
   return {cat1:'', cat2:''};
 }
@@ -1564,6 +1585,76 @@ function _arricchisciAtleta(a) {
     }
   }
   return a;
+}
+
+
+function salvaDati(){
+  if(!DB||!DB.atleti||!DB.atleti.length){log('Nessun atleta in DB','warn');return;}
+  var fields=Array.from(document.querySelectorAll('.snap-field:checked')).map(function(c){return c.value;});
+  if(!fields.length){log('Seleziona almeno un campo','warn');return;}
+  var snap={_meta:{data:new Date().toISOString(),campi:fields},atleti:{}};
+  DB.atleti.forEach(function(a){
+    if(!a.cf)return;
+    var obj={};
+    if(fields.indexOf('mag')>=0&&a.mag)obj.mag=a.mag;
+    if(fields.indexOf('cs')>=0&&a.cs)obj.cs=a.cs;
+    if(fields.indexOf('ind')>=0){
+      ['indVia','indNr','indCap','indComune','indProv','ind'].forEach(function(k){if(a[k])obj[k]=a[k];});
+    }
+    if(fields.indexOf('tut')>=0){
+      ['tutCog','tutNom','tutCf','tutDn','tutNatoA','tutNatoProv','tutVia','tutNr','tutComune','tutProv','tutCell1','tutCell2','tutEmail'].forEach(function(k){if(a[k])obj[k]=a[k];});
+    }
+    if(fields.indexOf('note')>=0&&a.note)obj.note=a.note;
+    if(fields.indexOf('iscr')>=0&&a.iscrizioni&&a.iscrizioni.length)obj.iscrizioni=a.iscrizioni;
+    if(Object.keys(obj).length)snap.atleti[a.cf.toUpperCase()]=obj;
+  });
+  var n=Object.keys(snap.atleti).length;
+  var blob=new Blob([JSON.stringify(snap,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var lnk=document.createElement('a');
+  var oggi=new Date().toISOString().slice(0,10).replace(/-/g,'');
+  lnk.href=url;lnk.download='dati_'+oggi+'.json';lnk.click();
+  log('Salvati '+n+' atleti ('+fields.join(', ')+')','ok');
+}
+
+function recuperaDati(input){
+  var file=input.files[0];if(!file)return;
+  input.value='';
+  var logEl=document.getElementById('snap-log');
+  if(logEl){logEl.style.display='block';logEl.innerHTML='';}
+  function addLog(msg,tipo){
+    log(msg,tipo||'info');
+    if(logEl)logEl.innerHTML+='<div style="color:'+(tipo==='ok'?'#22a85a':tipo==='err'?'#e03545':'#8a9aaa')+'">'+escLog(msg)+'</div>';
+  }
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var snap;
+    try{snap=JSON.parse(e.target.result);}catch(ex){addLog('Errore parsing: '+ex.message,'err');return;}
+    if(!snap||!snap.atleti){addLog('File non valido','err');return;}
+    var fields=Array.from(document.querySelectorAll('.snap-field:checked')).map(function(c){return c.value;});
+    if(!fields.length){addLog('Seleziona campi da recuperare','warn');return;}
+    var aggiornati=0,nonTrovati=0;
+    Object.keys(snap.atleti).forEach(function(cf){
+      var obj=snap.atleti[cf];
+      var a=DB.atleti.find(function(x){return(x.cf||'').toUpperCase()===cf.toUpperCase();});
+      if(!a){nonTrovati++;return;}
+      if(fields.indexOf('mag')>=0&&obj.mag!==undefined)a.mag=obj.mag;
+      if(fields.indexOf('cs')>=0&&obj.cs!==undefined)a.cs=obj.cs;
+      if(fields.indexOf('ind')>=0){
+        ['indVia','indNr','indCap','indComune','indProv','ind'].forEach(function(k){if(obj[k]!==undefined)a[k]=obj[k];});
+      }
+      if(fields.indexOf('tut')>=0){
+        ['tutCog','tutNom','tutCf','tutDn','tutNatoA','tutNatoProv','tutVia','tutNr','tutComune','tutProv','tutCell1','tutCell2','tutEmail'].forEach(function(k){if(obj[k]!==undefined)a[k]=obj[k];});
+      }
+      if(fields.indexOf('note')>=0&&obj.note!==undefined)a.note=obj.note;
+      if(fields.indexOf('iscr')>=0&&obj.iscrizioni!==undefined)a.iscrizioni=obj.iscrizioni;
+      aggiornati++;
+    });
+    if(aggiornati>0){saveDB();addLog('Recuperati '+aggiornati+' atleti ('+fields.join(', ')+')','ok');}
+    else{addLog('Nessun atleta aggiornato','warn');}
+    if(nonTrovati>0)addLog(nonTrovati+' CF non trovati in DB','warn');
+  };
+  reader.readAsText(file,'utf-8');
 }
 
 buildSearchIndex();
@@ -2110,7 +2201,7 @@ function admGoTab(tab){
 }
 
 function setBtns(on){
-  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb','salva-dati'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b)b.disabled=!on;
   });
@@ -3132,7 +3223,7 @@ function admGoTab(tab){
 }
 
 function setBtns(on){
-  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb','salva-dati'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b)b.disabled=!on;
   });
