@@ -310,14 +310,31 @@
     <div class="card-title">&#128190; Salva / Recupera dati</div>
     <div class="card-desc">Salva campi selezionati per ogni atleta (chiave: CF). Recupera solo i campi selezionati, indipendentemente da quanti ne contiene il file.</div>
     <div style="margin-bottom:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px">CAMPI DA INCLUDERE</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--gold)">CAMPI DA INCLUDERE</div>
+        <button class="btn btn-gray btn-sm" onclick="(function(){var all=document.querySelectorAll('.snap-field');var chk=Array.from(all).some(function(c){return!c.checked;});all.forEach(function(c){c.checked=chk;});})()">Seleziona / Deseleziona tutto</button>
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="nome"> Nome / Cognome</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="anag"> Anagrafica base</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="doc"> Documento</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="tel"> Contatti atleta</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="mag" checked> Maglia</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="cs"> Cert. medico</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="ind"> Indirizzo atleta</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="tut"> Tutore</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="note"> Note</label>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="iscr"> Iscrizioni</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="ritirato"> Ritirato</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="conv"> Convocabile</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="scheda"> Scheda</label>
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px">MODALITÀ RECUPERO</div>
+      <div style="display:flex;gap:16px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="snap-mode" value="overwrite" checked> Sovrascrivi sempre</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="snap-mode" value="empty"> Solo se vuoto</label>
       </div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -698,7 +715,7 @@ function _parseIndVia(indLegacy,via,nr,cap,comune,prov){
     if(mCapComune){capStr=mCapComune[1];comuneStr=mCapComune[2];}
     var vParts=viaPart.split(/\s+/);
     var nrStr="";
-    if(vParts.length>1&&/^[\d\/]+[a-zA-Z]?$/.test(vParts[vParts.length-1])){
+    if(vParts.length>1&&/^\d+[A-Za-z]*(?:\/[A-Za-z0-9]+)?$/.test(vParts[vParts.length-1])){
       nrStr=vParts.pop();
     }
     return{via:vParts.join(" "),nr:nrStr,cap:capStr,comune:comuneStr,prov:provStr};
@@ -1567,6 +1584,16 @@ function _arricchisciAtleta(a) {
     if(dt.natoA&&!a.tutNatoA)a.tutNatoA=dt.natoA;
     if(dt.natoProv&&!a.tutNatoProv)a.tutNatoProv=dt.natoProv;
   }
+  // Estrai numero civico da tutVia se tutNr mancante
+  if(a.tutVia&&!a.tutNr){
+    var _mNr=a.tutVia.match(/^(.+?)\s+(\d+[A-Za-z]*(?:\/[A-Za-z0-9]+)?)\s*$/);
+    if(_mNr){a.tutVia=_mNr[1].trim();a.tutNr=_mNr[2].trim();}
+  }
+  // Estrai numero civico da indVia se indNr mancante
+  if(a.indVia&&!a.indNr){
+    var _mNrI=a.indVia.match(/^(.+?)\s+(\d+[A-Za-z]*(?:\/[A-Za-z0-9]+)?)\s*$/);
+    if(_mNrI){a.indVia=_mNrI[1].trim();a.indNr=_mNrI[2].trim();}
+  }
   // PUNTO 3: copia indirizzo tutore ↔ atleta se mancante
   var haTut=!!(a.tutCog||a.tutCf||a.cfTut);
   var haIndTut=!!(a.tutVia||a.tutComune);
@@ -1605,16 +1632,19 @@ function salvaDati(){
   DB.atleti.forEach(function(a){
     if(!a.cf)return;
     var obj={};
+    if(fields.indexOf('nome')>=0){if(a.cog)obj.cog=a.cog;if(a.nom)obj.nom=a.nom;}
+    if(fields.indexOf('anag')>=0){['sex','dn','natoA','natoProv','naz','cit'].forEach(function(k){if(a[k])obj[k]=a[k];});}
+    if(fields.indexOf('doc')>=0){if(a.docTipo)obj.docTipo=a.docTipo;if(a.docNum)obj.docNum=a.docNum;}
+    if(fields.indexOf('tel')>=0){if(a.tel)obj.tel=a.tel;if(a.email)obj.email=a.email;}
     if(fields.indexOf('mag')>=0&&a.mag)obj.mag=a.mag;
     if(fields.indexOf('cs')>=0&&a.cs)obj.cs=a.cs;
-    if(fields.indexOf('ind')>=0){
-      ['indVia','indNr','indCap','indComune','indProv','ind'].forEach(function(k){if(a[k])obj[k]=a[k];});
-    }
-    if(fields.indexOf('tut')>=0){
-      ['tutCog','tutNom','tutCf','tutDn','tutNatoA','tutNatoProv','tutVia','tutNr','tutComune','tutProv','tutCell1','tutCell2','tutEmail'].forEach(function(k){if(a[k])obj[k]=a[k];});
-    }
+    if(fields.indexOf('ind')>=0){['indVia','indNr','indCap','indComune','indProv','ind'].forEach(function(k){if(a[k])obj[k]=a[k];});}
+    if(fields.indexOf('tut')>=0){['tutCog','tutNom','tutCf','tutDn','tutNatoA','tutNatoProv','tutVia','tutNr','tutComune','tutProv','tutCell1','tutCell2','tutEmail'].forEach(function(k){if(a[k])obj[k]=a[k];});}
     if(fields.indexOf('note')>=0&&a.note)obj.note=a.note;
     if(fields.indexOf('iscr')>=0&&a.iscrizioni&&a.iscrizioni.length)obj.iscrizioni=a.iscrizioni;
+    if(fields.indexOf('ritirato')>=0&&a.ritirato!==undefined)obj.ritirato=a.ritirato;
+    if(fields.indexOf('conv')>=0&&a.convocabile!==undefined)obj.convocabile=a.convocabile;
+    if(fields.indexOf('scheda')>=0&&a.scheda)obj.scheda=a.scheda;
     if(Object.keys(obj).length)snap.atleti[a.cf.toUpperCase()]=obj;
   });
   var n=Object.keys(snap.atleti).length;
@@ -1642,21 +1672,41 @@ function recuperaDati(input){
     if(!snap||!snap.atleti){addLog('File non valido','err');return;}
     var fields=Array.from(document.querySelectorAll('.snap-field:checked')).map(function(c){return c.value;});
     if(!fields.length){addLog('Seleziona campi da recuperare','warn');return;}
+    var modeEl=document.querySelector('input[name="snap-mode"]:checked');
+    var onlyEmpty=modeEl&&modeEl.value==='empty';
     var aggiornati=0,nonTrovati=0;
     Object.keys(snap.atleti).forEach(function(cf){
       var obj=snap.atleti[cf];
       var a=DB.atleti.find(function(x){return(x.cf||'').toUpperCase()===cf.toUpperCase();});
       if(!a){nonTrovati++;return;}
-      if(fields.indexOf('mag')>=0&&obj.mag!==undefined)a.mag=obj.mag;
-      if(fields.indexOf('cs')>=0&&obj.cs!==undefined)a.cs=obj.cs;
-      if(fields.indexOf('ind')>=0){
-        ['indVia','indNr','indCap','indComune','indProv','ind'].forEach(function(k){if(obj[k]!==undefined)a[k]=obj[k];});
+      function _set(k,v){if(v===undefined)return;if(onlyEmpty&&a[k]!==undefined&&a[k]!==''&&a[k]!==null&&a[k]!==false)return;a[k]=v;}
+      if(fields.indexOf('nome')>=0){_set('cog',obj.cog);_set('nom',obj.nom);}
+      if(fields.indexOf('anag')>=0){['sex','dn','natoA','natoProv','naz','cit'].forEach(function(k){_set(k,obj[k]);});}
+      if(fields.indexOf('doc')>=0){_set('docTipo',obj.docTipo);_set('docNum',obj.docNum);}
+      if(fields.indexOf('tel')>=0){_set('tel',obj.tel);_set('email',obj.email);}
+      if(fields.indexOf('mag')>=0)_set('mag',obj.mag);
+      if(fields.indexOf('cs')>=0)_set('cs',obj.cs);
+      if(fields.indexOf('ind')>=0){['indVia','indNr','indCap','indComune','indProv','ind'].forEach(function(k){_set(k,obj[k]);});}
+      if(fields.indexOf('tut')>=0){['tutCog','tutNom','tutCf','tutDn','tutNatoA','tutNatoProv','tutVia','tutNr','tutComune','tutProv','tutCell1','tutCell2','tutEmail'].forEach(function(k){_set(k,obj[k]);});}
+      if(fields.indexOf('note')>=0)_set('note',obj.note);
+      if(fields.indexOf('ritirato')>=0)_set('ritirato',obj.ritirato);
+      if(fields.indexOf('conv')>=0)_set('convocabile',obj.convocabile);
+      if(fields.indexOf('scheda')>=0)_set('scheda',obj.scheda);
+      if(fields.indexOf('iscr')>=0&&obj.iscrizioni!==undefined){
+        // Merge iscrizioni: aggiorna cat1/cat2 per stagioni esistenti, aggiunge stagioni mancanti
+        if(!a.iscrizioni)a.iscrizioni=[];
+        (obj.iscrizioni||[]).forEach(function(iSnap){
+          var iDB=a.iscrizioni.find(function(i){return i.anno===iSnap.anno;});
+          if(iDB){
+            // Aggiorna solo cat1/cat2 dalla snapshot
+            if(iSnap.cat1!==undefined)iDB.cat1=iSnap.cat1;
+            if(iSnap.cat2!==undefined)iDB.cat2=iSnap.cat2;
+          } else {
+            // Stagione non presente: aggiunge tutta l'iscrizione
+            a.iscrizioni.push(iSnap);
+          }
+        });
       }
-      if(fields.indexOf('tut')>=0){
-        ['tutCog','tutNom','tutCf','tutDn','tutNatoA','tutNatoProv','tutVia','tutNr','tutComune','tutProv','tutCell1','tutCell2','tutEmail'].forEach(function(k){if(obj[k]!==undefined)a[k]=obj[k];});
-      }
-      if(fields.indexOf('note')>=0&&obj.note!==undefined)a.note=obj.note;
-      if(fields.indexOf('iscr')>=0&&obj.iscrizioni!==undefined)a.iscrizioni=obj.iscrizioni;
       aggiornati++;
     });
     if(aggiornati>0){saveDB();addLog('Recuperati '+aggiornati+' atleti ('+fields.join(', ')+')','ok');}
