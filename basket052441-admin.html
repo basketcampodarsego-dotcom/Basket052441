@@ -105,7 +105,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 28/03/2026 18:56 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 29/03/2026 14:31 14:31 18:56 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -124,7 +124,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.18 · 28/03/2026 18:56</div>
+    <div class="topbar-sub">Build v9.18 · 29/03/2026 14:31 14:31 18:56</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -321,7 +321,7 @@
       </div>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-gold" onclick="salvaDati()" id="btn-salva-dati" disabled>&#128190; Salva dati</button>
+      <button class="btn btn-gold" onclick="salvaDati()" id="btn-salva-dati">&#128190; Salva dati</button>
       <label class="btn btn-blue" style="cursor:pointer;position:relative;overflow:hidden" id="btn-recupera-dati-lbl">
         &#128257; Recupera dati
         <input type="file" id="recupera-dati-file" accept=".json" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="recuperaDati(this)">
@@ -1322,7 +1322,7 @@ function _mostraPreviewCsi(){
     var st=x.esistente
       ?'<span style="color:#4aaa6a;font-size:10px">&#10003; '+esc(x.esistente.cog)+' '+esc(x.esistente.nom)+'</span>'
       :'<span style="color:var(--gold);font-size:10px">&#43; NUOVO</span>';
-    var catLabel=x.attivita==='PCA'?'AmaBasket':x.attivita==='PVO'?'AmaVolley':x.attivita||'—';
+    var catLabel=x.attivita==='PCA'?'AmaBasket':x.attivita==='PVO'?'AmaVolley':(x.attivita&&x.attivita!=='__QUAL__')?x.attivita:(x.qualifiche?x.attivita:'—');
     h+='<tr><td style="padding:3px 6px;font-family:monospace;font-size:10px">'+esc(x.cf)+'</td>';
     h+='<td style="padding:3px 6px"><strong>'+esc(x.cog)+'</strong> '+esc(x.nom)+'</td>';
     h+='<td style="padding:3px 6px"><span class="badge '+catLabel+'">'+catLabel+'</span></td>';
@@ -1384,8 +1384,17 @@ function csiImport(input){
         var attivita=col(r,'Attività').trim();
         var tessera=col(r,'Tessera').trim();
         var qualifiche=col(r,'Qualifiche').trim();
-        // Salta dirigenti (qualifiche valorizzate ma senza attività sportiva)
-        if(!attivita&&qualifiche)continue;
+        // Categoria da qualifiche se attivita vuota
+        if(!attivita&&qualifiche){
+          var catQual='Dirigente';
+          if(/VPS/i.test(qualifiche))catQual='Vicepresidente';
+          else if(/PRS/i.test(qualifiche))catQual='Presidente';
+          else if(/SGS/i.test(qualifiche))catQual='Segretario';
+          else if(/CVO/i.test(qualifiche))catQual='Volontario';
+          window._csiDaImportare.push({cf:cf,cog:cog,nom:nom,dn:dn,sex:sex,tel:tel,email:email,
+            indFull:indFull,cs:cs,attivita:catQual,tessera:tessera,qualifiche:qualifiche,esistente:esistente||null});
+          continue;
+        }
         var esistente=DB.atleti.find(function(a){return(a.cf||'').toUpperCase().trim()===cf;});
         window._csiDaImportare.push({cf:cf,cog:cog,nom:nom,dn:dn,sex:sex,tel:tel,email:email,
           indFull:indFull,cs:cs,attivita:attivita,tessera:tessera,esistente:esistente||null});
@@ -1415,7 +1424,7 @@ function confermaImportaCsi(){
   diag('confermaImportaCsi: annata='+annoStr+', dataIscr='+oggi,'ok');
   var aggiunti=0,aggiornati=0;
   da.forEach(function(x){
-    var catCsi=x.attivita==='PCA'?'AmaBasket':x.attivita==='PVO'?'AmaVolley':'';
+    var catCsi=x.attivita==='PCA'?'AmaBasket':x.attivita==='PVO'?'AmaVolley':x.attivita&&x.attivita!=='__QUAL__'?x.attivita:'';
     if(x.esistente){
       var a=DB.atleti.find(function(z){return z.id===x.esistente.id;});
       if(!a)return;
@@ -2201,7 +2210,7 @@ function admGoTab(tab){
 }
 
 function setBtns(on){
-  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb','salva-dati'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b)b.disabled=!on;
   });
@@ -3223,7 +3232,7 @@ function admGoTab(tab){
 }
 
 function setBtns(on){
-  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb','salva-dati'].forEach(function(id){
+  ['script','script2','backup','ricevutePDF','fip','csi','rigenera','resetdb'].forEach(function(id){
     var b=document.getElementById('btn-'+id);
     if(b)b.disabled=!on;
   });
