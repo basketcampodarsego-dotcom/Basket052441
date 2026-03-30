@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.18 · 30/03/2026 10:53 -->
+<!-- basket052441-admin.html | v9.18 · 30/03/2026 11:11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 30/03/2026 10:53 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 30/03/2026 11:11 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.18 · 30/03/2026 10:53</div>
+    <div class="topbar-sub">Build v9.18 · 30/03/2026 11:11</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -552,7 +552,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.18 · 30/03/2026 10:53";
+var BUILD_VERSION = "v9.18 · 30/03/2026 11:11";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -2458,7 +2458,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.18 · 30/03/2026 10:53";
+var BUILD_VERSION = "v9.18 · 30/03/2026 11:11";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -2865,9 +2865,15 @@ function _initReportStagioni(){
   var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1)+1;
   for(var yy=2013;yy<=annoFine;yy++){annate.add(yy+'-'+String(yy+1).slice(-2));}
   var sorted=Array.from(annate).sort().reverse();
-  var optsHtml=sorted.map(function(a){return'<option value="'+a+'">'+a+'</option>';}).join('');
-  sel.innerHTML='<option value="">— seleziona annata —</option>'+optsHtml;
-  if(selTab)selTab.innerHTML='<option value="">— tutte —</option>'+optsHtml;
+  // Usa appendChild per compatibilità Android Chrome
+  while(sel.options.length)sel.remove(0);
+  var opt0=document.createElement('option');opt0.value='';opt0.textContent='— seleziona annata —';sel.appendChild(opt0);
+  sorted.forEach(function(a){var opt=document.createElement('option');opt.value=a;opt.textContent=a;sel.appendChild(opt);});
+  if(selTab){
+    while(selTab.options.length)selTab.remove(0);
+    var opt0t=document.createElement('option');opt0t.value='';opt0t.textContent='— tutte —';selTab.appendChild(opt0t);
+    sorted.forEach(function(a){var opt=document.createElement('option');opt.value=a;opt.textContent=a;selTab.appendChild(opt);});
+  }
 }
 
 // ── HELPER REPORT ──
@@ -3507,7 +3513,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.18 · 30/03/2026 10:53";
+var BUILD_VERSION = "v9.18 · 30/03/2026 11:11";
 
 var DB = window.DB || null;
 var _db = window._db || null;
