@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.18 · 30/03/2026 12:22 -->
+<!-- basket052441-admin.html | v9.18 · 30/03/2026 12:38 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 30/03/2026 12:22 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 30/03/2026 12:38 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.18 · 30/03/2026 12:22</div>
+    <div class="topbar-sub">Build v9.18 · 30/03/2026 12:38</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -547,12 +547,12 @@ function _cacheInit(){
   _CACHE.stagCorrente=(m>=7?now.getFullYear():now.getFullYear()-1)+'-'+String((m>=7?now.getFullYear()+1:now.getFullYear())).slice(-2);
   var annate=new Set();
   (DB.atleti||[]).forEach(function(a){(a.iscrizioni||[]).forEach(function(i){if(i.anno)annate.add(i.anno);});});
-  var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1)+2;
+  var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1)+1;
   for(var yy=2013;yy<=annoFine;yy++){annate.add(yy+'-'+String(yy+1).slice(-2));}
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.18 · 30/03/2026 12:22";
+var BUILD_VERSION = "v9.18 · 30/03/2026 12:38";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1699,17 +1699,17 @@ function _arricchisciAtleta(a) {
 
 
 function stampaTabulatoTesserati(){
-  diag('stampaTabulato: avvio');
-  if(!_dbReady()){diag('stampaTabulato: DB non pronto','warn');return;}
+  log('stampaTabulato: avvio','info');
+  if(!_dbReady()){log('stampaTabulato: DB non pronto','warn');return;}
   if(!DB||!DB.atleti||!DB.atleti.length){diag('stampaTabulato: DB vuoto','err');log('DB vuoto','warn');return;}
-  diag('stampaTabulato: DB ok, atleti='+DB.atleti.length);
+  log('stampaTabulato: DB ok, atleti='+DB.atleti.length,'info');
   // Riinizializza stagioni per sicurezza
   _initTabulatoStagioni();
   var stagione=document.getElementById('tab-stagione').value;
   var stato=document.getElementById('tab-stato').value;
   var campi={};
   document.querySelectorAll('.tab-campo:checked').forEach(function(cb){campi[cb.value]=true;});
-  diag('stampaTabulato: stagione='+stagione+' stato='+stato+' campi='+Object.keys(campi).join(','));
+  log('stampaTabulato: stagione='+stagione+' stato='+stato+' campi='+Object.keys(campi).join(','),'info');
 
   // Filtra atleti
   var lista=(DB.atleti||[]).filter(function(a){
@@ -1724,8 +1724,8 @@ function stampaTabulatoTesserati(){
     return true;
   });
   lista.sort(function(a,b){return (a.cog||'').localeCompare(b.cog||'');});
-  diag('stampaTabulato: lista='+lista.length+' atleti');
-  if(!lista.length){diag('stampaTabulato: nessun atleta','warn');log('Nessun atleta trovato','warn');return;}
+  log('stampaTabulato: lista='+lista.length+' atleti','info');
+  if(!lista.length){log('stampaTabulato: nessun atleta','warn');log('Nessun atleta trovato','warn');return;}
 
   // Costruisci colonne
   var COLS=[];
@@ -1958,7 +1958,7 @@ function recuperaDati(input){
 
 
 function _apriStampa(html, titolo){
-  diag('_apriStampa: avvio titolo='+titolo+' html='+html.length+'chars');
+  log('_apriStampa: avvio titolo='+titolo+' html='+html.length+'chars','info');
   var old=document.getElementById('_po');
   if(old)document.body.removeChild(old);
   var ov=document.createElement('div');
@@ -1982,7 +1982,7 @@ function _apriStampa(html, titolo){
   ifr.style.cssText='width:100%;flex:1;border:none;';
   ov.appendChild(ifr);
   document.body.appendChild(ov);
-  diag('_apriStampa: overlay aggiunto al DOM');
+  log('_apriStampa: overlay aggiunto al DOM','info');
   ifr.contentDocument.open();
   ifr.contentDocument.write(html);
   ifr.contentDocument.close();
@@ -2466,7 +2466,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.18 · 30/03/2026 12:22";
+var BUILD_VERSION = "v9.18 · 30/03/2026 12:38";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -3521,7 +3521,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.18 · 30/03/2026 12:22";
+var BUILD_VERSION = "v9.18 · 30/03/2026 12:38";
 
 var DB = window.DB || null;
 var _db = window._db || null;
