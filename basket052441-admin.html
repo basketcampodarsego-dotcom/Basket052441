@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.18 · 30/03/2026 11:11 -->
+<!-- basket052441-admin.html | v9.19 · 30/03/2026 11:32 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.18 · 30/03/2026 11:11 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.19 · 30/03/2026 11:32 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.18 · 30/03/2026 11:11</div>
+    <div class="topbar-sub">Build v9.19 · 30/03/2026 11:32</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -547,12 +547,12 @@ function _cacheInit(){
   _CACHE.stagCorrente=(m>=7?now.getFullYear():now.getFullYear()-1)+'-'+String((m>=7?now.getFullYear()+1:now.getFullYear())).slice(-2);
   var annate=new Set();
   (DB.atleti||[]).forEach(function(a){(a.iscrizioni||[]).forEach(function(i){if(i.anno)annate.add(i.anno);});});
-  var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1)+2;
+  var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1);
   for(var yy=2013;yy<=annoFine;yy++){annate.add(yy+'-'+String(yy+1).slice(-2));}
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.18 · 30/03/2026 11:11";
+var BUILD_VERSION = "v9.19 · 30/03/2026 11:32";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1572,7 +1572,7 @@ function confermaImportaCsi(){
 
 function _stagioniRange(){
   var sc=_stagioneCorrente();
-  var annoFine=parseInt(sc.substring(0,4))+1;
+  var annoFine=parseInt(sc.substring(0,4));
   var result=[];
   for(var y=2013;y<=annoFine;y++) result.push(y+'-'+(y+1).toString().slice(-2));
   return result.reverse();
@@ -2458,7 +2458,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.18 · 30/03/2026 11:11";
+var BUILD_VERSION = "v9.19 · 30/03/2026 11:32";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -2860,9 +2860,9 @@ function _initReportStagioni(){
   (DB.atleti||[]).forEach(function(a){
     (a.iscrizioni||[]).forEach(function(i){if(i.anno)annate.add(i.anno);});
   });
-  // Range fisso 2013-14 fino a stagione corrente+1 (funziona anche a DB vuoto)
+  // Range fisso 2013-14 fino a stagione corrente (funziona anche a DB vuoto)
   var now=new Date(),m=now.getMonth();
-  var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1)+1;
+  var annoFine=(m>=7?now.getFullYear():now.getFullYear()-1);
   for(var yy=2013;yy<=annoFine;yy++){annate.add(yy+'-'+String(yy+1).slice(-2));}
   var sorted=Array.from(annate).sort().reverse();
   // Usa appendChild per compatibilità Android Chrome
@@ -3513,7 +3513,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.18 · 30/03/2026 11:11";
+var BUILD_VERSION = "v9.19 · 30/03/2026 11:32";
 
 var DB = window.DB || null;
 var _db = window._db || null;
