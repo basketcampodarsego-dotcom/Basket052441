@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.19 · 30/03/2026 -->
+<!-- basket052441-admin.html | v9.20 · 30/03/2026 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.19 · 30/03/2026 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.20 · 30/03/2026 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.19 · 30/03/2026</div>
+    <div class="topbar-sub">Build v9.20 · 30/03/2026</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -552,7 +552,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.19 · 30/03/2026";
+var BUILD_VERSION = "v9.20 · 30/03/2026";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -2466,7 +2466,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.19 · 30/03/2026";
+var BUILD_VERSION = "v9.20 · 30/03/2026";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -3317,61 +3317,216 @@ function importaTutoriRicevute(input){
 }
 
 function _parsaTutoreRicevuta(txt, nomeFile, cb){
-  // Estrae dati da testo ricevuta (formato ASD Basket Campodarsego)
-  var r={cfAtleta:'',nomeAtleta:'',cfTutore:'',nomeTutore:'',via:'',comune:'',prov:'',cap:''};
-  // CF atleta
-  var mCfAtl=txt.match(/Codice\s+Fiscale\s*[\r\n\s]+([A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z])/i);
-  // Il secondo CF è il tutore (primo = tutore, secondo = atleta secondo l'ordine del documento)
-  var allCf=txt.match(/[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]/g)||[];
-  if(allCf.length>=2){r.cfTutore=allCf[0];r.cfAtleta=allCf[1];}
-  else if(allCf.length===1){r.cfAtleta=allCf[0];}
-  // Nome tutore: "Dal sig./sig.ra COGNOME NOME"
-  var mTut=txt.match(/Dal\s+sig\.?\/?sig\.?ra\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s']{2,40}?)[\r\n]/i);
-  if(mTut)r.nomeTutore=mTut[1].trim();
-  // Nome atleta
-  var mAtl=txt.match(/Atleta\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s']{2,40}?)[\r\n]/i);
-  if(mAtl)r.nomeAtleta=mAtl[1].trim();
-  // Indirizzo tutore: "Via VIA ROMA 10"
-  var mVia=txt.match(/Via\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s0-9\/]+?)[\r\n]/i);
-  if(mVia)r.via=mVia[1].trim();
-  // Comune: "Residente in CAMPODARSEGO (PD)"
-  var mCom=txt.match(/Residente\s+in\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s]+?)\s*(?:\(([A-Z]{2})\))?[\r\n]/i);
-  if(mCom){r.comune=mCom[1].trim();r.prov=mCom[2]||'';}
+  // Normalizza testo per matching robusto
+  var T=txt.replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  var TU=T.toUpperCase();
+  var r={cfAtleta:'',nomeAtleta:'',cfAtletaCog:'',cfAtletaNom:'',
+         cfTutore:'',nomeTutore:'',
+         via:'',nr:'',cap:'',comune:'',prov:'',
+         annoRicevuta:'',dataRicevuta:''};
+
+  // ── CF: estrazione contestuale ──
+  // Struttura ricevuta: primo blocco = tutore (Dal sig., CF), secondo blocco = atleta (Atleta, CF)
+  // Cerchiamo il CF subito dopo "Dal sig." per il tutore
+  var CF_RE=/[A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z]/g;
+  var mTutCf=TU.match(/(?:DAL\s+SIG|SIG\s*\.?\s*RA)[\s\S]{0,200}?([A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z])/);
+  if(mTutCf)r.cfTutore=mTutCf[1];
+  // CF atleta: il CF dopo "Atleta" o nel blocco finale "Codice Fiscale" dopo il campo atleta
+  var mAtlCf=TU.match(/ATLETA[\s\S]{0,300}?([A-Z]{6}[0-9]{2}[A-Z][0-9]{2}[A-Z][0-9]{3}[A-Z])/);
+  if(mAtlCf)r.cfAtleta=mAtlCf[1];
+  // Fallback: se non trovati contextualmente, usa ordine posizionale (tutore=primo, atleta=secondo)
+  if(!r.cfAtleta||!r.cfTutore){
+    var allCf=TU.match(CF_RE)||[];
+    var uniq=[];allCf.forEach(function(c){if(uniq.indexOf(c)<0)uniq.push(c);});
+    if(!r.cfTutore&&uniq.length>=1)r.cfTutore=uniq[0];
+    if(!r.cfAtleta&&uniq.length>=2)r.cfAtleta=uniq[1];
+    else if(!r.cfAtleta&&uniq.length===1)r.cfAtleta=uniq[0];
+  }
+  // Se tutore e atleta uguali (adulto senza tutore), azzera tutore
+  if(r.cfTutore&&r.cfTutore===r.cfAtleta)r.cfTutore='';
+
+  // ── Nome tutore: "Dal sig./sig.ra COGNOME NOME" ──
+  var mTut=T.match(/Dal\s+sig\.?\/?sig\.?ra\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s'\-]{2,50}?)[\r\n]/i);
+  if(mTut)r.nomeTutore=mTut[1].trim().toUpperCase();
+
+  // ── Nome atleta: "Atleta COGNOME NOME" ──
+  var mAtl=T.match(/Atleta\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s'\-]{2,50}?)[\r\n]/i);
+  if(mAtl){
+    var partiAtl=mAtl[1].trim().toUpperCase().split(/\s+/);
+    r.cfAtletaCog=partiAtl[0]||'';
+    r.cfAtletaNom=partiAtl.slice(1).join(' ')||'';
+    r.nomeAtleta=mAtl[1].trim().toUpperCase();
+  }
+
+  // ── Data nascita atleta: "Il GG/MM/AAAA" ──
+  var mDn=T.match(/\bIl\b\s+(\d{2}\/\d{2}\/\d{4})/i);
+  if(mDn){
+    var pDn=mDn[1].split('/');
+    r.dnAtleta=pDn[2]+'-'+pDn[1]+'-'+pDn[0]; // yyyy-mm-dd
+  }
+  // ── Luogo nascita atleta: "Nato a COMUNE (PD)" ──
+  var mNato=T.match(/Nato\s+a\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s]+?)(?:\s*\(([A-Z]{2})\))?[\r\n]/i);
+  if(mNato){r.natoA=mNato[1].trim().toUpperCase();r.natoProv=mNato[2]||'';}
+
+  // ── Indirizzo tutore: "Via VIA ROMA 10" ──
+  var mVia=T.match(/\bVia\b\s+([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s0-9\/'.,-]{2,60}?)[\r\n]/i);
+  if(mVia){
+    var viaRaw=mVia[1].trim().toUpperCase();
+    // Separa numero civico finale (es. "VIA PIOGA 109" → via="VIA PIOGA", nr="109")
+    var mNrFin=viaRaw.match(/^(.+?)\s+(\d+[A-Z]?(?:\/[A-Z0-9]+)?)\s*$/);
+    if(mNrFin){r.via=mNrFin[1].trim();r.nr=mNrFin[2].trim();}
+    else r.via=viaRaw;
+  }
+
+  // ── Comune + provincia: "Residente in COMUNE (PD)" ──
+  // Il formato puo' essere "COMUNE (PD)" o "CAP COMUNE (PD)"
+  var mCom=T.match(/Residente\s+in\s+([\d]{5}\s+)?([A-ZÀÈÉÌÒÙ][A-ZÀÈÉÌÒÙ\s'\-]+?)\s*(?:\(([A-Z]{2})\))?[\r\n]/i);
+  if(mCom){
+    if(mCom[1])r.cap=mCom[1].trim();
+    r.comune=mCom[2].trim().toUpperCase();
+    r.prov=mCom[3]||'';
+  }
+
+  // ── Anno ricevuta: "RIEPILOGO PAGAMENTI ANNO YYYY" ──
+  var mAnno=T.match(/ANNO\s+(\d{4})/i);
+  if(mAnno)r.annoRicevuta=mAnno[1];
+  // ── Data ricevuta: "Campodarsego, GG/MM/AAAA" ──
+  var mData=T.match(/Campodarsego,?\s+(\d{2}\/\d{2}\/\d{4})/i);
+  if(mData)r.dataRicevuta=mData[1];
+
   cb(r);
 }
 
 function _aggiornaTutoreInDB(r, nomeFile, cb){
+  // ── Log estratto per diagnostica ──
+  var estratto='CF atleta='+r.cfAtleta+' CF tutore='+(r.cfTutore||'—')+
+    ' nome="'+r.nomeAtleta+'" via="'+r.via+(r.nr?' '+r.nr:'')+
+    '" comune="'+r.comune+'" prov='+r.prov+' cap='+r.cap+' anno='+r.annoRicevuta;
+  log('Import tutori ['+nomeFile+'] estratto: '+estratto,'info');
+
   if(!r.cfAtleta){
-    log('Import tutori ['+nomeFile+']: CF atleta non trovato','warn');
+    log('Import tutori ['+nomeFile+']: CF atleta non trovato nel documento','warn');
     cb('notfound');return;
   }
+
+  // ── Cerca atleta in DB per CF ──
   var a=DB.atleti.find(function(x){return x.cf&&x.cf.toUpperCase()===r.cfAtleta.toUpperCase();});
+
+  // ── Atleta non trovato: chiedi conferma inserimento ──
   if(!a){
-    log('Import tutori ['+nomeFile+']: atleta CF '+r.cfAtleta+' non in DB','warn');
-    cb('notfound');return;
-  }
-  var changed=false;
-  // Aggiorna CF tutore
-  if(r.cfTutore&&!(a.tutCf||a.cfTut)){a.tutCf=r.cfTutore;changed=true;}
-  // Aggiorna nome tutore (split cognome/nome)
-  if(r.nomeTutore&&!a.tutCog){
-    var parti=r.nomeTutore.trim().split(/\s+/);
-    if(parti.length>=2){
-      a.tutCog=parti[0];
-      a.tutNom=parti.slice(1).join(' ');
+    var hasEnoughData=!!(r.cfAtleta&&r.cfAtletaCog);
+    var msg='File: '+nomeFile+'\n\n'+
+      'Atleta CF '+r.cfAtleta+' ('+r.nomeAtleta+') non trovato in DB.\n';
+    if(hasEnoughData){
+      msg+='Dati disponibili:\n'+
+        '  Cognome: '+r.cfAtletaCog+'\n'+
+        '  Nome:    '+r.cfAtletaNom+'\n'+
+        (r.dnAtleta?'  Nascita: '+r.dnAtleta+'\n':'')+
+        (r.natoA?'  Nato a:  '+r.natoA+(r.natoProv?' ('+r.natoProv+')':'')+'\n':'')+
+        (r.cfTutore?'  Tutore CF: '+r.cfTutore+' '+r.nomeTutore+'\n':'')+
+        '\nVuoi inserire questo atleta in anagrafica?\n(OK = inserisci, Annulla = ignora)';
     } else {
-      a.tutCog=r.nomeTutore;
+      msg+='Dati insufficienti per inserire un nuovo atleta.\n(solo il CF è disponibile)\n\nVuoi inserire un atleta incompleto da completare manualmente?';
     }
-    changed=true;
+    var conferma=confirm(msg);
+    if(!conferma){
+      log('Import tutori ['+nomeFile+']: atleta CF '+r.cfAtleta+' non in DB — ignorato su richiesta','warn');
+      cb('notfound');return;
+    }
+    // Calcola stagione dall'anno ricevuta
+    var annoRif=r.annoRicevuta?parseInt(r.annoRicevuta):new Date().getFullYear();
+    // Soglia 15 agosto: pagamento ANNO X → stagione X-1/X se prima di agosto, X/X+1 se dopo
+    // Ma "ANNO YYYY" sulla ricevuta e' l'anno solare del pagamento.
+    // Convenzione: se pagamento anno X, la stagione e' (X-1)-XX se prima del 15/08, X-XX se dopo.
+    // Usiamo direttamente annoRif: stagione = (annoRif-1)+'-'+String(annoRif).slice(-2)
+    // salvo se il documento ha data successiva al 15/08 → stagione annoRif+'-'+String(annoRif+1).slice(-2)
+    var stagione;
+    if(r.dataRicevuta){
+      var dp=r.dataRicevuta.split('/');
+      var mesePag=parseInt(dp[1]);
+      var annoPag=parseInt(dp[2]);
+      if(mesePag>=8){stagione=annoPag+'-'+String(annoPag+1).slice(-2);}
+      else{stagione=(annoPag-1)+'-'+String(annoPag).slice(-2);}
+    } else if(r.annoRicevuta){
+      stagione=(annoRif-1)+'-'+String(annoRif).slice(-2);
+    } else {
+      var now=new Date(),m=now.getMonth();
+      var ai=m>=7?now.getFullYear():now.getFullYear()-1;
+      stagione=ai+'-'+String(ai+1).slice(-2);
+    }
+    var newA={
+      id:nextId(DB.atleti),
+      cog:r.cfAtletaCog||r.cfAtleta, nom:r.cfAtletaNom||'',
+      sex:'M', dn:r.dnAtleta||'',
+      natoA:r.natoA||'', natoProv:r.natoProv||'',
+      cf:r.cfAtleta, naz:'Italia', cit:'Italiana',
+      docTipo:'', docNum:'',
+      indVia:r.via||'', indNr:r.nr||'', indCap:r.cap||'',
+      indComune:r.comune||'', indProv:r.prov||'',
+      tutCog:'', tutNom:'', tutCf:'', tutEmail:'',
+      tutCell1:'', tutCell2:'', tutDn:'', tutNatoA:'', tutNatoProv:'',
+      tutVia:'', tutNr:'', tutCap:'', tutComune:'', tutProv:'',
+      iscrizioni:[{anno:stagione, fed:'', cat1:'', cat2:'', dataIscrizione:'', note:'Recuperato da Ricevuta'}],
+      cat:'', mag:'', cs:'',
+      note:'Recuperato da Ricevuta ('+nomeFile+')',
+      scheda:{}, ritirato:false, convocabile:true,
+      gen:'', tel:'', cfTut:'', indTut:'', email:'', ind:'',
+    };
+    // Aggiunge tutore se disponibile
+    if(r.cfTutore){newA.tutCf=r.cfTutore;}
+    if(r.nomeTutore){
+      var pTut=r.nomeTutore.trim().split(/\s+/);
+      newA.tutCog=pTut[0];newA.tutNom=pTut.slice(1).join(' ');
+      newA.tutVia=r.via||'';newA.tutNr=r.nr||'';
+      newA.tutCap=r.cap||'';newA.tutComune=r.comune||'';newA.tutProv=r.prov||'';
+    }
+    if(typeof _arricchisciAtleta==='function')_arricchisciAtleta(newA);
+    DB.atleti.push(newA);
+    log('Import tutori ['+nomeFile+']: NUOVO atleta inserito '+newA.cog+' '+newA.nom+' CF '+r.cfAtleta+' stagione '+stagione,'ok');
+    cb('ok');return;
   }
-  // Aggiorna indirizzo tutore
-  if(r.via&&!a.tutVia){a.tutVia=r.via;changed=true;}
-  if(r.comune&&!a.tutComune){a.tutComune=r.comune;changed=true;}
-  if(r.prov&&!a.tutProv){a.tutProv=r.prov;changed=true;}
+
+  // ── Atleta trovato: aggiorna campi mancanti ──
+  var changed=false;
+  var dettagli=[];
+
+  // CF tutore
+  if(r.cfTutore&&!(a.tutCf||a.cfTut)){a.tutCf=r.cfTutore;changed=true;dettagli.push('tutCf');}
+
+  // Nome tutore (split cognome/nome)
+  if(r.nomeTutore&&!a.tutCog){
+    var pTut=r.nomeTutore.trim().split(/\s+/);
+    a.tutCog=pTut[0];a.tutNom=pTut.slice(1).join(' ');
+    changed=true;dettagli.push('tutCog/tutNom');
+  }
+
+  // Indirizzo tutore completo (via, nr, cap, comune, prov)
+  if(r.via&&!a.tutVia){a.tutVia=r.via;changed=true;dettagli.push('tutVia');}
+  if(r.nr&&!a.tutNr){a.tutNr=r.nr;changed=true;dettagli.push('tutNr');}
+  if(r.cap&&!a.tutCap){a.tutCap=r.cap;changed=true;dettagli.push('tutCap');}
+  if(r.comune&&!a.tutComune){a.tutComune=r.comune;changed=true;dettagli.push('tutComune');}
+  if(r.prov&&!a.tutProv){a.tutProv=r.prov;changed=true;dettagli.push('tutProv');}
+
+  // Copia indirizzo tutore → atleta se atleta ha campi vuoti
+  var hasTutInd=!!(a.tutVia||r.via);
+  if(hasTutInd){
+    var viaT=a.tutVia||r.via||'';
+    var nrT=a.tutNr||r.nr||'';
+    var capT=a.tutCap||r.cap||'';
+    var comT=a.tutComune||r.comune||'';
+    var prvT=a.tutProv||r.prov||'';
+    if(viaT&&!a.indVia){a.indVia=viaT;changed=true;dettagli.push('indVia←tut');}
+    if(nrT&&!a.indNr){a.indNr=nrT;changed=true;dettagli.push('indNr←tut');}
+    if(capT&&!a.indCap){a.indCap=capT;changed=true;dettagli.push('indCap←tut');}
+    if(comT&&!a.indComune){a.indComune=comT;changed=true;dettagli.push('indComune←tut');}
+    if(prvT&&!a.indProv){a.indProv=prvT;changed=true;dettagli.push('indProv←tut');}
+  }
+
   if(changed){
-    log('Import tutori ['+nomeFile+']: aggiornato '+a.cog+' '+a.nom+' (CF '+r.cfAtleta+')','ok');
+    log('Import tutori ['+nomeFile+']: aggiornato '+a.cog+' '+a.nom+' → '+dettagli.join(', '),'ok');
     cb('ok');
   } else {
+    log('Import tutori ['+nomeFile+']: '+a.cog+' '+a.nom+' già completo, nessun aggiornamento','info');
     cb('skip');
   }
 }
@@ -3521,7 +3676,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.19 · 30/03/2026";
+var BUILD_VERSION = "v9.20 · 30/03/2026";
 
 var DB = window.DB || null;
 var _db = window._db || null;
