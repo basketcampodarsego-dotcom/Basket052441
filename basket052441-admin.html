@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.22 · 02/04/2026 -->
+<!-- basket052441-admin.html | v9.23 · 02/04/2026 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.22 · 02/04/2026 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.23 · 02/04/2026 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.22 · 02/04/2026</div>
+    <div class="topbar-sub">Build v9.23 · 02/04/2026</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -306,8 +306,8 @@
   <div class="card" style="margin-top:16px">
     <div class="card-title">📋 Tabulato Tesserati</div>
     <div class="grid2" style="margin-bottom:12px">
-      <div>
-        <label>Stagione</label>
+      <div id="tab-stagione-wrap-outer">
+        <label>Stagione sportiva</label>
         <select id="tab-stagione"><option value="">— tutte —</option></select>
       </div>
       <div>
@@ -320,11 +320,15 @@
       </div>
       <div>
         <label>Tipo periodo</label>
-        <select id="tab-tipo">
+        <select id="tab-tipo" onchange="(function(){var t=this.value;var sw=document.getElementById('tab-stagione-wrap');var aw=document.getElementById('tab-anno-wrap');if(sw)sw.style.display=t==='anno'?'none':'';if(aw)aw.style.display=t==='anno'?'':'none';}).call(this)">
           <option value="stagione">Stagione sportiva</option>
           <option value="anno">Anno solare</option>
         </select>
       </div>
+    </div>
+    <div class="grid2" style="margin-bottom:8px">
+      <div id="tab-stagione-wrap"><!-- stagione select spostata sopra --></div>
+      <div id="tab-anno-wrap" style="display:none"><label>Anno solare</label><select id="tab-anno"><option value="">— tutti —</option></select></div>
     </div>
     <div style="margin-bottom:12px">
       <div style="font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px">CAMPI DA INCLUDERE</div>
@@ -560,7 +564,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.22 · 02/04/2026";
+var BUILD_VERSION = "v9.23 · 02/04/2026";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1706,6 +1710,40 @@ function _arricchisciAtleta(a) {
 
 
 
+function _initTabulatoStagioni(){
+  var sel=document.getElementById('tab-stagione');
+  if(!sel)return;
+  var annate=new Set();
+  if(typeof DB!=='undefined'&&DB&&DB.atleti){
+    (DB.atleti||[]).forEach(function(a){
+      (a.iscrizioni||[]).forEach(function(i){if(i.anno)annate.add(i.anno);});
+    });
+  }
+  var sorted=Array.from(annate).sort().reverse();
+  while(sel.options.length)sel.remove(0);
+  var opt0=document.createElement('option');opt0.value='';opt0.textContent='— tutte —';sel.appendChild(opt0);
+  sorted.forEach(function(s){var opt=document.createElement('option');opt.value=s;opt.textContent=s;sel.appendChild(opt);});
+  var sc=typeof _stagioneCorrente==='function'?_stagioneCorrente():'';
+  if(sc&&annate.has(sc))sel.value=sc;
+  // Anno solare
+  var selA=document.getElementById('tab-anno');
+  if(selA){
+    var anni=new Set();
+    if(typeof DB!=='undefined'&&DB&&DB.atleti){
+      (DB.atleti||[]).forEach(function(a){
+        (DB.pagamenti[a.id]||[]).forEach(function(p){if(p.data)anni.add(p.data.substring(0,4));});
+      });
+    }
+    var sortedA=Array.from(anni).sort().reverse();
+    while(selA.options.length)selA.remove(0);
+    var optA0=document.createElement('option');optA0.value='';optA0.textContent='— tutti —';selA.appendChild(optA0);
+    sortedA.forEach(function(y){var o=document.createElement('option');o.value=y;o.textContent=y;selA.appendChild(o);});
+    var annoCorr=String(new Date().getFullYear());
+    if(anni.has(annoCorr))selA.value=annoCorr;
+  }
+  log('tab-stagione admin: '+sorted.length+' stagioni','info');
+}
+
 function stampaTabulatoTesserati(){
   log('stampaTabulato: avvio','info');
   if(!_dbReady()){log('stampaTabulato: DB non pronto','warn');return;}
@@ -1715,8 +1753,10 @@ function stampaTabulatoTesserati(){
   var stagione=document.getElementById('tab-stagione').value;
   var stato=document.getElementById('tab-stato').value;
   var tipoSel=document.getElementById('tab-tipo');
-  var tipoP=tipoSel?tipoSel.value:'stagione'; // 'stagione' o 'anno'
-  var annoSolare=stagione&&tipoP==='anno'?stagione.substring(0,4):'';
+  var tipoP=tipoSel?tipoSel.value:'stagione';
+  var selAnno=document.getElementById('tab-anno');
+  var annoSolare=tipoP==='anno'?(selAnno?selAnno.value:''):'';
+  if(tipoP==='anno'&&annoSolare)stagione=annoSolare;
   var campi={};
   document.querySelectorAll('.tab-campo:checked').forEach(function(cb){campi[cb.value]=true;});
   log('stampaTabulato: stagione='+stagione+' stato='+stato+' tipo='+tipoP,'info');
@@ -2516,7 +2556,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.22 · 02/04/2026";
+var BUILD_VERSION = "v9.23 · 02/04/2026";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -3571,7 +3611,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.22 · 02/04/2026";
+var BUILD_VERSION = "v9.23 · 02/04/2026";
 
 var DB = window.DB || null;
 var _db = window._db || null;
