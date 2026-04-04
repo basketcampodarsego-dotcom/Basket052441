@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.25 · 03/04/2026 19:06 -->
+<!-- basket052441-admin.html | v9.26 · 04/04/2026 10:54 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.25 · 03/04/2026 19:06 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.26 · 04/04/2026 10:54 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.25 · 03/04/2026 19:06</div>
+    <div class="topbar-sub">Build v9.26 · 04/04/2026 10:54</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -590,7 +590,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.25 · 03/04/2026 19:06";
+var BUILD_VERSION = "v9.26 · 04/04/2026 10:54";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -2582,7 +2582,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.25 · 03/04/2026 19:06";
+var BUILD_VERSION = "v9.26 · 04/04/2026 10:54";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -2976,23 +2976,42 @@ window.addEventListener('load',function(){
 
 // ── INIT CATEGORIE ──
 function _initReportStagioni(){
-  var sel=document.getElementById('rpt-stagione');
-  var selTab=document.getElementById('tab-stagione');
-  if(!sel||!DB)return;
-  // Ricava annate disponibili (formato "YYYY-YY")
+  if(!DB)return;
+  // Stagioni da iscrizioni
   var annate=new Set();
   (DB.atleti||[]).forEach(function(a){
     (a.iscrizioni||[]).forEach(function(i){if(i.anno)annate.add(i.anno);});
   });
   var sorted=Array.from(annate).sort().reverse();
-  // Usa appendChild per compatibilità Android Chrome
-  while(sel.options.length)sel.remove(0);
-  var opt0=document.createElement('option');opt0.value='';opt0.textContent='— seleziona annata —';sel.appendChild(opt0);
-  sorted.forEach(function(a){var opt=document.createElement('option');opt.value=a;opt.textContent=a;sel.appendChild(opt);});
+  // Popola rpt-stagione (Report Soci)
+  var sel=document.getElementById('rpt-stagione');
+  if(sel){
+    while(sel.options.length)sel.remove(0);
+    var o0=document.createElement('option');o0.value='';o0.textContent='— seleziona annata —';sel.appendChild(o0);
+    sorted.forEach(function(a){var o=document.createElement('option');o.value=a;o.textContent=a;sel.appendChild(o);});
+  }
+  // Popola tab-stagione (Tabulato)
+  var selTab=document.getElementById('tab-stagione');
   if(selTab){
     while(selTab.options.length)selTab.remove(0);
-    var opt0t=document.createElement('option');opt0t.value='';opt0t.textContent='— tutte —';selTab.appendChild(opt0t);
-    sorted.forEach(function(a){var opt=document.createElement('option');opt.value=a;opt.textContent=a;selTab.appendChild(opt);});
+    var ot0=document.createElement('option');ot0.value='';ot0.textContent='— tutte —';selTab.appendChild(ot0);
+    sorted.forEach(function(a){var o=document.createElement('option');o.value=a;o.textContent=a;selTab.appendChild(o);});
+    var sc=typeof _stagioneCorrente==='function'?_stagioneCorrente():'';
+    if(sc&&annate.has(sc))selTab.value=sc;
+  }
+  // Popola tab-anno (Anno solare tabulato)
+  var selA=document.getElementById('tab-anno');
+  if(selA){
+    var anni=new Set();
+    (DB.atleti||[]).forEach(function(a){
+      (DB.pagamenti[a.id]||[]).forEach(function(p){if(p.data)anni.add(p.data.substring(0,4));});
+    });
+    var sortedA=Array.from(anni).sort().reverse();
+    while(selA.options.length)selA.remove(0);
+    var oa0=document.createElement('option');oa0.value='';oa0.textContent='— tutti —';selA.appendChild(oa0);
+    sortedA.forEach(function(y){var o=document.createElement('option');o.value=y;o.textContent=y;selA.appendChild(o);});
+    var annoCorr=String(new Date().getFullYear());
+    if(anni.has(annoCorr))selA.value=annoCorr;
   }
 }
 
@@ -3633,7 +3652,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.25 · 03/04/2026 19:06";
+var BUILD_VERSION = "v9.26 · 04/04/2026 10:54";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -3977,15 +3996,7 @@ window.addEventListener('load',function(){
 });
 
 // ── INIT CATEGORIE ──
-function _initReportStagioni(){
-  var sel=document.getElementById('rpt-stagione');
-  if(!sel||!DB)return;
-  var stagioni=new Set();
-  (DB.atleti||[]).forEach(function(a){ (a.iscrizioni||[]).forEach(function(i){ if(i.anno)stagioni.add(i.anno); }); });
-  // Annata corrente
-  var sorted=Array.from(stagioni).sort().reverse();
-  sel.innerHTML='<option value="">— seleziona annata —</option>'+sorted.map(function(s){return'<option value="'+s+'">'+s+'</option>';}).join('');
-}
+// _initReportStagioni unificata sopra
 
 // ── HELPER REPORT ──
 function _etaAl31Dic(a,anno){
