@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.26 · 04/04/2026 10:54 -->
+<!-- basket052441-admin.html | v9.27 · 04/04/2026 10:54 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.26 · 04/04/2026 10:54 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.27 · 04/04/2026 10:54 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.26 · 04/04/2026 10:54</div>
+    <div class="topbar-sub">Build v9.27 · 04/04/2026 10:54</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -590,7 +590,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.26 · 04/04/2026 10:54";
+var BUILD_VERSION = "v9.27 · 04/04/2026 10:54";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -2099,10 +2099,12 @@ function _apriStampa(html, titolo){
   ov.appendChild(ifr);
   document.body.appendChild(ov);
   log('_apriStampa: overlay aggiunto al DOM','info');
-  ifr.contentDocument.open();
-  ifr.contentDocument.write(html);
-  ifr.contentDocument.close();
-  btnP.onclick=function(){ifr.contentWindow.focus();ifr.contentWindow.print();};
+  // Usa srcdoc per compatibilità cross-browser (evita problemi contentDocument su Chrome/Android)
+  ifr.srcdoc=html;
+  btnP.onclick=function(){
+    try{ifr.contentWindow.focus();ifr.contentWindow.print();}
+    catch(e){var w=window.open('','_blank');if(w){w.document.write(html);w.document.close();w.print();}}
+  };
 }
 
 buildSearchIndex();
@@ -2582,7 +2584,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.26 · 04/04/2026 10:54";
+var BUILD_VERSION = "v9.27 · 04/04/2026 10:54";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -3652,7 +3654,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.26 · 04/04/2026 10:54";
+var BUILD_VERSION = "v9.27 · 04/04/2026 10:54";
 
 var DB = window.DB || null;
 var _db = window._db || null;
