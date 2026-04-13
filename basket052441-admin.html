@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.27 · 04/04/2026 10:54 -->
+<!-- basket052441-admin.html | v9.29 · 07/04/2026 08:37 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.27 · 04/04/2026 10:54 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.29 · 07/04/2026 08:37 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.27 · 04/04/2026 10:54</div>
+    <div class="topbar-sub">Build v9.29 · 07/04/2026 08:37</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -590,7 +590,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.27 · 04/04/2026 10:54";
+var BUILD_VERSION = "v9.29 · 07/04/2026 08:37";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -2359,16 +2359,16 @@ function _stagioneCorrente(){
 }
 
 function _annoNascitaAtleta(a){
-  // Estrae anno di nascita dal campo dn (AAAA-MM-GG o GG/MM/AAAA)
+  // Prima prova da dn
   if(a.dn){
-    var dn = a.dn;
+    var dn=a.dn;
     if(dn.indexOf('-')>-1) return parseInt(dn.substring(0,4));
     if(dn.indexOf('/')>-1){ var p=dn.split('/'); return parseInt(p[2]); }
   }
-  // Fallback: dal CF (posizioni 6-7 = anno 2 cifre)
-  if(a.cf && a.cf.length>=8){
-    var aa = parseInt(a.cf.substring(6,8));
-    if(!isNaN(aa)) return aa <= 25 ? 2000+aa : 1900+aa;
+  // Fallback: decodifica CF completo (gestisce anche femmine)
+  if(a.cf && a.cf.length>=16){
+    var decoded=cfDecodeData(a.cf);
+    if(decoded) return parseInt(decoded.substring(0,4));
   }
   return null;
 }
@@ -2584,7 +2584,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.27 · 04/04/2026 10:54";
+var BUILD_VERSION = "v9.29 · 07/04/2026 08:37";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -3219,7 +3219,7 @@ function _renderReportSoci(){
     var arr=perAnnoNasc[an];
     html+='<h3>Nati '+an+' ('+arr.length+')</h3>';
     html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.dataiscrizione?'<th>Iscr.</th>':'')+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
-    arr.sort(function(a,b){return a.cog.localeCompare(b.cog);}).forEach(function(a){
+    arr.slice().sort(function(a,b){return ((a.cog||'')+(a.nom||'')).localeCompare((b.cog||'')+(b.nom||''));}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=(a._flagMagg?' <span class="flag">★</span>':'')+(a.ritirato?' <span style="color:#e07040;font-size:10px">(rit.)</span>':''),s10='style="font-size:10px"';
@@ -3654,7 +3654,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.27 · 04/04/2026 10:54";
+var BUILD_VERSION = "v9.29 · 07/04/2026 08:37";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -4081,16 +4081,23 @@ function generaReportSoci(){
     }catch(e){return null;}
   }
   function _eraMinorenne(a){
+    // Recupera data nascita: prima da dn, poi da CF (cfDecodeData gestisce femmine)
     var dn=a.dn;
-    // Fallback: estrai data nascita dal CF
-    if(!dn&&a.cf) dn=_dnDaCF(a.cf);
-    if(!dn)return false;
-    if(dn.indexOf('/')>-1){var p=dn.split('/');dn=p[2]+'-'+p[1]+'-'+p[0];}
-    var nato=new Date(dn);if(isNaN(nato))return false;
-    var eta=dataSoglia.getFullYear()-nato.getFullYear();
-    var md=(dataSoglia.getMonth()*100+dataSoglia.getDate())-(nato.getMonth()*100+nato.getDate());
-    if(md<0)eta--;
-    return eta<18;
+    if(!dn && a.cf && a.cf.length>=16) dn=cfDecodeData(a.cf);
+    if(dn){
+      if(dn.indexOf('/')>-1){var p=dn.split('/');dn=p[2]+'-'+p[1]+'-'+p[0];}
+      var nato=new Date(dn);
+      if(!isNaN(nato)){
+        var eta=dataSoglia.getFullYear()-nato.getFullYear();
+        var md=(dataSoglia.getMonth()*100+dataSoglia.getDate())-(nato.getMonth()*100+nato.getDate());
+        if(md<0)eta--;
+        return eta<18;
+      }
+    }
+    // Ultimo fallback: anno di nascita
+    var annoNasc=_annoNascitaAtleta(a);
+    if(annoNasc) return (dataSoglia.getFullYear()-annoNasc)<18;
+    return false;
   }
   // Escludi ritirati/Ex
   // Diagnostica: mostra formati anno presenti nel DB
