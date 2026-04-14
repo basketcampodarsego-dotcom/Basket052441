@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.29 · 07/04/2026 08:37 -->
+<!-- basket052441-admin.html | v9.30 · 07/04/2026 08:37 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.29 · 07/04/2026 08:37 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.30 · 07/04/2026 08:37 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.29 · 07/04/2026 08:37</div>
+    <div class="topbar-sub">Build v9.30 · 07/04/2026 08:37</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -590,7 +590,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.29 · 07/04/2026 08:37";
+var BUILD_VERSION = "v9.30 · 07/04/2026 08:37";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1772,6 +1772,7 @@ function _initTabulatoStagioni(){
 }
 
 function stampaTabulatoTesserati(){
+  log('stampaTabulatoTesserati: chiamata','info');
   log('stampaTabulato: avvio','info');
   if(!_dbReady()){log('stampaTabulato: DB non pronto','warn');return;}
   if(!DB||!DB.atleti||!DB.atleti.length){log('DB vuoto','warn');return;}
@@ -2074,7 +2075,8 @@ function recuperaDati(input){
 
 
 function _apriStampa(html, titolo){
-  log('_apriStampa: avvio titolo='+titolo+' html='+html.length+'chars','info');
+  log('_apriStampa: avvio titolo='+titolo+' html='+(html?html.length:0)+'chars','info');
+  if(!html){log('_apriStampa: html vuoto!','err');return;}
   var old=document.getElementById('_po');
   if(old)document.body.removeChild(old);
   var ov=document.createElement('div');
@@ -2584,7 +2586,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.29 · 07/04/2026 08:37";
+var BUILD_VERSION = "v9.30 · 07/04/2026 08:37";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -3163,7 +3165,7 @@ function generaReportSoci(){
 function _renderReportSoci(){
   var d=window._rptData;if(!d)return;
   var C=_campiSelezionati();
-  var CSS='<style>body{background:#fff;color:#111}.rpt{font-family:Arial,sans-serif;font-size:12px;color:#111;max-width:900px;background:#fff}.rpt h1{font-size:16px;font-weight:bold;margin-bottom:4px}.rpt h2{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:2px solid #1a2a4a;padding-bottom:3px;color:#1a2a4a}.rpt h3{font-size:12px;font-weight:bold;margin:12px 0 4px;color:#3a5a8a}.rpt table{border-collapse:collapse;width:100%;margin-bottom:12px}.rpt th{background:#1a2a4a;color:#fff;padding:5px 8px;text-align:center;font-size:11px}.rpt th.left{text-align:left}.rpt td{padding:4px 8px;border:1px solid #ccc;font-size:11px;text-align:center}.rpt td.left{text-align:left}.rpt tr.tot{background:#e8f0ff;font-weight:bold}.rpt tr.subtot{background:#f0f4ff}.rpt tr.magg-row{background:#fff;color:#111}.rpt tr.magg-row:nth-child(even){background:#f0f0f0;color:#111}.rpt tr.min-row{background:#fff;color:#111}.rpt tr.min-row:nth-child(even){background:#f0fff0;color:#111}.rpt .flag{color:#c00;font-weight:bold}.rpt .meta{font-size:11px;color:#666;margin-bottom:12px}</style>';
+  var CSS='<style>.rpt{font-family:Arial,sans-serif;font-size:12px;color:#111;max-width:900px}.rpt h1{font-size:16px;font-weight:bold;margin-bottom:4px}.rpt h2{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:2px solid #1a2a4a;padding-bottom:3px;color:#1a2a4a}.rpt h3{font-size:12px;font-weight:bold;margin:12px 0 4px;color:#3a5a8a}.rpt table{border-collapse:collapse;width:100%;margin-bottom:12px}.rpt th{background:#1a2a4a;color:#fff;padding:5px 8px;text-align:center;font-size:11px}.rpt th.left{text-align:left}.rpt td{padding:4px 8px;border:1px solid #ccc;font-size:11px;text-align:center}.rpt td.left{text-align:left}.rpt tr.tot{background:#e8f0ff;font-weight:bold}.rpt tr.subtot{background:#f0f4ff}.rpt tr.magg-row:nth-child(even){background:#f8f8f8}.rpt tr.min-row:nth-child(even){background:#f8fff8}.rpt .flag{color:#c00;font-weight:bold}.rpt .meta{font-size:11px;color:#666;margin-bottom:12px}</style>';
   var html=CSS+'<div class="rpt">';
   // Header con logo
   html+='<div style="text-align:center;margin-bottom:8px">';
@@ -3233,7 +3235,9 @@ function _renderReportSoci(){
 }
 
 function stampaReportSoci(){
-  if(!window._rptHTML){log('Genera prima il report.','warn');return;}
+  log('stampaReportSoci: chiamata','info');
+  if(!window._rptHTML){log('stampaReportSoci: _rptHTML mancante — genera prima il report.','warn');return;}
+  log('stampaReportSoci: _rptHTML ok, chiamo _apriStampa','info');
   var titolo='Report Soci '+(window._rptData?window._rptData.stagione:'');
   var fullHtml='<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>'+titolo+'</title>'
     +'<style>@media print{body{margin:0}}</style></head><body>'+window._rptHTML+'</body></html>';
@@ -3654,7 +3658,7 @@ window._onAuthOK=function(user){if(typeof _diagLog==="function")_diagLog("Auth O
 </script>
 </body>
 <script>
-var BUILD_VERSION = "v9.29 · 07/04/2026 08:37";
+var BUILD_VERSION = "v9.30 · 07/04/2026 08:37";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -4134,6 +4138,8 @@ function generaReportSoci(){
   document.getElementById('rpt-anteprima').style.display='block';
   document.getElementById('rpt-btn-stampa').style.display='';
   document.getElementById('rpt-btn-csv').style.display='';
+  log('generaReportSoci: _rptHTML='+(window._rptHTML?window._rptHTML.length+'chars':'MANCANTE'),'info');
+  log('generaReportSoci completata — bottone stampa visibile','ok');
   log('Report '+annata+': '+iscritti.length+' soci.','ok');
 }
 
