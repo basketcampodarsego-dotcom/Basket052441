@@ -2359,16 +2359,16 @@ function _stagioneCorrente(){
 }
 
 function _annoNascitaAtleta(a){
-  // Prima prova da dn
+  // Estrae anno di nascita dal campo dn (AAAA-MM-GG o GG/MM/AAAA)
   if(a.dn){
-    var dn=a.dn;
+    var dn = a.dn;
     if(dn.indexOf('-')>-1) return parseInt(dn.substring(0,4));
     if(dn.indexOf('/')>-1){ var p=dn.split('/'); return parseInt(p[2]); }
   }
-  // Fallback: decodifica CF completo (gestisce anche femmine)
-  if(a.cf && a.cf.length>=16){
-    var decoded=cfDecodeData(a.cf);
-    if(decoded) return parseInt(decoded.substring(0,4));
+  // Fallback: dal CF (posizioni 6-7 = anno 2 cifre)
+  if(a.cf && a.cf.length>=8){
+    var aa = parseInt(a.cf.substring(6,8));
+    if(!isNaN(aa)) return aa <= 25 ? 2000+aa : 1900+aa;
   }
   return null;
 }
@@ -3163,7 +3163,7 @@ function generaReportSoci(){
 function _renderReportSoci(){
   var d=window._rptData;if(!d)return;
   var C=_campiSelezionati();
-  var CSS='<style>.rpt{font-family:Arial,sans-serif;font-size:12px;color:#111;max-width:900px}.rpt h1{font-size:16px;font-weight:bold;margin-bottom:4px}.rpt h2{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:2px solid #1a2a4a;padding-bottom:3px;color:#1a2a4a}.rpt h3{font-size:12px;font-weight:bold;margin:12px 0 4px;color:#3a5a8a}.rpt table{border-collapse:collapse;width:100%;margin-bottom:12px}.rpt th{background:#1a2a4a;color:#fff;padding:5px 8px;text-align:center;font-size:11px}.rpt th.left{text-align:left}.rpt td{padding:4px 8px;border:1px solid #ccc;font-size:11px;text-align:center}.rpt td.left{text-align:left}.rpt tr.tot{background:#e8f0ff;font-weight:bold}.rpt tr.subtot{background:#f0f4ff}.rpt tr.magg-row:nth-child(even){background:#f8f8f8}.rpt tr.min-row:nth-child(even){background:#f8fff8}.rpt .flag{color:#c00;font-weight:bold}.rpt .meta{font-size:11px;color:#666;margin-bottom:12px}</style>';
+  var CSS='<style>body{background:#fff;color:#111}.rpt{font-family:Arial,sans-serif;font-size:12px;color:#111;max-width:900px;background:#fff}.rpt h1{font-size:16px;font-weight:bold;margin-bottom:4px}.rpt h2{font-size:13px;font-weight:bold;margin:16px 0 6px;border-bottom:2px solid #1a2a4a;padding-bottom:3px;color:#1a2a4a}.rpt h3{font-size:12px;font-weight:bold;margin:12px 0 4px;color:#3a5a8a}.rpt table{border-collapse:collapse;width:100%;margin-bottom:12px}.rpt th{background:#1a2a4a;color:#fff;padding:5px 8px;text-align:center;font-size:11px}.rpt th.left{text-align:left}.rpt td{padding:4px 8px;border:1px solid #ccc;font-size:11px;text-align:center}.rpt td.left{text-align:left}.rpt tr.tot{background:#e8f0ff;font-weight:bold}.rpt tr.subtot{background:#f0f4ff}.rpt tr.magg-row{background:#fff;color:#111}.rpt tr.magg-row:nth-child(even){background:#f0f0f0;color:#111}.rpt tr.min-row{background:#fff;color:#111}.rpt tr.min-row:nth-child(even){background:#f0fff0;color:#111}.rpt .flag{color:#c00;font-weight:bold}.rpt .meta{font-size:11px;color:#666;margin-bottom:12px}</style>';
   var html=CSS+'<div class="rpt">';
   // Header con logo
   html+='<div style="text-align:center;margin-bottom:8px">';
@@ -3219,7 +3219,7 @@ function _renderReportSoci(){
     var arr=perAnnoNasc[an];
     html+='<h3>Nati '+an+' ('+arr.length+')</h3>';
     html+='<table><thead><tr><th class="left">Cognome Nome</th><th>Nato/a il</th><th>Sesso</th><th>CF</th>'+(C.indirizzo?'<th class="left">Indirizzo</th>':'<th>Comune</th>')+'<th>Cat.</th><th>Fed.</th>'+(C.dataiscrizione?'<th>Iscr.</th>':'')+(C.certmedico?'<th>Cert.</th>':'')+(C.telefono?'<th>Tel.</th>':'')+(C.email?'<th>Email</th>':'')+(C.tutore?'<th>Tutore</th>':'')+(C.note?'<th>Note</th>':'')+'</tr></thead><tbody>';
-    arr.slice().sort(function(a,b){return ((a.cog||'')+(a.nom||'')).localeCompare((b.cog||'')+(b.nom||''));}).forEach(function(a){
+    arr.sort(function(a,b){return a.cog.localeCompare(b.cog);}).forEach(function(a){
       var dn=a.dn||'';if(dn.indexOf('-')>-1){var p=dn.split('-');dn=p[2]+'/'+p[1]+'/'+p[0];}
       var com=_comuneAtleta(a)||'—',cat=_catAtleta(a,d.stagione),fed=_fedAtleta(a,d.stagione);
       var flag=(a._flagMagg?' <span class="flag">★</span>':'')+(a.ritirato?' <span style="color:#e07040;font-size:10px">(rit.)</span>':''),s10='style="font-size:10px"';
@@ -4081,23 +4081,16 @@ function generaReportSoci(){
     }catch(e){return null;}
   }
   function _eraMinorenne(a){
-    // Recupera data nascita: prima da dn, poi da CF (cfDecodeData gestisce femmine)
     var dn=a.dn;
-    if(!dn && a.cf && a.cf.length>=16) dn=cfDecodeData(a.cf);
-    if(dn){
-      if(dn.indexOf('/')>-1){var p=dn.split('/');dn=p[2]+'-'+p[1]+'-'+p[0];}
-      var nato=new Date(dn);
-      if(!isNaN(nato)){
-        var eta=dataSoglia.getFullYear()-nato.getFullYear();
-        var md=(dataSoglia.getMonth()*100+dataSoglia.getDate())-(nato.getMonth()*100+nato.getDate());
-        if(md<0)eta--;
-        return eta<18;
-      }
-    }
-    // Ultimo fallback: anno di nascita
-    var annoNasc=_annoNascitaAtleta(a);
-    if(annoNasc) return (dataSoglia.getFullYear()-annoNasc)<18;
-    return false;
+    // Fallback: estrai data nascita dal CF
+    if(!dn&&a.cf) dn=_dnDaCF(a.cf);
+    if(!dn)return false;
+    if(dn.indexOf('/')>-1){var p=dn.split('/');dn=p[2]+'-'+p[1]+'-'+p[0];}
+    var nato=new Date(dn);if(isNaN(nato))return false;
+    var eta=dataSoglia.getFullYear()-nato.getFullYear();
+    var md=(dataSoglia.getMonth()*100+dataSoglia.getDate())-(nato.getMonth()*100+nato.getDate());
+    if(md<0)eta--;
+    return eta<18;
   }
   // Escludi ritirati/Ex
   // Diagnostica: mostra formati anno presenti nel DB
