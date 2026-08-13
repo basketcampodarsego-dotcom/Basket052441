@@ -307,7 +307,7 @@ function _dbReady(fn){
   _DB_READY=true;
   return true;
 }
-var BUILD_VERSION = "v6.75 · 10/06/2026 22:37";
+var BUILD_VERSION = "v6.76 · 13/08/2026 01:15";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -327,14 +327,6 @@ var _diagLines = [];
 var _diagVisible = false;
 var _diagPanel = null;
 
-function _diagLog(msg, color){
-  var ts = new Date().toLocaleTimeString('it-IT');
-  _diagLines.push({ts:ts, msg:String(msg), color:color||'#c8d8e8'});
-  if(_diagLines.length > 200) _diagLines.shift();
-  if(_diagVisible && _diagPanel) _diagRender();
-  // Anche console
-  console.log('[DIAG '+ts+'] '+msg);
-}
 
 function _diagRender(){
   if(!_diagPanel) return;
@@ -449,299 +441,36 @@ var _fbConfig={apiKey:"AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",authDomain:"bask
 
 
 // ── UTILITY ──
-function g(id) { return document.getElementById(id); }
 
-function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
-function fmtData(d) { if(!d) return ""; if(d.indexOf("-")>-1){var p=d.split("-");return p[2]+"/"+p[1]+"/"+p[0];} return d; }
 
-function certScaduto(d) { if(!d) return false; try{var p=d.split("/");return new Date(+p[2],+p[1]-1,+p[0])<new Date();}catch(e){return false;} }
 
-function nextId(arr) { return arr.length?Math.max.apply(null,arr.map(function(x){return x.id||0;}))+1:1; }
 
-function nowStr() { var n=new Date();return n.toLocaleDateString("it-IT")+" "+n.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}); }
 
-function nextNumRicevuta() {
-  var anno=new Date().getFullYear();
-  var esistenti=DB.ricevute.filter(function(r){return r.numero&&r.numero.startsWith(anno+"-");});
-  var max=0;
-  esistenti.forEach(function(r){var n=parseInt((r.numero||"").split("-")[1]||"0");if(n>max)max=n;});
-  return anno+"-"+String(max+1).padStart(3,"0");
-}
 
 
 // ── PARSING ──
-function _parseIndirizzo(ind) {
-  if(!ind) return {via:"", comune:""};
-  var comma = ind.lastIndexOf(",");
-  if(comma > 0) {
-    return {via: ind.substring(0,comma).trim(), comune: ind.substring(comma+1).trim()};
-  }
-  return {via: ind, comune: ""};
-}
 
-function cfDecodeData(cf){
-  // Decodifica data nascita dal CF → "aaaa-mm-gg" o ""
-  if(!cf||cf.length<16)return "";
-  var mesi={A:"01",B:"02",C:"03",D:"04",E:"05",H:"06",L:"07",M:"08",P:"09",R:"10",S:"11",T:"12"};
-  var anno=cf.substring(6,8);
-  var meseL=cf.substring(8,9).toUpperCase();
-  var giorno=parseInt(cf.substring(9,11));
-  if(giorno>40)giorno-=40; // femmine
-  var mese=mesi[meseL]; if(!mese)return "";
-  var aaaa=(parseInt(anno)>=0?parseInt(anno):0);
-  // Stima secolo: >30 = 1900, <=30 = 2000
-  aaaa=aaaa>30?1900+aaaa:2000+aaaa;
-  var gg=String(giorno).padStart(2,"0");
-  return aaaa+"-"+mese+"-"+gg;
-}
 
-function cfDecodeNascita(cf){
-  if(!cf||cf.length<16)return{comune:'',prov:''};
-  var cod=cf.substring(11,15).toUpperCase();
-  var r=_CF_COMUNI[cod];
-  if(!r)return{comune:'',prov:''};
-  return{comune:r[0],prov:r[1]};
-}
 
-function arricchisciDaCF(a){
-  if(!a.cf)return;
-  if(a.natoA&&a.natoProv)return; // già presenti
-  var decoded=cfDecodeNascita(a.cf);
-  if(decoded.comune){
-    if(!a.natoA)a.natoA=decoded.comune;
-    if(!a.natoProv)a.natoProv=decoded.prov;
-  }
-}
 
-function _parseIndVia(indLegacy,via,nr,cap,comune,prov){
-  // Se ha gia' i campi separati usali, altrimenti parsa il legacy
-  // Fix: se comune contiene CAP iniziale (es. "30035 Mirano"), separa
-  if(comune&&/^\d{5}\s+/.test(comune)){
-    var mCap=comune.match(/^(\d{5})\s+(.+)$/);
-    if(mCap){if(!cap)cap=mCap[1];comune=mCap[2];}
-  }
-  if(via||comune||nr||cap){return{via:via||"",nr:nr||"",cap:cap||"",comune:comune||"",prov:prov||""};}
-  if(!indLegacy)return{via:"",nr:"",cap:"",comune:"",prov:""};
-  indLegacy=indLegacy.trim();
-  // Normalizza separatore " - NNNNN Comune" → ", NNNNN Comune"
-  indLegacy=indLegacy.replace(/\s+-\s+(\d{5}\s)/,' , $1');
-  // Legacy: "VIA ROMA 10, 30035 CAMPODARSEGO (PD)" o "VIA ROMA 10, CAMPODARSEGO (PD)"
-  var comma=indLegacy.lastIndexOf(",");
-  if(comma>0){
-    var viaPart=indLegacy.substring(0,comma).trim();
-    var comunePart=indLegacy.substring(comma+1).trim();
-    var mProv=comunePart.match(/\(([A-Z]{2})\)$/);
-    var provStr=mProv?mProv[1]:"";
-    var comuneStr=mProv?comunePart.replace(/\s*\([A-Z]{2}\)$/,"").trim():comunePart;
-    // Estrai CAP se presente all'inizio del comune
-    var capStr="";
-    var mCapComune=comuneStr.match(/^(\d{5})\s+(.+)$/);
-    if(mCapComune){capStr=mCapComune[1];comuneStr=mCapComune[2];}
-    var vParts=viaPart.split(/\s+/);
-    var nrStr="";
-    if(vParts.length>1&&/^\d+[A-Za-z]*(?:\/[A-Za-z0-9]+)?$/.test(vParts[vParts.length-1])){
-      nrStr=vParts.pop();
-    }
-    return{via:vParts.join(" "),nr:nrStr,cap:capStr,comune:comuneStr,prov:provStr};
-  }
-  // Senza virgola: se sembra solo un comune (no numeri civici) mettilo in comune
-  var mProvSolo=indLegacy.match(/^(.+?)\s*\(([A-Z]{2})\)$/);
-  if(mProvSolo){
-    var comuneSolo=mProvSolo[1].trim();
-    var capSolo="";
-    var mCapSolo=comuneSolo.match(/^(\d{5})\s+(.+)$/);
-    if(mCapSolo){capSolo=mCapSolo[1];comuneSolo=mCapSolo[2];}
-    return{via:"",nr:"",cap:capSolo,comune:comuneSolo,prov:mProvSolo[2]};
-  }
-  // Altrimenti metti in via
-  return{via:indLegacy,nr:"",cap:"",comune:"",prov:""};
-}
 
-function _parseTut(a){
-  if(!a)return{cog:"",nom:"",cf:"",email:"",cell1:"",cell2:"",dn:"",natoA:"",natoProv:"",via:"",nr:"",cap:"",comune:"",prov:""};
-  // Se ha QUALSIASI campo nuovo, usa schema nuovo (anche se vuoto)
-  var hasNewSchema=(a.tutCog!==undefined||a.tutVia!==undefined||a.tutCf!==undefined||a.iscrizioni!==undefined);
-  if(hasNewSchema){
-    // Prova a riempire dai campi legacy se i nuovi sono vuoti
-    var genParts=(a.gen||"").trim().split(/\s+/);
-    var indTutP=_parseIndVia(a.indTut||"","","","","","");
-    return{
-      cog:a.tutCog||(genParts[0]||""),
-      nom:a.tutNom||(genParts.slice(1).join(" ")||""),
-      cf:a.tutCf||a.cfTut||"",
-      email:a.tutEmail||a.email||"",
-      cell1:a.tutCell1||a.tel||"",
-      cell2:a.tutCell2||"",
-      dn:a.tutDn||"",
-      natoA:a.tutNatoA||"",
-      natoProv:a.tutNatoProv||"",
-      via:a.tutVia||indTutP.via||"",
-      nr:a.tutNr||indTutP.nr||"",
-      cap:a.tutCap||indTutP.cap||"",
-      comune:a.tutComune||indTutP.comune||"",
-      prov:a.tutProv||indTutP.prov||""
-    };
-  }
-  // Schema completamente legacy
-  var genPartsL=(a.gen||"").trim().split(/\s+/);
-  var indTutParsed=_parseIndVia(a.indTut||"","","","","","");
-  return{
-    cog:genPartsL[0]||"",nom:genPartsL.slice(1).join(" "),
-    cf:a.cfTut||"",email:a.email||"",cell1:a.tel||"",cell2:"",
-    dn:"",natoA:"",natoProv:"",
-    via:indTutParsed.via,nr:indTutParsed.nr,cap:indTutParsed.cap,
-    comune:indTutParsed.comune,prov:indTutParsed.prov
-  };
-}
 
 
 // ── UI ──
-function openModal(id) { var el=g(id);if(el)el.classList.add("show"); }
-
-function closeModal(id) { var el=g(id);if(el)el.classList.remove("show"); }
-
-function toast(msg, tipo) {
-  // tipo: 'ok' | 'err' | 'warn' | '' (info)
-  tipo = tipo || '';
-  diag(msg, tipo);
-  var el = document.getElementById('toast-msg');
-  if(!el) return;
-  el.textContent = msg;
-  el.className = 'toast-show ' + tipo;
-  clearTimeout(el._t);
-  el._t = setTimeout(function(){ el.className = ''; }, 4000);
-}
-
-function diag(msg, type) {
-  // type: 'ok' | 'warn' | 'err' | '' (info)
-  type = type || '';
-  var ts = new Date().toLocaleTimeString('it-IT');
-  _diagHistory.push({ts:ts, msg:msg, type:type});
-  if(_diagHistory.length > 200) _diagHistory.shift();
-
-  var body = document.getElementById('diag-body');
-  var status = document.getElementById('diag-status');
-  var title = document.getElementById('diag-title');
-  if(!body) return;
-
-  var d = document.createElement('div');
-  d.className = 'dl' + (type ? ' '+type : '');
-  d.innerHTML = '<span style="color:#3a5070">['+ts+']</span> <b>'+escDiag(msg)+'</b>';
-  body.appendChild(d);
-  body.scrollTop = body.scrollHeight;
-
-  // Aggiorna status badge
-  if(status) {
-    if(type === 'err') {
-      status.className = 'err'; status.textContent = 'ERRORE';
-      if(title) title.textContent = 'Diagnostica — ' + msg.substring(0,40);
-    } else if(type === 'warn' && status.className !== 'err') {
-      status.className = 'warn'; status.textContent = 'ATTENZIONE';
-    } else if(!type && status.className === 'ok') {
-      status.textContent = 'OK';
-    }
-  }
-  console.log('[DIAG '+type.toUpperCase()+'] '+msg);
-}
 
 
 
-function diagToggle(){
-  var p=document.getElementById('diag-panel');
-  var arrow=p.querySelector('span:last-child');
-  if(p.classList.contains('collapsed')){
-    p.classList.replace('collapsed','expanded');
-    if(arrow) arrow.textContent='\u25bc chiudi';
-  } else {
-    p.classList.replace('expanded','collapsed');
-    if(arrow) arrow.textContent='\u25b2 espandi';
-  }
-}
 
-function escDiag(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function syncStatus(on) { var el=g("sync-dot");if(el)el.style.display=on?"inline-block":"none"; }
 
-function goPage(id) {
-  diag("naviga: "+id);
-  document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active");});
-  document.querySelectorAll(".di").forEach(function(d){d.classList.remove("active");});
-  var pg=g("page-"+id);if(pg)pg.classList.add("active");
-  var di=document.querySelector('[data-page="'+id+'"]');if(di)di.classList.add("active");
-  var tb=g("tb-title");
-  var labels={dashboard:"Dashboard",anagrafica:"Anagrafica Atleti",pagamenti:"Pagamenti & Ricevute",
-               "importa-banca":"Import Banca",presenze:"Presenze Allenamenti",
-               listar:"Lista R / Convocazioni",impostazioni:"Impostazioni & Dati"};
-  if(tb)tb.textContent=labels[id]||id;
-  closeDrawer();
-  if(id==="dashboard") renderDashboard();
-  else if(id==="anagrafica") renderAnagrafica();
-  else if(id==="pagamenti") renderPagamenti();
-  else if(id==="presenze") renderPresenze();
-  else if(id==="listar") lrInit();
-  else if(id==="impostazioni") renderImpostazioni();
-}
 
-function toggleDrawer() { g("drawer").classList.toggle("open");g("drawer-ov").classList.toggle("show"); }
+
+
+
 
 
 // ── FIREBASE ──
-function fbInit() {
-  _diagLog("fbInit() avviato"); diag("fbInit: avvio Firebase...");
-  try {
-    _diagLog("Firebase SDK: "+(typeof firebase !== "undefined" ? "OK" : "NON TROVATO"), "#c8a84b");
-    if(!firebase.apps.length) {
-      var _fbConfig={apiKey:"AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",authDomain:"basket052441.firebaseapp.com",projectId:"basket052441",storageBucket:"basket052441.appspot.com",messagingSenderId:"708269881035",appId:"1:708269881035:web:62a9d32bad5de2c68d0d4e"};
-      _fbApp = firebase.initializeApp(_fbConfig);
-      _diagLog("App Firebase inizializzata","#22a85a");
-    } else {
-      _fbApp = firebase.app();
-      _diagLog("App Firebase gia attiva","#22a85a");
-    }
-    _db = firebase.firestore();
-    _fbReady = true;
-    _diagLog("Firestore pronto","#22a85a"); diag("Firebase: Firestore pronto","ok");
-    var auth = firebase.auth();
-    _diagLog("Auth pronto, attendo stato utente...","#c8a84b");
-    auth.onAuthStateChanged(function(user) {
-      var loginScr = document.getElementById("login-scr");
-      var mainScr  = document.getElementById("main-scr");
-      var authBadge = document.getElementById("auth-badge");
-      if(user) {
-        _diagLog("Autenticato: "+user.email,"#22a85a");
-        // Nascondi login
-        if(loginScr) loginScr.style.display = "none";
-        // Mostra contenuto principale — supporta sia app principale (main-scr) che admin
-        if(mainScr)  mainScr.style.display  = "block";
-        // Aggiorna badge
-        if(authBadge){ authBadge.textContent = user.email; authBadge.style.display = "inline-block"; }
-        // App principale: attiva page-dashboard se presente
-        var dp = document.getElementById("page-dashboard");
-        if(dp){
-          document.querySelectorAll(".page").forEach(function(p){p.classList.remove("active");});
-          dp.classList.add("active");
-        }
-        // Carica DB
-        loadDB();
-        // Callback personalizzata se definita dalla singola app
-        if(typeof window._onAuthOK === "function") window._onAuthOK(user);
-      } else {
-        _diagLog("Nessun utente — mostra login","#7a8fa8");
-        if(loginScr) loginScr.style.display = "";
-        if(mainScr)  mainScr.style.display  = "none";
-        if(authBadge) authBadge.style.display = "none";
-        if(typeof window._onAuthLogout === "function") window._onAuthLogout();
-      }
-    });
-    // Nessun logout automatico per inattività — sessione persistente
-    // Persistence LOCAL esplicita per evitare logout su mobile
-    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});
-  } catch(e) {
-    _diagLog("ERRORE fbInit: "+e.message,"#e03545"); diag("ERRORE Firebase: "+e.message,"err");
-    _fbReady = false;
-  }
-}
 
 // ── Firebase init per Admin (solo Firestore, senza Auth flow) ──
 function fbInitAdmin(onReady, onError) {
@@ -780,156 +509,11 @@ function fbInitAdmin(onReady, onError) {
 }
 
 
-function loadDB(){
-  diag("loadDB: carico da localStorage...");
-  // 1. Carica localStorage (istantaneo, offline-first)
-  try{
-    var s=localStorage.getItem(DB_KEY);
-    if(s)DB=JSON.parse(s);
-    if(!DB)DB={};
-    if(!DB.atleti)DB.atleti=[];
-    if(!DB.pagamenti)DB.pagamenti={};
-    if(!DB.allenamenti)DB.allenamenti=[];
-    if(!DB.presenze)DB.presenze=[];
-    if(!DB.ricevute)DB.ricevute=[];
-    if(!DB.listar)DB.listar=[];
-  }catch(e){}
-  diag("loadDB: localStorage — atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pag="+Object.keys(DB.pagamenti||{}).length);
-  // 2. Scarica da Firebase le sezioni aggiornate
-  if(_fbReady){
-    syncStatus(true);
-    var col=_db.collection("basket052441");
-    var promises=_FB_SEZIONI.map(function(sez){
-      return col.doc(sez).get().then(function(doc){
-        if(doc.exists){
-          var data=doc.data();
-          if(data && data.v){
-            try{
-              var parsed=JSON.parse(data.v);
-              if(parsed!==undefined){
-                // Non sovrascrivere con array vuoto se localStorage aveva dati
-                var cur=DB[sez];
-                var isArr=Array.isArray(parsed);
-                if(isArr && Array.isArray(cur) && cur.length>0 && parsed.length===0){
-                  // Firebase ha array vuoto ma locale ha dati: mantieni locale
-                  console.warn('[FB] '+sez+': Firebase vuoto, mantengo localStorage ('+cur.length+' elementi)');
-                } else if(isArr && Array.isArray(cur) && parsed.length<cur.length && sez==='allenamenti'){
-                  // Per allenamenti: mantieni il più completo
-                  console.warn('[FB] allenamenti: Firebase ha '+parsed.length+' vs locale '+cur.length+', mantengo locale');
-                } else {
-                  DB[sez]=parsed;
-                }
-              }
-            }catch(ex){}
-          }
-        }
-      });
-    });
-    Promise.all(promises).then(function(){
-      if(!DB.listar)DB.listar=[];
-      buildSearchIndex();
-      localStorage.setItem(DB_KEY,JSON.stringify(DB));
-      _DB_READY=true;
-      _cacheInit();
-      _initTabulatoStagioni();
-      if(typeof _initAnaFiltri==='function') _initAnaFiltri();
-      migraAtleti();
-      if(typeof window._onDBLoaded === 'function'){ window._onDBLoaded(); }
-      else if(typeof renderDashboard === 'function'){ renderDashboard(); }
-      syncStatus(false);
-      console.log("[FB] DB caricato dal cloud"); diag("Firebase OK: atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pagamenti="+Object.keys(DB.pagamenti||{}).length,"ok");
-    }).catch(function(e){
-      syncStatus(false);
-      console.error("[FB] Errore lettura sezioni:",e);
-      var isOffline=e.message&&(e.message.indexOf('offline')>-1||e.message.indexOf('network')>-1||e.message.indexOf('unavailable')>-1);
-      diag((isOffline?"Firebase offline - uso dati locali":"Errore Firebase: "+e.message),(isOffline?'warn':'err'));
-      diag("Firebase offline - uso dati da localStorage","warn");
-      buildSearchIndex();
-      _DB_READY=true;
-      _cacheInit();
-      _initTabulatoStagioni();
-      if(typeof _initAnaFiltri==='function') _initAnaFiltri();
-      migraAtleti();
-      renderDashboard();
-    });
-  }
-}
 
-function saveDB(){
-  // Salva localStorage sempre (immediato)
-  localStorage.setItem(DB_KEY,JSON.stringify(DB));
-  if(!_fbReady)return;
-  // Calcola quali sezioni sono cambiate rispetto all'ultimo hash
-  _FB_SEZIONI.forEach(function(sez){
-    var h=JSON.stringify(DB[sez]||'').length+':'+(JSON.stringify(DB[sez]||'')).slice(-20);
-    if(_fbDirty[sez]!==h)_fbDirty[sez]=h;
-  });
-  if(_saveTimer)clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(function(){
-    syncStatus(true);
-    var col=_db.collection("basket052441");
-    var batch=_db.batch();
-    _FB_SEZIONI.forEach(function(sez){
-      batch.set(col.doc(sez),{v:JSON.stringify(DB[sez]||[]),ts:new Date().toISOString()});
-    });
-    batch.commit().then(function(){
-      syncStatus(false);
-      console.log("[FB] Salvato (sezioni separate)"); diag("saveDB: salvato su Firebase","ok");
-    }).catch(function(e){
-      syncStatus(false);
-      console.error("[FB] Errore salvataggio batch:",e);
-    });
-  },1500);
-}
 
 
 // ── AUTH ──
-function doLogin() {
-  var email = document.getElementById("login-email").value || "";
-  var pwd   = document.getElementById("login-pwd").value || "";
-  var btn   = document.getElementById("login-btn");
-  var err   = document.getElementById("login-err");
-  if(!email || !pwd) { if(err) err.textContent = "Inserire email e password."; return; }
-  if(!_fbReady) {
-    _diagLog("Firebase non pronto","#e03545");
-    if(err) err.textContent = "Connessione non pronta, attendi e riprova.";
-    setTimeout(function() { try{ fbInit(); }catch(ex){} }, 1000);
-    return;
-  }
-  _diagLog("Login: "+email);
-  if(btn) btn.disabled = true;
-  if(err) err.textContent = "";
-  firebase.auth().signInWithEmailAndPassword(email, pwd)
-    .then(function() {
-      _diagLog("signIn OK","#22a85a");
-      if(btn) btn.disabled = false;
-    })
-    .catch(function(e) {
-      _diagLog("Errore: "+e.code,"#e03545");
-      if(btn) btn.disabled = false;
-      var msg = "Credenziali non valide.";
-      if(e.code === "auth/user-not-found" || e.code === "auth/wrong-password" || e.code === "auth/invalid-credential")
-        msg = "Email o password errati.";
-      else if(e.code === "auth/too-many-requests") msg = "Troppi tentativi. Riprova tra qualche minuto.";
-      else if(e.code === "auth/network-request-failed") msg = "Errore di rete.";
-      else msg = "Errore: "+e.code;
-      if(err) err.textContent = msg;
-    });
-}
 
-function doLogout() {
-  if(!confirm("Uscire dall'applicazione?\nDovrai effettuare il login di nuovo.")) return;
-  DB=null;
-  if(typeof setBtns==='function')setBtns(false);
-  if(typeof DB_KEY!=='undefined') localStorage.removeItem(DB_KEY);
-  if(typeof _clearAppCache==='function') _clearAppCache();
-  // Rimuovi eventuali style inline su main-scr per non bloccare onAuthStateChanged
-  var mainScr=document.getElementById('main-scr');
-  if(mainScr)mainScr.style.display='';
-  if(typeof firebase!=='undefined'&&firebase.auth){
-    firebase.auth().signOut().catch(function(){});
-  }
-}
 
 
 // ── RICEVUTE ──
@@ -1161,12 +745,6 @@ function bancaRender(){
 
 
 // ── MISC ──
-function buildSearchIndex() {
-  _searchIndex = {};
-  DB.atleti.forEach(function(a) {
-    _searchIndex[a.id] = (a.cog+" "+a.nom+" "+a.cf+" "+a.cat).toLowerCase();
-  });
-}
 
 function _annoDaStagione(dataISO){
   // Mappa una data ISO (AAAA-MM-GG) alla stagione sportiva (es. "2024-25")
@@ -2436,25 +2014,7 @@ function renderDashboard() {
     }).join(""):'<div class="empty" style="color:var(--green)">Dati completi!</div>';
   }}
 
-function nextNumRicevuta() {
-  var anno=new Date().getFullYear();
-  var esistenti=DB.ricevute.filter(function(r){return r.numero&&r.numero.startsWith(anno+"-");});
-  var max=0;
-  esistenti.forEach(function(r){var n=parseInt((r.numero||"").split("-")[1]||"0");if(n>max)max=n;});
-  return anno+"-"+String(max+1).padStart(3,"0");
-}
 
-function csvRow(arr){return arr.map(function(c){return'"'+(String(c||"")).replace(/"/g,'""')+'"';}).join(",")+"\n";}
-function csvDownload(content,filename) {
-  var blob=new Blob(["\uFEFF"+content],{type:"text/csv;charset=utf-8"});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement("a");a.href=url;a.download=filename;document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);},500);
-}
-function scaricaApp() {
-  var blob=new Blob([document.documentElement.outerHTML],{type:"text/html"});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement("a");a.href=url;a.download="basket052441.html";document.body.appendChild(a);a.click();setTimeout(function(){document.body.removeChild(a);},500);
-}
 
 
 var SCHEDA_VOCI = [

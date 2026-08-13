@@ -612,10 +612,10 @@ function buildRicevutaDoc(a, pagsAnno, det, annoForzato){
   var oggi = new Date().toLocaleDateString("it-IT");
   var _indRaw = "";
   if(det){
-    if(a.tutVia||a.tutComune){ _indRaw=(a.tutVia||"")+(a.tutNr?" "+a.tutNr:"")+(a.tutComune?", "+a.tutComune+(a.tutProv?" ("+a.tutProv+")"):""); }
+    if(a.tutVia||a.tutComune){ _indRaw=(a.tutVia||"")+(a.tutNr?" "+a.tutNr:"")+(a.tutComune?", "+a.tutComune+(a.tutProv?" ("+a.tutProv+")":""):""); }
     else { _indRaw=a.indTut||""; }
   } else {
-    if(a.indVia||a.indComune){ _indRaw=(a.indVia||"")+(a.indNr?" "+a.indNr:"")+(a.indComune?", "+a.indComune+(a.indProv?" ("+a.indProv+")"):""); }
+    if(a.indVia||a.indComune){ _indRaw=(a.indVia||"")+(a.indNr?" "+a.indNr:"")+(a.indComune?", "+a.indComune+(a.indProv?" ("+a.indProv+")":""):""); }
     else { _indRaw=a.ind||""; }
   }
   var _addr=_parseIndirizzo(_indRaw);

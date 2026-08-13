@@ -590,7 +590,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.33 · 10/06/2026 22:37";
+var BUILD_VERSION = "v9.34 · 13/08/2026 01:15";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -2077,42 +2077,18 @@ function recuperaDati(input){
 function _apriStampa(html, titolo){
   log('_apriStampa: avvio titolo='+titolo+' html='+(html?html.length:0)+'chars','info');
   if(!html){log('_apriStampa: html vuoto!','err');return;}
-  // Su Chrome Android il blob URL aperto con window.open spesso non carica
-  // (nuovo tab senza accesso al blob) e il popup viene comunque bloccato.
-  // Si usa sempre l'overlay in-pagina con iframe, molto più affidabile su mobile.
-  var blob=new Blob([html],{type:'text/html'});
+  // Stesso pattern collaudato di lrStampa() nell'app principale:
+  // link <a target="_blank"> su blob URL + stampa automatica incorporata nel documento.
+  // Evita window.open() (spesso bloccato/inaffidabile su blob URL in Chrome Android)
+  // ed evita l'iframe cross-origin (window.print() al suo interno viene ignorato).
+  var stampabile=html.replace('</body>','<scr'+'ipt>window.onload=function(){setTimeout(function(){window.print();},400);}<'+'/scr'+'ipt></body>');
+  var blob=new Blob([stampabile],{type:'text/html'});
   var url=URL.createObjectURL(blob);
-  {
-    var old=document.getElementById('_po');
-    if(old)document.body.removeChild(old);
-    var ov=document.createElement('div');
-    ov.id='_po';
-    ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:#fff;z-index:99999;overflow:auto;display:flex;flex-direction:column';
-    var bar=document.createElement('div');
-    bar.style.cssText='background:#1a2a4a;padding:10px 16px;display:flex;gap:10px;align-items:center;flex-shrink:0';
-    var btnP=document.createElement('button');
-    btnP.textContent='🖨️ Stampa / Salva PDF';
-    btnP.style.cssText='padding:10px 24px;background:#c9a227;color:#000;border:none;border-radius:6px;font-size:15px;font-weight:700;cursor:pointer';
-    var btnC=document.createElement('button');
-    btnC.textContent='✕ Chiudi';
-    btnC.style.cssText='padding:10px 18px;background:#555;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer';
-    btnC.onclick=function(){document.body.removeChild(ov);URL.revokeObjectURL(url);};
-    var lbl=document.createElement('span');
-    lbl.style.cssText='color:#aaa;font-size:12px;margin-left:8px';
-    lbl.textContent=titolo||'';
-    bar.appendChild(btnP);bar.appendChild(btnC);bar.appendChild(lbl);
-    ov.appendChild(bar);
-    var ifr=document.createElement('iframe');
-    ifr.style.cssText='width:100%;flex:1;border:none;';
-    ifr.src=url;
-    ov.appendChild(ifr);
-    document.body.appendChild(ov);
-    log('_apriStampa: overlay aggiunto al DOM','info');
-    btnP.onclick=function(){
-      try{ifr.contentWindow.focus();ifr.contentWindow.print();}
-      catch(e){log('_apriStampa: print iframe fallito: '+e,'warn');}
-    };
-  }
+  var a=document.createElement('a');
+  a.href=url;a.target='_blank';a.rel='noopener';
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},3000);
+  log('_apriStampa: tab aperta, stampa automatica in arrivo','ok');
 }
 
 buildSearchIndex();
@@ -2592,7 +2568,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.33 · 10/06/2026 22:37";
+var BUILD_VERSION = "v9.34 · 13/08/2026 01:15";
 
 var DB = window.DB || null;
 var _db = window._db || null;
