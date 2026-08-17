@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.33 · 14/08/2026 22:37 -->
+<!-- basket052441-admin.html | v9.33 · 10/06/2026 22:37 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -590,7 +590,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.34 · 13/08/2026 01:15";
+var BUILD_VERSION = "v9.36 · 17/08/2026 13:25";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1020,7 +1020,7 @@ function fbInit() {
     });
     // Nessun logout automatico per inattività — sessione persistente
     // Persistence LOCAL esplicita per evitare logout su mobile
-    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(err){console.warn('[fbInit] setPersistence fallita: '+err.message);});
   } catch(e) {
     _diagLog("ERRORE fbInit: "+e.message,"#e03545"); diag("ERRORE Firebase: "+e.message,"err");
     _fbReady = false;
@@ -1077,7 +1077,7 @@ function loadDB(){
     if(!DB.presenze)DB.presenze=[];
     if(!DB.ricevute)DB.ricevute=[];
     if(!DB.listar)DB.listar=[];
-  }catch(e){}
+  }catch(e){ console.warn('[loadDB] localStorage corrotto/non leggibile: '+e.message); diag("loadDB: ERRORE lettura localStorage — "+e.message); }
   diag("loadDB: localStorage — atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pag="+Object.keys(DB.pagamenti||{}).length);
   // Se Firebase non pronto, usa solo localStorage e notifica subito
   if(!_fbReady){
@@ -1112,7 +1112,7 @@ function loadDB(){
                   DB[sez]=parsed;
                 }
               }
-            }catch(ex){}
+            }catch(ex){ console.warn('[FB] '+sez+': errore parsing dati Firebase — '+ex.message); }
           }
         }
       });
@@ -2138,7 +2138,7 @@ function doLogin() {
   if(!_fbReady) {
     _diagLog("Firebase non pronto","#e03545");
     if(err) err.textContent = "Connessione non pronta, attendi e riprova.";
-    setTimeout(function() { try{ fbInit(); }catch(ex){} }, 1000);
+    setTimeout(function() { try{ fbInit(); }catch(ex){ console.warn('[fbInit retry] '+ex.message); if(err) err.textContent = "Riconnessione fallita: "+ex.message; } }, 1000);
     return;
   }
   _diagLog("Login: "+email);
@@ -2169,7 +2169,7 @@ function doLogout() {
   // Pulizia dati personali dal dispositivo
   if(typeof DB_KEY!=='undefined') localStorage.removeItem(DB_KEY);
   if(typeof firebase!=='undefined'&&firebase.auth){
-    firebase.auth().signOut().catch(function(){});
+    firebase.auth().signOut().catch(function(err){console.warn('[doLogout] signOut fallito: '+err.message);});
   }
   var loginScr=document.getElementById('login-scr');
   var mainScr=document.getElementById('main-scr');
@@ -2568,7 +2568,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.34 · 13/08/2026 01:15";
+var BUILD_VERSION = "v9.36 · 17/08/2026 13:25";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -2592,6 +2592,15 @@ function log(msg, tipo) {
 function escLog(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
 function clearLog(){ document.getElementById('log').innerHTML=''; }
 function setDot(s){ var d=document.getElementById('status-dot'); d.className=s; }
+
+// Cattura qualsiasi errore JS non gestito e lo scrive nel Log operazioni,
+// così un blocco silenzioso (es. su Stampa/Genera) diventa visibile.
+window.addEventListener('error', function(e){
+  try{ log('ERRORE JS: '+e.message+' ('+(e.filename||'')+':'+(e.lineno||'')+')','err'); }catch(_){ console.error('ERRORE JS (log non disponibile):', e.message); }
+});
+window.addEventListener('unhandledrejection', function(e){
+  try{ log('PROMISE non gestita: '+(e.reason&&e.reason.message||e.reason),'err'); }catch(_){ console.error('PROMISE non gestita (log non disponibile):', e.reason); }
+});
 
 function _doppioControllo(messaggio, parola){
   if(!confirm(messaggio)) return false;
@@ -3224,7 +3233,11 @@ function stampaReportSoci(){
   var titolo='Report Soci '+(window._rptData?window._rptData.stagione:'');
   var fullHtml='<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>'+titolo+'</title>'
     +'<style>@media print{body{margin:0}}</style></head><body>'+window._rptHTML+'</body></html>';
-  _apriStampa(fullHtml, titolo);
+  try{
+    _apriStampa(fullHtml, titolo);
+  }catch(e){
+    log('stampaReportSoci: ERRORE in _apriStampa: '+(e&&e.message?e.message:e),'err');
+  }
 }
 
 function esportaReportSociCSV(){

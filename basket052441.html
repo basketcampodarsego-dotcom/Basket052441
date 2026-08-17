@@ -1,4 +1,4 @@
-<!-- basket052441-gestionale.html | v6.75 · 14/08/2026 22:37 -->
+<!-- basket052441-gestionale.html | v6.75 · 10/06/2026 22:37 -->
 <!DOCTYPE html>
 <html lang='it'>
 <head>
@@ -307,7 +307,7 @@ function _dbReady(fn){
   _DB_READY=true;
   return true;
 }
-var BUILD_VERSION = "v6.76 · 13/08/2026 01:15";
+var BUILD_VERSION = "v6.78 · 17/08/2026 13:25";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -557,7 +557,7 @@ function buildRicevutaDoc(a, pagsAnno, det, annoForzato){
   var HV="helvetica";
   // Logo centrato
   if(_LOGO_B64_APP){
-    try{ doc.addImage("data:image/jpeg;base64,"+_LOGO_B64_APP,"JPEG",ML+PW/2-15,y,30,30); }catch(e){}
+    try{ doc.addImage("data:image/jpeg;base64,"+_LOGO_B64_APP,"JPEG",ML+PW/2-15,y,30,30); }catch(e){ console.warn('[PDF] logo non inserito: '+e.message); }
     y+=34;
   } else { y+=5; }
   // Titolo
@@ -1585,6 +1585,14 @@ function diag(msg, type) {
   console.log('[DIAG '+type.toUpperCase()+'] '+msg);
 }
 function escDiag(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// Cattura qualsiasi errore JS non gestito e lo scrive in Diagnostica,
+// così un blocco silenzioso diventa visibile.
+window.addEventListener('error', function(e){
+  try{ diag('ERRORE JS: '+e.message+' ('+(e.filename||'')+':'+(e.lineno||'')+')','err'); }catch(_){ console.error('ERRORE JS (diag non disponibile):', e.message); }
+});
+window.addEventListener('unhandledrejection', function(e){
+  try{ diag('PROMISE non gestita: '+(e.reason&&e.reason.message||e.reason),'err'); }catch(_){ console.error('PROMISE non gestita (diag non disponibile):', e.reason); }
+});
 function diagToggle(){
   var p=document.getElementById('diag-panel');
   var arrow=p.querySelector('span:last-child');
@@ -1713,7 +1721,7 @@ function doLogin() {
   if(!_fbReady) {
     _diagLog("Firebase non pronto","#e03545");
     if(err) err.textContent = "Connessione non pronta, attendi e riprova.";
-    setTimeout(function() { try{ fbInit(); }catch(ex){} }, 1000);
+    setTimeout(function() { try{ fbInit(); }catch(ex){ console.warn('[fbInit retry] '+ex.message); if(err) err.textContent = "Riconnessione fallita: "+ex.message; } }, 1000);
     return;
   }
   _diagLog("Login: "+email);
@@ -1752,7 +1760,7 @@ function doLogout() {
   var mainScr=document.getElementById('main-scr');
   if(mainScr)mainScr.style.display='';
   if(typeof firebase!=='undefined'&&firebase.auth){
-    firebase.auth().signOut().catch(function(){});
+    firebase.auth().signOut().catch(function(err){console.warn('[doLogout] signOut fallito: '+err.message);});
   }
 }
 
@@ -2286,7 +2294,7 @@ function loadDB(){
     if(!DB.presenze)DB.presenze=[];
     if(!DB.ricevute)DB.ricevute=[];
     if(!DB.listar)DB.listar=[];
-  }catch(e){}
+  }catch(e){ console.warn('[loadDB] localStorage corrotto/non leggibile: '+e.message); diag("loadDB: ERRORE lettura localStorage — "+e.message); }
   diag("loadDB: localStorage — atleti="+((DB&&DB.atleti)?DB.atleti.length:0)+", pag="+Object.keys(DB.pagamenti||{}).length);
   // 2. Scarica da Firebase le sezioni aggiornate
   if(_fbReady){
@@ -2313,7 +2321,7 @@ function loadDB(){
                   DB[sez]=parsed;
                 }
               }
-            }catch(ex){}
+            }catch(ex){ console.warn('[FB] '+sez+': errore parsing dati Firebase — '+ex.message); }
           }
         }
       });
@@ -3453,7 +3461,7 @@ function lrCondividi(){
   if(navigator.share){
     var blob=new Blob([LR_HTML],{type:"text/html"});
     var file=new File([blob],LR_FILENAME,{type:"text/html"});
-    navigator.share({title:"Lista R",files:[file]}).catch(function(){});
+    navigator.share({title:"Lista R",files:[file]}).catch(function(err){ if(err&&err.name!=='AbortError') console.warn('[lrCondividi] share fallita: '+err.message); });
   }
 }
 
