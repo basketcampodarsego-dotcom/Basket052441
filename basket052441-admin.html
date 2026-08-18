@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.39 · 18/08/2026 10:30 -->
+<!-- basket052441-admin.html | v9.41 · 18/08/2026 16:00 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -107,7 +107,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.39 · 18/08/2026 10:30 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.41 · 18/08/2026 16:00 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -126,7 +126,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.39 · 18/08/2026 10:30</div>
+    <div class="topbar-sub">Build v9.41 · 18/08/2026 16:00</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -514,7 +514,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.39 · 18/08/2026 10:30";
+var BUILD_VERSION = "v9.41 · 18/08/2026 16:00";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -794,33 +794,9 @@ function csiImport(input){
   input.value='';
 }
 
-function _categoriaFIPDaAnnoNascita(annoNascita, annoStagione){
-  // Calcola cat1 e cat2 FIP minibasket da anno nascita e anno inizio stagione
-  // Es: annoStagione=2025 → stagione 2025-26
-  // Struttura FIP (scorre di 1 anno ogni stagione):
-  //   Esordienti: annoStagione - 11  (solo 1 anno, cat2 = annoStagione-12 ammessi)
-  //   Aquilotti:  annoStagione - 12, annoStagione - 13 (cat2 overlap con Esordienti per annoStagione-12, con Scoiattoli per annoStagione-13)
-  //   Scoiattoli: annoStagione - 13, annoStagione - 14 (cat2 overlap con Aquilotti per annoStagione-13)
-  //   Pulcini:    annoStagione - 15, annoStagione - 16
-  // Anni "doppi" (overlap): annoStagione-12 (Aquilotti/Esordienti), annoStagione-13 (Scoiattoli/Aquilotti)
-  if(!annoNascita || !annoStagione) return {cat1:'', cat2:''};
-  var d = annoStagione - annoNascita; // differenza anni
-  // d=11: Esordienti (ammessi anche d=10 e d=9)
-  // d=12: Aquilotti principale, ma ammesso Esordienti
-  // d=13: Scoiattoli principale, ma ammesso Aquilotti
-  // d=14: Scoiattoli
-  // d=15: Aquilotti (anno 2017 in 2025-26)
-  // Mapping basato su offset dall'anno stagione
-  if(d <= 5) return {cat1:'Pulcini', cat2:''};
-  if(d === 6) return {cat1:'Pulcini', cat2:''};
-  if(d === 7) return {cat1:'Scoiattoli', cat2:''};
-  if(d === 8) return {cat1:'Scoiattoli', cat2:'Aquilotti'};
-  if(d === 9) return {cat1:'Aquilotti', cat2:''};
-  if(d === 10) return {cat1:'Aquilotti', cat2:'Esordienti'};
-  if(d === 11) return {cat1:'Esordienti', cat2:''};
-  if(d <= 16) return {cat1:'Under', cat2:''};
-  return {cat1:'', cat2:''};
-}
+// _categoriaFIPDaAnnoNascita: spostata in basket-core.js (unica fonte
+// condivisa; _catEtaValidaPerAnno lì accanto è la variante "sicura" da
+// usare per default/controlli — vedi commenti in basket-core.js).
 
 function _arricchisciAtleta(a) {
   // PUNTO 2: decodifica CF atleta → dn, sex, natoA, natoProv
@@ -1009,9 +985,8 @@ function stampaTabulatoTesserati(){
     if(k==='n')return null;
     if(k==='cog')return (a.cog||'')+(a.nom?' '+a.nom:'');
     if(k==='cat'){
-      var cats=typeof _catMultiplaAtleta==='function'?_catMultiplaAtleta(a,stag):[];
-      if(!cats||!cats.length)cats=[_catAtletaPerAnno(a,stag)||a.cat||''];
-      return cats.filter(Boolean).join('/');
+      var cats=_catMultiplaAtleta(a,stag);
+      return cats.length?cats.join('/'):'\u26a0 no cat.';
     }
     if(k==='dn'){var d=a.dn||'';if(d.indexOf('-')>-1){var p=d.split('-');d=p[2]+'/'+p[1]+'/'+p[0];}return d;}
     if(k==='cf') return a.cf||'';
@@ -1289,7 +1264,7 @@ function buildRicevutaDoc(a, pagsAnno, det, annoForzato){
   var annoBaseRic=parseInt(annoSolareRic);
   var mese=new Date().getMonth()+1;
   var stagRic=annoBaseRic+"-"+String(annoBaseRic+1).slice(-2);
-  var catRic=_catAtletaPerAnno(a,stagRic)||a.cat||"";
+  var catRic=_catAtletaPerAnno(a,stagRic)||"";
   var causale="QUOTA ATTIVITA\' SPORTIVA "+(cats[catRic]||"BASKET");
   var dn=a.dn||"";
   var dnFmt=dn.indexOf("-")>-1?dn.split("-").reverse().join("/"):(dn.indexOf("/")>-1?dn:"");
@@ -1417,63 +1392,8 @@ function _annoDaStagione(dataISO){
   return base + '-' + String(base+1).slice(-2);
 }
 
-function _catAtletaPerAnno(a, annoStr){
-  // Categoria principale di un atleta in una stagione specifica
-  // Prima prova tabella DB.categorie se disponibile
-  var tabella = DB.categorie && DB.categorie[annoStr];
-  var annoNasc = _annoNascitaAtleta(a);
-  if(tabella && annoNasc){
-    for(var cat in tabella){
-      if(tabella[cat].indexOf(annoNasc) > -1) return cat;
-    }
-  }
-  // Calcola categoria FIP standard da anno di nascita
-  if(annoNasc && annoStr){
-    var annoInizio = parseInt(annoStr.split('-')[0]);
-    var diff = annoInizio - annoNasc;
-    if(diff===5||diff===6) return 'Pulcini';
-    if(diff===7||diff===8) return 'Scoiattoli';
-    if(diff===9||diff===10) return 'Aquilotti';
-    if(diff===11||diff===12) return 'Esordienti';
-    if(diff>=13) return 'Esordienti'; // under più grandi
-    if(diff<=4) return 'Pulcini'; // giovanissimi
-  }
-  // Fallback: leggi dall'iscrizione
-  var isc = a.iscrizioni && a.iscrizioni.find(function(i){return i.anno===annoStr;});
-  if(isc && isc.cat1) return isc.cat1;
-  return a.cat || '';
-}
-
-function _catMultiplaAtleta(a, annoStr){
-  // Array di tutte le categorie valide per un atleta in una stagione
-  // (un anno di nascita può stare in 2 categorie per overlap)
-  var tabella = DB.categorie && DB.categorie[annoStr];
-  var annoNasc = _annoNascitaAtleta(a);
-  var cats = [];
-  if(tabella && annoNasc){
-    for(var cat in tabella){
-      if(tabella[cat].indexOf(annoNasc) > -1) cats.push(cat);
-    }
-  }
-  if(!cats.length && annoNasc && annoStr){
-    var annoInizio2 = parseInt(annoStr.split('-')[0]);
-    var diff2 = annoInizio2 - annoNasc;
-    var catCalc = null;
-    if(diff2===5||diff2===6) catCalc='Pulcini';
-    else if(diff2===7||diff2===8) catCalc='Scoiattoli';
-    else if(diff2===9||diff2===10) catCalc='Aquilotti';
-    else if(diff2>=11) catCalc='Esordienti';
-    else if(diff2<=4) catCalc='Pulcini';
-    if(catCalc) cats.push(catCalc);
-  }
-  if(!cats.length){
-    var isc = a.iscrizioni && a.iscrizioni.find(function(i){return i.anno===annoStr;});
-    if(isc && isc.cat1) cats.push(isc.cat1);
-    if(isc && isc.cat2 && cats.indexOf(isc.cat2)<0) cats.push(isc.cat2);
-    if(!cats.length && a.cat) cats.push(a.cat);
-  }
-  return cats;
-}
+// _catAtletaPerAnno / _catMultiplaAtleta: spostate in basket-core.js
+// (unica fonte condivisa, prima duplicate/divergenti tra i due HTML).
 
 function _calcolaStoricoAtleta(atletaId){
   // Calcola storico presenze per stagione per un atleta
@@ -1600,7 +1520,7 @@ function _mostraReportImport(titolo, righe){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.39 · 18/08/2026 10:30";
+var BUILD_VERSION = "v9.41 · 18/08/2026 16:00";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -1910,7 +1830,10 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
   var addrVia=cm>0?_indRaw.substring(0,cm).trim():_indRaw;
   var addrResid=cm>0?_indRaw.substring(cm+1).trim():"";
   var cats={Pulcini:"MINIBASKET",Scoiattoli:"MINIBASKET",Aquilotti:"MINIBASKET",Esordienti:"MINIBASKET",Special:"SPECIAL OLYMPICS",AmaBasket:"BASKET",AmaVolley:"PALLAVOLO",Dirigente:"ATTIVITA' DIRIGENZIALE",Volontario:"ATTIVITA' VOLONTARIATO"};
-  var causale="QUOTA ATTIVITA' SPORTIVA "+(cats[a.cat]||"BASKET");
+  var annoBase=parseInt(anno);
+  var stagCausale=annoBase+"-"+String(annoBase+1).slice(-2);
+  var catCausale=_catAtletaPerAnno(a,stagCausale)||"";
+  var causale="QUOTA ATTIVITA' SPORTIVA "+(cats[catCausale]||"BASKET");
   var dn=a.dn||"";
   var dnFmt=dn.indexOf("-")>-1?dn.split("-").reverse().join("/"):dn.indexOf("/")>-1?dn:"";
   var natoStr=(a.natoA||"")+(a.natoProv?" ("+a.natoProv+")":"");
@@ -2069,8 +1992,13 @@ function _catAtleta(a,stagione){
     var cats=_catMultiplaAtleta(a,stagione);
     if(cats&&cats.length)return cats.join('/');
   }
-  var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});
-  return isc?(isc.cat1||a.cat||'—'):(a.cat||'—');
+  // Nessuna categoria salvata per questa stagione: da segnalare, non da
+  // indovinare (stesso trattamento della residenza mancante).
+  return '\u26a0 MANCANTE';
+}
+function _categoriaMancante(a,stagione){
+  var cats=(typeof _catMultiplaAtleta==='function')?_catMultiplaAtleta(a,stagione):[];
+  return !cats||!cats.length;
 }
 function _indirizzoCompleto(a){
   var via=(a.indVia||'').trim(),nr=(a.indNr||'').trim(),cap=(a.indCap||'').trim();
@@ -2181,10 +2109,15 @@ function generaReportSoci(){
     log('ATTENZIONE: '+_atletiSenzaResidenza.length+' atleta/i senza comune di residenza — esclusi dal conteggio residenti/non residenti: '+
       _atletiSenzaResidenza.map(function(a){return a.cog+' '+a.nom;}).join(', '),'warn');
   }
+  var _atletiSenzaCategoria=iscritti.filter(function(a){return _categoriaMancante(a,annata);});
+  if(_atletiSenzaCategoria.length){
+    log('ATTENZIONE: '+_atletiSenzaCategoria.length+' atleta/i senza categoria assegnata per '+annata+': '+
+      _atletiSenzaCategoria.map(function(a){return a.cog+' '+a.nom;}).join(', '),'warn');
+  }
   window._rptData={stagione:annata,annata:annata,annoInizio:annoInizio,annoFine:annoFine,comuneRef:comuneRef,dataStampa:dataStampa,
     maggiorenni:maggiorenni,minorenni:minorenni,perAnno:perAnno,perAnnoStat:perAnnoStat,
     statMagg:stat(maggiorenni),statMin:stat(minorenni),statTot:stat(iscritti),
-    senzaResidenza:_atletiSenzaResidenza};
+    senzaResidenza:_atletiSenzaResidenza,senzaCategoria:_atletiSenzaCategoria};
   _renderReportSoci();
   document.getElementById('rpt-anteprima').style.display='block';
   document.getElementById('rpt-btn-stampa').style.display='';
@@ -2238,6 +2171,12 @@ function _renderReportSoci(){
     html+='<div style="background:#fff3cd;border:1px solid #e0b030;border-radius:4px;padding:8px 12px;margin-bottom:14px;font-size:12px">'
       +'&#9888; <strong>'+d.senzaResidenza.length+' atleta/i senza comune di residenza</strong> — non inclusi nel conteggio Res./Non res., da completare prima dell\'invio ufficiale:<br>'
       +d.senzaResidenza.map(function(a){return a.cog+' '+a.nom;}).join(', ')
+      +'</div>';
+  }
+  if(d.senzaCategoria&&d.senzaCategoria.length){
+    html+='<div style="background:#fff3cd;border:1px solid #e0b030;border-radius:4px;padding:8px 12px;margin-bottom:14px;font-size:12px">'
+      +'&#9888; <strong>'+d.senzaCategoria.length+' atleta/i senza categoria assegnata per '+d.stagione+'</strong> — completare l\'iscrizione prima dell\'invio ufficiale:<br>'
+      +d.senzaCategoria.map(function(a){return a.cog+' '+a.nom;}).join(', ')
       +'</div>';
   }
 
