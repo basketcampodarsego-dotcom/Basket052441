@@ -2,7 +2,7 @@
 // Versione: 20260321_1057
 // Si aggiorna automaticamente ad ogni nuova build
 
-var CACHE_NAME = 'basket052441-20260817_1325';
+var CACHE_NAME = 'basket052441-20260817_1410';
 var CACHE_URLS = [
   './basket052441.html',
   './basket-core.js',

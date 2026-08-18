@@ -106,7 +106,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.36 · 17/08/2026 13:25 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.37 · 17/08/2026 14:10 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -125,7 +125,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.36 · 17/08/2026 13:25</div>
+    <div class="topbar-sub">Build v9.37 · 17/08/2026 14:10</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -590,7 +590,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.36 · 17/08/2026 13:25";
+var BUILD_VERSION = "v9.37 · 17/08/2026 14:10";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -897,53 +897,6 @@ function toast(msg, tipo) {
   el._t = setTimeout(function(){ el.className = ''; }, 4000);
 }
 
-function diag(msg, type) {
-  // type: 'ok' | 'warn' | 'err' | '' (info)
-  type = type || '';
-  var ts = new Date().toLocaleTimeString('it-IT');
-  _diagHistory.push({ts:ts, msg:msg, type:type});
-  if(_diagHistory.length > 200) _diagHistory.shift();
-
-  var body = document.getElementById('diag-body');
-  var status = document.getElementById('diag-status');
-  var title = document.getElementById('diag-title');
-  if(!body) return;
-
-  var d = document.createElement('div');
-  d.className = 'dl' + (type ? ' '+type : '');
-  d.innerHTML = '<span style="color:#3a5070">['+ts+']</span> <b>'+escDiag(msg)+'</b>';
-  body.appendChild(d);
-  body.scrollTop = body.scrollHeight;
-
-  // Aggiorna status badge
-  if(status) {
-    if(type === 'err') {
-      status.className = 'err'; status.textContent = 'ERRORE';
-      if(title) title.textContent = 'Diagnostica — ' + msg.substring(0,40);
-    } else if(type === 'warn' && status.className !== 'err') {
-      status.className = 'warn'; status.textContent = 'ATTENZIONE';
-    } else if(!type && status.className === 'ok') {
-      status.textContent = 'OK';
-    }
-  }
-  console.log('[DIAG '+type.toUpperCase()+'] '+msg);
-}
-
-
-
-function diagToggle(){
-  var p=document.getElementById('diag-panel');
-  var arrow=p.querySelector('span:last-child');
-  if(p.classList.contains('collapsed')){
-    p.classList.replace('collapsed','expanded');
-    if(arrow) arrow.textContent='\u25bc chiudi';
-  } else {
-    p.classList.replace('expanded','collapsed');
-    if(arrow) arrow.textContent='\u25b2 espandi';
-  }
-}
-
-function escDiag(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function syncStatus(on) { var el=g("sync-dot");if(el)el.style.display=on?"inline-block":"none"; }
 
@@ -1143,7 +1096,11 @@ function loadDB(){
       var isOffline=e.message&&(e.message.indexOf('offline')>-1||e.message.indexOf('network')>-1||e.message.indexOf('unavailable')>-1);
       diag((isOffline?"Firebase offline - uso dati locali":"Errore Firebase: "+e.message),(isOffline?'warn':'err'));
       diag("Firebase offline - uso dati da localStorage","warn");
-      function fipImport(input){
+    }); // fine .catch() Promise.all
+  } // fine if(_fbReady)
+} // fine loadDB()
+
+function fipImport(input){
   var files=Array.from(input.files); if(!files.length)return;
   input.value='';
   diag('fipImport: '+files.length+' file(s) selezionati');
@@ -2091,15 +2048,6 @@ function _apriStampa(html, titolo){
   log('_apriStampa: tab aperta, stampa automatica in arrivo','ok');
 }
 
-buildSearchIndex();
-      _DB_READY=true;
-      _cacheInit();
-      migraAtleti();
-      renderDashboard();
-    });
-  }
-}
-
 function saveDB(){
   // Salva localStorage sempre (immediato)
   localStorage.setItem(DB_KEY,JSON.stringify(DB));
@@ -2568,7 +2516,7 @@ function _esportaReportImport(){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.36 · 17/08/2026 13:25";
+var BUILD_VERSION = "v9.37 · 17/08/2026 14:10";
 
 var DB = window.DB || null;
 var _db = window._db || null;
