@@ -4,7 +4,12 @@
 // Contiene SOLO le funzioni verificate identiche in entrambi i moduli
 // (confronto automatico byte-per-byte, 17/08/2026).
 // Variabili come DB, DB_KEY, BUILD_VERSION restano locali a ciascun modulo.
-// Versione: v1.1 — Build 18/08/2026 (aggiunto controllo residenza atleta)
+// Versione: v1.3 — Build 18/08/2026 17:30 (fix: _catMultiplaAtleta/
+// _catAtletaPerAnno usavano .find() e prendevano solo la PRIMA iscrizione
+// dell'anno; con due iscrizioni nello stesso anno — es. una FIP vuota e
+// una CSI compilata come righe separate — la categoria compilata veniva
+// ignorata e l'atleta risultava erroneamente "senza categoria". Ora si
+// raccolgono le categorie da TUTTE le iscrizioni di quell'anno.)
 // ════════════════════════════════════════════════════════
 
 function _loadImmagini(){
@@ -832,6 +837,34 @@ function _stagioneCorrente(){
   return _annoDaStagione(new Date().toISOString().split('T')[0]);
 }
 
+function _categoriaFIPDaAnnoNascita(annoNascita, annoStagione){
+  // Calcola cat1 e cat2 FIP minibasket da anno nascita e anno inizio stagione.
+  // Usata SOLO per: suggerire un default alla creazione di una nuova
+  // iscrizione, e per segnalare incoerenze — mai come fallback in lettura
+  // di una categoria già assegnata (quella si legge sempre da isc.cat1).
+  if(!annoNascita || !annoStagione) return {cat1:'', cat2:''};
+  var d = annoStagione - annoNascita; // differenza anni
+  if(d <= 5) return {cat1:'Pulcini', cat2:''};
+  if(d === 6) return {cat1:'Pulcini', cat2:''};
+  if(d === 7) return {cat1:'Scoiattoli', cat2:''};
+  if(d === 8) return {cat1:'Scoiattoli', cat2:'Aquilotti'};
+  if(d === 9) return {cat1:'Aquilotti', cat2:''};
+  if(d === 10) return {cat1:'Aquilotti', cat2:'Esordienti'};
+  if(d === 11) return {cat1:'Esordienti', cat2:''};
+  if(d <= 16) return {cat1:'Under', cat2:''};
+  return {cat1:'', cat2:''};
+}
+
+function _catEtaValidaPerAnno(annoNascita, annoStagioneInizio){
+  // Come _categoriaFIPDaAnnoNascita, ma azzera 'Under': non è una
+  // categoria selezionabile in questo gestionale (non presente nelle
+  // tendine cat1/cat2), quindi non va mai proposta come default né
+  // usata per un controllo di coerenza — meglio lasciare in bianco.
+  var c = _categoriaFIPDaAnnoNascita(annoNascita, annoStagioneInizio);
+  if(c.cat1 === 'Under') return {cat1:'', cat2:''};
+  return c;
+}
+
 function _annoNascitaAtleta(a){
   // Estrae anno di nascita dal campo dn (AAAA-MM-GG o GG/MM/AAAA)
   if(a.dn){
@@ -845,6 +878,33 @@ function _annoNascitaAtleta(a){
     if(!isNaN(aa)) return aa <= 25 ? 2000+aa : 1900+aa;
   }
   return null;
+}
+
+function _catAtletaPerAnno(a, annoStr){
+  // Categoria principale di un atleta in una stagione specifica.
+  // SOLO lettura del dato salvato — vedi nota in _catMultiplaAtleta,
+  // di cui questa è solo il primo risultato.
+  var cats = _catMultiplaAtleta(a, annoStr);
+  return cats.length ? cats[0] : '';
+}
+
+function _catMultiplaAtleta(a, annoStr){
+  // Tutte le categorie salvate per un atleta in una stagione specifica.
+  // IMPORTANTE: un atleta può avere PIÙ iscrizioni per lo stesso anno
+  // (una per federazione, es. una riga FIP e una riga CSI separate,
+  // invece di un'unica riga con fed="FIP+CSI") — bisogna raccoglierle
+  // TUTTE, non fermarsi alla prima trovata. Con .find() (versione
+  // precedente) se la prima riga di quell'anno aveva cat1 vuoto, la
+  // categoria di un'altra riga dello stesso anno veniva ignorata e
+  // l'atleta risultava erroneamente "senza categoria" anche quando il
+  // campo era compilato in un'altra iscrizione dello stesso anno.
+  var iscs = (a.iscrizioni||[]).filter(function(i){return i.anno===annoStr;});
+  var cats = [];
+  iscs.forEach(function(isc){
+    if(isc.cat1 && cats.indexOf(isc.cat1)<0) cats.push(isc.cat1);
+    if(isc.cat2 && cats.indexOf(isc.cat2)<0) cats.push(isc.cat2);
+  });
+  return cats;
 }
 
 function _pagDuplicato(pags, nuovoPag){
