@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.45 · 19/08/2026 18:00 -->
+<!-- basket052441-admin.html | v9.46 · 19/08/2026 18:15 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -108,7 +108,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.45 · 19/08/2026 18:00 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.46 · 19/08/2026 18:15 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -127,7 +127,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.45 · 19/08/2026 18:00</div>
+    <div class="topbar-sub">Build v9.46 · 19/08/2026 18:15</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -144,6 +144,7 @@
   <div class="nav-tab" onclick="admGoTab('report')">📊 Report</div>
   <div class="nav-tab" onclick="admGoTab('ops')">🔧 Operazioni</div>
   <div class="nav-tab" onclick="admGoTab('log')">📋 Log</div>
+  <div class="nav-tab" onclick="admGoTab('economia')">💶 Economia</div>
 </div>
 
 <!-- PAGE: DB -->
@@ -504,7 +505,7 @@
   R4 rispettato: nessun catch vuoto, ogni errore va in log + banner UI.
 ════════════════════════════════════════════════════════ -->
 
-<section id="eco-config-codici" style="max-width:900px;margin:auto;padding:16px;">
+<div class="adm-page" id="adm-page-economia">
   <h2>Economia — Tabelle codici</h2>
   <p style="color:#666;font-size:.9em;">
     Categorie, sottocategorie e centri di costo usati nei movimenti economici.
@@ -518,7 +519,7 @@
   </div>
 
   <div id="eco-tab-content"></div>
-</section>
+</div>
 
 <script>
 // ── Stato in memoria: un solo documento Firestore per tutte e 3 le tabelle ──
@@ -529,7 +530,9 @@ var ECO_FB_DOC = 'economiaConfig'; // stesso pattern di _FB_SEZIONI in basket-co
 // ── Lettura: stesso pattern di loadDB() già in uso per atleti/pagamenti ──
 function ecoCaricaConfig(onOk, onErrore) {
   if (!window._db) {
-    console.error('[economia-admin] _db non pronto — Firestore non inizializzato');
+    var msgNoDb = '[economia-admin] _db non pronto — Firestore non inizializzato';
+    console.error(msgNoDb);
+    if (typeof log === 'function') log(msgNoDb, 'err');
     if (onErrore) onErrore(new Error('Firestore non pronto: attendi il login e riprova.'));
     return;
   }
@@ -542,16 +545,21 @@ function ecoCaricaConfig(onOk, onErrore) {
           var parsed = JSON.parse(data.v);
           if (parsed && typeof parsed === 'object') dati = parsed;
         } catch (ex) {
-          console.error('[economia-admin] errore parsing economiaConfig', ex);
+          var msgParse = '[economia-admin] errore parsing economiaConfig: ' + ex.message;
+          console.error(msgParse, ex);
+          if (typeof log === 'function') log(msgParse, 'err');
         }
       }
     }
     if (!dati.categorie) dati.categorie = [];
     if (!dati.sottocategorie) dati.sottocategorie = [];
     if (!dati.centriCosto) dati.centriCosto = [];
+    if (typeof log === 'function') log('Firebase letto: sezione "' + ECO_FB_DOC + '"', 'ok');
     onOk(dati);
   }).catch(function (err) {
-    console.error('[economia-admin] errore lettura economiaConfig', err);
+    var msgErr = '[economia-admin] errore lettura economiaConfig: ' + err.message;
+    console.error(msgErr, err);
+    if (typeof log === 'function') log(msgErr, 'err');
     if (onErrore) onErrore(err);
   });
 }
@@ -559,7 +567,9 @@ function ecoCaricaConfig(onOk, onErrore) {
 // ── Scrittura: stesso pattern di salvaSezione() già in uso ──
 function ecoSalvaConfig(dati, onOk, onErrore) {
   if (!window._db) {
-    console.error('[economia-admin] _db non pronto — Firestore non inizializzato');
+    var msgNoDb2 = '[economia-admin] _db non pronto — Firestore non inizializzato';
+    console.error(msgNoDb2);
+    if (typeof log === 'function') log(msgNoDb2, 'err');
     if (onErrore) onErrore(new Error('Firestore non pronto: attendi il login e riprova.'));
     return;
   }
@@ -699,17 +709,23 @@ function ecoDisattiva(nomeTabella, codice) {
 
 // Handler globale — coerente con R4 (nessuna uscita silenziosa) del progetto.
 // Non sovrascrive gli handler già registrati in basket-core.js: si aggiunge.
+// Scrive anche nel pannello Log visibile (non solo console), perché su
+// smartphone non c'è modo di aprire i devtools per leggere la console.
 window.addEventListener('error', function (e) {
-  console.error('[economia-admin] errore non gestito:', e.error || e.message);
+  var msg = '[economia-admin] errore non gestito: ' + (e.error && e.error.message || e.message);
+  console.error(msg);
+  if (typeof log === 'function') log(msg, 'err');
 });
 window.addEventListener('unhandledrejection', function (e) {
-  console.error('[economia-admin] promise non gestita:', e.reason);
+  var msg = '[economia-admin] promise non gestita: ' + (e.reason && e.reason.message || e.reason);
+  console.error(msg);
+  if (typeof log === 'function') log(msg, 'err');
 });
 
-// Avvio: mostra la prima tab quando la sezione viene inserita nella pagina
-document.addEventListener('DOMContentLoaded', function () {
-  if (document.getElementById('eco-config-codici')) ecoMostraTab('categorie');
-});
+// NESSUN auto-avvio su DOMContentLoaded: a quel punto _db non è ancora pronto
+// (Firebase si inizializza dopo, in fbInit()/onAuthStateChanged). Il
+// caricamento avviene invece al primo click sulla tab "Economia", quando
+// il login è già avvenuto — vedi admGoTab('economia') in basket052441-admin.html.
 </script>
 
 </div><!-- /main-scr -->
@@ -745,7 +761,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.45 · 19/08/2026 18:00";
+var BUILD_VERSION = "v9.46 · 19/08/2026 18:15";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1756,7 +1772,7 @@ function _mostraReportImport(titolo, righe){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.45 · 19/08/2026 18:00";
+var BUILD_VERSION = "v9.46 · 19/08/2026 18:15";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -1828,8 +1844,11 @@ function admGoTab(tab){
   var el=document.getElementById('adm-page-'+tab);
   if(el)el.classList.add('active');
   var tabs=document.querySelectorAll('.nav-tab');
-  var map={db:0,import:1,report:2,ops:3,log:4};
+  var map={db:0,import:1,report:2,ops:3,log:4,economia:5};
   if(map[tab]!==undefined&&tabs[map[tab]])tabs[map[tab]].classList.add('active');
+  // Economia: caricamento lazy al primo apertura tab (mai su DOMContentLoaded —
+  // a quel punto _db non è ancora pronto, vedi log fix 19/08/2026).
+  if(tab==='economia' && typeof ecoMostraTab==='function') ecoMostraTab(ecoTabAttiva||'categorie');
 }
 
 function setBtns(on){
