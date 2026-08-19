@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.46 · 19/08/2026 18:15 -->
+<!-- basket052441-admin.html | v9.47 · 19/08/2026 18:45 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -22,6 +22,9 @@
   .topbar-right{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);}
   /* NAV TABS */
   .nav-tabs{display:flex;overflow-x:auto;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 8px;gap:2px;scrollbar-width:none;}
+  .nav-tabs-wrap{position:relative;}
+  .nav-tabs-fade{position:absolute;top:0;right:0;bottom:1px;width:28px;pointer-events:none;background:linear-gradient(to right, transparent, var(--bg2) 80%);opacity:1;transition:opacity .15s;}
+  .nav-tabs-fade.hidden{opacity:0;}
   .nav-tabs::-webkit-scrollbar{display:none;}
   .nav-tab{padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;}
   .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
@@ -108,7 +111,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.46 · 19/08/2026 18:15 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.47 · 19/08/2026 18:45 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -127,7 +130,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.46 · 19/08/2026 18:15</div>
+    <div class="topbar-sub">Build v9.47 · 19/08/2026 18:45</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -138,7 +141,8 @@
 </div><!-- fine topbar -->
 
 <!-- NAV TABS -->
-<div class="nav-tabs">
+<div class="nav-tabs-wrap">
+<div class="nav-tabs" id="nav-tabs" onscroll="_navTabsFadeUpdate()">
   <div class="nav-tab active" onclick="admGoTab('db')">🗄 DB</div>
   <div class="nav-tab" onclick="admGoTab('import')">📥 Import</div>
   <div class="nav-tab" onclick="admGoTab('report')">📊 Report</div>
@@ -146,6 +150,21 @@
   <div class="nav-tab" onclick="admGoTab('log')">📋 Log</div>
   <div class="nav-tab" onclick="admGoTab('economia')">💶 Economia</div>
 </div>
+<div class="nav-tabs-fade" id="nav-tabs-fade"></div>
+</div>
+<script>
+// Mostra/nasconde la sfumatura a destra della barra tab solo quando c'è
+// altro da scorrere — così su schermi stretti si vede che ci sono più tab.
+function _navTabsFadeUpdate(){
+  var el = document.getElementById('nav-tabs');
+  var fade = document.getElementById('nav-tabs-fade');
+  if(!el||!fade) return;
+  var scrollableRight = (el.scrollWidth - el.clientWidth - el.scrollLeft) > 4;
+  fade.classList.toggle('hidden', !scrollableRight);
+}
+window.addEventListener('resize', _navTabsFadeUpdate);
+document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFadeUpdate, 50); });
+</script>
 
 <!-- PAGE: DB -->
 <div class="adm-page active" id="adm-page-db">
@@ -518,6 +537,7 @@
     <button type="button" onclick="ecoMostraTab('centriCosto')" id="eco-tab-btn-centriCosto">Centri di costo</button>
   </div>
 
+  <div id="eco-seed-bar" style="margin-bottom:10px;"></div>
   <div id="eco-tab-content"></div>
 </div>
 
@@ -606,6 +626,7 @@ function ecoMostraTab(nomeTabella) {
 // ── Render tabella + form aggiunta ──
 function ecoRenderTab(nomeTabella, righe) {
   var mostraColonnaCategoria = (nomeTabella === 'sottocategorie');
+  var categorieDisponibili = (ecoConfigCache && ecoConfigCache.categorie) ? ecoCodiciAttivi(ecoConfigCache.categorie) : [];
   var html = '';
 
   html += '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">';
@@ -616,7 +637,13 @@ function ecoRenderTab(nomeTabella, righe) {
     html += '<tr style="border-bottom:1px solid #eee;' + (r.attivo === false ? 'opacity:.5;' : '') + '">';
     html += '<td><code>' + ecoEsc(r.codice) + '</code></td>';
     html += '<td><input type="text" value="' + ecoEsc(r.descrizione) + '" onchange="ecoModificaDescrizione(\'' + nomeTabella + '\',\'' + r.codice + '\',this.value)"></td>';
-    if (mostraColonnaCategoria) html += '<td>' + ecoEsc(r.categoriaCodice || '') + '</td>';
+    if (mostraColonnaCategoria) {
+      // Mostra codice + descrizione leggibile, non solo il codice a memoria —
+      // la descrizione la recupero dalla tabella categorie già caricata.
+      var catRow = categorieDisponibili.find(function(c){ return c.codice === r.categoriaCodice; });
+      var catLabel = r.categoriaCodice ? (r.categoriaCodice + (catRow ? ' — ' + ecoEsc(catRow.descrizione) : '')) : '';
+      html += '<td>' + catLabel + '</td>';
+    }
     html += '<td>' + ecoEsc(r.tipo || '-') + '</td>';
     html += '<td>' + (r.attivo === false ? 'Disattivo' : 'Attivo') + '</td>';
     html += '<td>' + (r.attivo === false
@@ -634,13 +661,59 @@ function ecoRenderTab(nomeTabella, righe) {
     html += '<select id="eco-new-tipo"><option value="">(nessun tipo)</option><option value="ENTRATA">ENTRATA</option><option value="USCITA">USCITA</option></select>';
   }
   if (mostraColonnaCategoria) {
-    html += '<input type="text" id="eco-new-categoria" placeholder="Codice categoria padre">';
+    // Menù a tendina invece di testo libero: niente più codici da ricordare a memoria.
+    if (categorieDisponibili.length === 0) {
+      html += '<span style="color:#c60;font-size:.85em;">Nessuna categoria attiva — creane una prima nella tab "Categorie".</span>';
+    } else {
+      html += '<select id="eco-new-categoria"><option value="">(nessuna categoria padre)</option>';
+      categorieDisponibili.forEach(function(c){
+        html += '<option value="' + ecoEsc(c.codice) + '">' + ecoEsc(c.codice) + ' — ' + ecoEsc(c.descrizione) + '</option>';
+      });
+      html += '</select>';
+    }
   }
   html += '<button type="button" onclick="ecoAggiungiCodice(\'' + nomeTabella + '\')">Aggiungi</button>';
   html += '</div>';
   html += '<div id="eco-add-errore" style="color:#c00;margin-top:6px;"></div>';
 
   document.getElementById('eco-tab-content').innerHTML = html;
+  ecoRenderSeedBar(nomeTabella, righe);
+}
+
+// ── Seed dati d'esempio: disponibile solo per categorie/centriCosto (vedi
+// economia-core-DRAFT.js, nessun seed per sottocategorie), mostrato solo
+// se la tabella è vuota — per non offrire di "riempire" qualcosa che
+// l'utente ha già popolato lui stesso. ──
+var ECO_SEED_MAP = { categorie: (typeof ECO_SEED_CATEGORIE !== 'undefined' ? ECO_SEED_CATEGORIE : null),
+                      centriCosto: (typeof ECO_SEED_CENTRI_COSTO !== 'undefined' ? ECO_SEED_CENTRI_COSTO : null) };
+
+function ecoRenderSeedBar(nomeTabella, righe) {
+  var bar = document.getElementById('eco-seed-bar');
+  if (!bar) return;
+  var seed = ECO_SEED_MAP[nomeTabella];
+  if (!seed || (righe && righe.length > 0)) { bar.innerHTML = ''; return; }
+  bar.innerHTML = '<button type="button" onclick="ecoCaricaSeed(\'' + nomeTabella + '\')">'
+    + 'Carica ' + seed.length + ' voci di esempio</button> '
+    + '<span style="color:#666;font-size:.85em;">(puoi modificarle o disattivarle dopo)</span>';
+}
+
+function ecoCaricaSeed(nomeTabella) {
+  var seed = ECO_SEED_MAP[nomeTabella];
+  if (!seed) return;
+  var righe = ecoConfigCache[nomeTabella] || [];
+  seed.forEach(function (s) {
+    var già = righe.some(function (r) { return r.codice === s.codice; });
+    if (già) return; // idempotente: rieseguibile senza creare doppioni
+    var risultato = ecoNuovoCodice(righe, s.codice, s.descrizione, { tipo: s.tipo || null });
+    if (risultato.ok) righe.push(risultato.record);
+  });
+  ecoConfigCache[nomeTabella] = righe;
+  ecoSalvaConfig(ecoConfigCache, function () {
+    ecoRenderTab(nomeTabella, righe);
+    if (typeof log === 'function') log('Economia: caricate voci di esempio in "' + nomeTabella + '"', 'ok');
+  }, function (err) {
+    if (typeof log === 'function') log('Errore caricamento seed "' + nomeTabella + '": ' + (err && err.message || err), 'err');
+  });
 }
 
 function ecoEsc(s) {
@@ -761,7 +834,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.46 · 19/08/2026 18:15";
+var BUILD_VERSION = "v9.47 · 19/08/2026 18:45";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1772,7 +1845,7 @@ function _mostraReportImport(titolo, righe){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.46 · 19/08/2026 18:15";
+var BUILD_VERSION = "v9.47 · 19/08/2026 18:45";
 
 var DB = window.DB || null;
 var _db = window._db || null;
