@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.43 · 18/08/2026 19:30 -->
+<!-- basket052441-admin.html | v9.45 · 19/08/2026 18:00 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -99,6 +99,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="basket-core.js"></script>
+  <script src="economia-core-DRAFT.js"></script>
 
 </head>
 <body>
@@ -107,7 +108,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.43 · 18/08/2026 19:30 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.45 · 19/08/2026 18:00 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -126,7 +127,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.43 · 18/08/2026 19:30</div>
+    <div class="topbar-sub">Build v9.45 · 19/08/2026 18:00</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -481,6 +482,236 @@
   </div>
 </div></div>
 
+<!-- ════════════════════════════════════════════════════════
+  economia-admin-panel-DRAFT.html — ASD Basket Campodarsego
+  Pannello CRUD tabelle codici (categorie/sottocategorie/centriCosto)
+  TASK-BK-eco-01 — versione con integrazione Firebase reale.
+
+  STATO: bozza pronta per test, NON ancora incollata in
+  basket052441-admin.html. Da inserire subito prima della chiusura del contenitore main-scr
+  e caricare economia-core-DRAFT.js con <script src> PRIMA di questo blocco
+  (usa ecoNuovoCodice / ecoModificaCodice / ecoDisattivaCodice).
+
+  INTEGRAZIONE FIREBASE: stesso pattern già in uso in basket052441-admin.html
+  per atleti/pagamenti (funzione salvaSezione + loadDB):
+  - lettura:  _db.collection('basket052441').doc('economiaConfig').get()
+  - scrittura: _db.collection('basket052441').doc('economiaConfig').set({v: JSON.stringify(dati)})
+  Le 3 tabelle vivono in un unico documento Firestore 'economiaConfig'
+  (un solo read/write invece di 3, per restare nello spirito di R1 —
+  minimizzare le operazioni) con struttura:
+  { categorie:[...], sottocategorie:[...], centriCosto:[...] }
+
+  R4 rispettato: nessun catch vuoto, ogni errore va in log + banner UI.
+════════════════════════════════════════════════════════ -->
+
+<section id="eco-config-codici" style="max-width:900px;margin:auto;padding:16px;">
+  <h2>Economia — Tabelle codici</h2>
+  <p style="color:#666;font-size:.9em;">
+    Categorie, sottocategorie e centri di costo usati nei movimenti economici.
+    Un codice non si cancella mai: si disattiva (resta valido per lo storico).
+  </p>
+
+  <div class="eco-tabs" style="display:flex;gap:8px;margin-bottom:12px;">
+    <button type="button" onclick="ecoMostraTab('categorie')" id="eco-tab-btn-categorie">Categorie</button>
+    <button type="button" onclick="ecoMostraTab('sottocategorie')" id="eco-tab-btn-sottocategorie">Sottocategorie</button>
+    <button type="button" onclick="ecoMostraTab('centriCosto')" id="eco-tab-btn-centriCosto">Centri di costo</button>
+  </div>
+
+  <div id="eco-tab-content"></div>
+</section>
+
+<script>
+// ── Stato in memoria: un solo documento Firestore per tutte e 3 le tabelle ──
+var ecoConfigCache = null; // { categorie:[...], sottocategorie:[...], centriCosto:[...] }
+var ecoTabAttiva = 'categorie';
+var ECO_FB_DOC = 'economiaConfig'; // stesso pattern di _FB_SEZIONI in basket-core.js
+
+// ── Lettura: stesso pattern di loadDB() già in uso per atleti/pagamenti ──
+function ecoCaricaConfig(onOk, onErrore) {
+  if (!window._db) {
+    console.error('[economia-admin] _db non pronto — Firestore non inizializzato');
+    if (onErrore) onErrore(new Error('Firestore non pronto: attendi il login e riprova.'));
+    return;
+  }
+  window._db.collection('basket052441').doc(ECO_FB_DOC).get().then(function (doc) {
+    var dati = { categorie: [], sottocategorie: [], centriCosto: [] };
+    if (doc.exists) {
+      var data = doc.data();
+      if (data && data.v) {
+        try {
+          var parsed = JSON.parse(data.v);
+          if (parsed && typeof parsed === 'object') dati = parsed;
+        } catch (ex) {
+          console.error('[economia-admin] errore parsing economiaConfig', ex);
+        }
+      }
+    }
+    if (!dati.categorie) dati.categorie = [];
+    if (!dati.sottocategorie) dati.sottocategorie = [];
+    if (!dati.centriCosto) dati.centriCosto = [];
+    onOk(dati);
+  }).catch(function (err) {
+    console.error('[economia-admin] errore lettura economiaConfig', err);
+    if (onErrore) onErrore(err);
+  });
+}
+
+// ── Scrittura: stesso pattern di salvaSezione() già in uso ──
+function ecoSalvaConfig(dati, onOk, onErrore) {
+  if (!window._db) {
+    console.error('[economia-admin] _db non pronto — Firestore non inizializzato');
+    if (onErrore) onErrore(new Error('Firestore non pronto: attendi il login e riprova.'));
+    return;
+  }
+  window._db.collection('basket052441').doc(ECO_FB_DOC).set({ v: JSON.stringify(dati) }).then(function () {
+    if (typeof log === 'function') log('Firebase aggiornato: sezione "' + ECO_FB_DOC + '"', 'ok');
+    if (onOk) onOk();
+  }).catch(function (err) {
+    console.error('[economia-admin] errore scrittura economiaConfig', err);
+    if (typeof log === 'function') log('Errore scrittura "' + ECO_FB_DOC + '": ' + err.message, 'err');
+    if (onErrore) onErrore(err);
+  });
+}
+
+// ── Cambio tab ──
+function ecoMostraTab(nomeTabella) {
+  ecoTabAttiva = nomeTabella;
+  ['categorie', 'sottocategorie', 'centriCosto'].forEach(function (t) {
+    var btn = document.getElementById('eco-tab-btn-' + t);
+    if (btn) btn.style.fontWeight = (t === nomeTabella) ? 'bold' : 'normal';
+  });
+  if (ecoConfigCache) {
+    ecoRenderTab(nomeTabella, ecoConfigCache[nomeTabella]);
+    return;
+  }
+  ecoCaricaConfig(function (dati) {
+    ecoConfigCache = dati;
+    ecoRenderTab(nomeTabella, dati[nomeTabella]);
+  }, function (err) {
+    document.getElementById('eco-tab-content').innerHTML =
+      '<p style="color:#c00;">Errore caricamento tabella: ' + (err && err.message || err) + '</p>';
+  });
+}
+
+// ── Render tabella + form aggiunta ──
+function ecoRenderTab(nomeTabella, righe) {
+  var mostraColonnaCategoria = (nomeTabella === 'sottocategorie');
+  var html = '';
+
+  html += '<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">';
+  html += '<tr style="border-bottom:2px solid #ccc;text-align:left;">';
+  html += '<th>Codice</th><th>Descrizione</th>' + (mostraColonnaCategoria ? '<th>Categoria</th>' : '') + '<th>Tipo</th><th>Stato</th><th></th></tr>';
+
+  (righe || []).forEach(function (r) {
+    html += '<tr style="border-bottom:1px solid #eee;' + (r.attivo === false ? 'opacity:.5;' : '') + '">';
+    html += '<td><code>' + ecoEsc(r.codice) + '</code></td>';
+    html += '<td><input type="text" value="' + ecoEsc(r.descrizione) + '" onchange="ecoModificaDescrizione(\'' + nomeTabella + '\',\'' + r.codice + '\',this.value)"></td>';
+    if (mostraColonnaCategoria) html += '<td>' + ecoEsc(r.categoriaCodice || '') + '</td>';
+    html += '<td>' + ecoEsc(r.tipo || '-') + '</td>';
+    html += '<td>' + (r.attivo === false ? 'Disattivo' : 'Attivo') + '</td>';
+    html += '<td>' + (r.attivo === false
+      ? ''
+      : '<button type="button" onclick="ecoDisattiva(\'' + nomeTabella + '\',\'' + r.codice + '\')">Disattiva</button>') + '</td>';
+    html += '</tr>';
+  });
+  html += '</table>';
+
+  html += '<h4>Nuovo codice</h4>';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;">';
+  html += '<input type="text" id="eco-new-codice" placeholder="CODICE" style="width:100px;text-transform:uppercase;">';
+  html += '<input type="text" id="eco-new-descrizione" placeholder="Descrizione" style="flex:1;min-width:180px;">';
+  if (nomeTabella !== 'centriCosto') {
+    html += '<select id="eco-new-tipo"><option value="">(nessun tipo)</option><option value="ENTRATA">ENTRATA</option><option value="USCITA">USCITA</option></select>';
+  }
+  if (mostraColonnaCategoria) {
+    html += '<input type="text" id="eco-new-categoria" placeholder="Codice categoria padre">';
+  }
+  html += '<button type="button" onclick="ecoAggiungiCodice(\'' + nomeTabella + '\')">Aggiungi</button>';
+  html += '</div>';
+  html += '<div id="eco-add-errore" style="color:#c00;margin-top:6px;"></div>';
+
+  document.getElementById('eco-tab-content').innerHTML = html;
+}
+
+function ecoEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+// ── Azioni: usano le funzioni pure di economia-core-DRAFT.js, poi salvano l'intero documento ──
+function ecoAggiungiCodice(nomeTabella) {
+  var codice = document.getElementById('eco-new-codice').value;
+  var descrizione = document.getElementById('eco-new-descrizione').value;
+  var tipoEl = document.getElementById('eco-new-tipo');
+  var catEl = document.getElementById('eco-new-categoria');
+  var opts = {
+    tipo: tipoEl ? (tipoEl.value || null) : null,
+    categoriaCodice: catEl ? (catEl.value || null) : null
+  };
+
+  var righe = ecoConfigCache[nomeTabella] || [];
+  var risultato = ecoNuovoCodice(righe, codice, descrizione, opts);
+  var errBox = document.getElementById('eco-add-errore');
+
+  if (!risultato.ok) {
+    errBox.textContent = risultato.errore;
+    return;
+  }
+  errBox.textContent = '';
+  righe.push(risultato.record);
+  ecoConfigCache[nomeTabella] = righe;
+  ecoSalvaConfig(ecoConfigCache, function () {
+    ecoRenderTab(nomeTabella, righe);
+  }, function (err) {
+    errBox.textContent = 'Errore salvataggio: ' + (err && err.message || err);
+  });
+}
+
+function ecoModificaDescrizione(nomeTabella, codice, nuovaDescrizione) {
+  var righe = ecoConfigCache[nomeTabella] || [];
+  var risultato = ecoModificaCodice(righe, codice, { descrizione: nuovaDescrizione });
+  if (!risultato.ok) {
+    console.error('[economia-admin] ' + risultato.errore);
+    alert(risultato.errore);
+    return;
+  }
+  ecoSalvaConfig(ecoConfigCache, null, function (err) {
+    console.error('[economia-admin] errore salvataggio dopo modifica', err);
+    alert('Errore salvataggio: ' + (err && err.message || err));
+  });
+}
+
+function ecoDisattiva(nomeTabella, codice) {
+  if (!confirm('Disattivare il codice "' + codice + '"? Resterà valido per i movimenti storici.')) return;
+  var righe = ecoConfigCache[nomeTabella] || [];
+  var risultato = ecoDisattivaCodice(righe, codice);
+  if (!risultato.ok) {
+    alert(risultato.errore);
+    return;
+  }
+  ecoSalvaConfig(ecoConfigCache, function () {
+    ecoRenderTab(nomeTabella, righe);
+  }, function (err) {
+    alert('Errore salvataggio: ' + (err && err.message || err));
+  });
+}
+
+// Handler globale — coerente con R4 (nessuna uscita silenziosa) del progetto.
+// Non sovrascrive gli handler già registrati in basket-core.js: si aggiunge.
+window.addEventListener('error', function (e) {
+  console.error('[economia-admin] errore non gestito:', e.error || e.message);
+});
+window.addEventListener('unhandledrejection', function (e) {
+  console.error('[economia-admin] promise non gestita:', e.reason);
+});
+
+// Avvio: mostra la prima tab quando la sezione viene inserita nella pagina
+document.addEventListener('DOMContentLoaded', function () {
+  if (document.getElementById('eco-config-codici')) ecoMostraTab('categorie');
+});
+</script>
+
 </div><!-- /main-scr -->
 
 <script>
@@ -514,7 +745,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.43 · 18/08/2026 19:30";
+var BUILD_VERSION = "v9.45 · 19/08/2026 18:00";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1525,7 +1756,7 @@ function _mostraReportImport(titolo, righe){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.43 · 18/08/2026 19:30";
+var BUILD_VERSION = "v9.45 · 19/08/2026 18:00";
 
 var DB = window.DB || null;
 var _db = window._db || null;
@@ -2014,7 +2245,16 @@ function _indirizzoCompleto(a){
 function _telefonoAtleta(a){return(a.tutCell1||a.tutCell2||a.tel||a.cell||'').trim();}
 function _emailAtleta(a){return(a.tutEmail||a.email||'').trim();}
 function _tutoreAtleta(a){var c=(a.tutCog||'').trim(),n=(a.tutNom||'').trim();if(c||n)return(c+' '+n).trim();return(a.gen||'').trim();}
-function _certAtleta(a){if(!a.cs)return'—';var cs=a.cs;if(cs.indexOf('/')>-1){var p=cs.split('/');return p[2]+'/'+p[1]+'/'+p[0];}return cs;}
+function _certAtleta(a){
+  // Formatta la data certificato per la visualizzazione (sempre gg/mm/aaaa).
+  // Il campo è un <input type="date">, quindi il dato salvato è quasi
+  // sempre ISO aaaa-mm-gg — prima veniva mostrato grezzo, non convertito.
+  if(!a.cs)return'—';
+  var cs=a.cs;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(cs)){var p=cs.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(cs))return cs; // già gg/mm/aaaa (dato storico), non capovolgere
+  return cs;
+}
 function _noteIscrizione(a,stagione){var isc=(a.iscrizioni||[]).find(function(i){return i.anno===stagione;});return isc?(isc.note||''):'';}
 function _dataIscrizioneAtleta(a,annata_prec,annata_curr){
   var iscs=(a.iscrizioni||[]).filter(function(i){return i.anno===annata_prec||i.anno===annata_curr;});
