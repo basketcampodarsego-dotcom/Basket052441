@@ -11,7 +11,7 @@
 // CRUD sulla tabella codici, un seed facoltativo di righe di
 // esempio, e i validatori che LEGGONO la tabella invece di
 // assumerne il contenuto.
-// ══════════════════════════════════════════════════════
+// ═════════════════════════════════════════════════════
 
 // ── Enum veri (questi sì fissi: sono stati del programma, non dati dell'utente) ──
 var ECO_TIPO_MOVIMENTO = { ENTRATA: 'ENTRATA', USCITA: 'USCITA' };
@@ -27,13 +27,13 @@ var ECO_STATO_MOVIMENTO = {
 var ECO_METODO_PAGAMENTO = ['bonifico', 'carta', 'assegno', 'contanti', 'altro'];
 var ECO_TIPO_CONTO = { BANCA: 'BANCA', CARTA: 'CARTA', CASSA: 'CASSA', ALTRO: 'ALTRO' };
 
-// ══════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
 // TABELLA CODICI — categorie, sottocategorie, centri di costo
 // Struttura record: { codice, descrizione, tipo, attivo, ordine, categoriaCodice? }
 // Vive in config/categorie, config/sottocategorie, config/centriCosto su Firestore.
 // Il codice qui sotto NON conosce quali codici esistono: opera sulla tabella
 // che gli viene passata come parametro (letta da Firestore a monte).
-// ══════════════════════════════════════════════════
+// ═════════════════════════════════════════════════
 
 // Crea un nuovo codice. Ritorna { ok, record, errore }.
 // tabella = array corrente (letto da Firestore prima della chiamata).
