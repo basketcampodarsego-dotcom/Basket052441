@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.48 · 22/08/2026 03:43 -->
+<!-- basket052441-admin.html | v9.49 · 22/08/2026 13:33 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -91,6 +91,17 @@
   .modal{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;width:92%;max-width:640px;max-height:85vh;overflow-y:auto;}
   .modal-title{font-weight:700;color:var(--gold);margin-bottom:14px;font-size:14px;}
   .btn-bar{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;}
+  /* TOAST — porta il pattern da basket052441.html (mancava qui: causa del
+     bug "nessun feedback" nel fix 21/08, v9.49) */
+  #toast-msg{position:fixed;top:60px;left:50%;transform:translateX(-50%);
+    background:#0d2a1a;color:#4aaa6a;border:1px solid #22a85a;
+    border-radius:10px;padding:12px 20px;font-size:13px;font-weight:600;
+    z-index:600;pointer-events:none;opacity:0;transition:opacity .3s;
+    max-width:90%;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+  #toast-msg.toast-show{opacity:1;}
+  #toast-msg.ok{background:#0d2a1a;color:#4aaa6a;border-color:#22a85a;}
+  #toast-msg.warn{background:#2a1a00;color:#ffcc44;border-color:#aa8800;}
+  #toast-msg.err{background:#2a0a0a;color:#ff6060;border-color:#aa2222;}
 </style>
   <!-- Firebase SDK 10.12 -->
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js'></script>
@@ -107,12 +118,13 @@
 
 </head>
 <body>
+<div id="toast-msg"></div>
 
 <div id="login-scr" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;">
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.48 · 22/08/2026 03:43 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.49 · 22/08/2026 13:33 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -131,7 +143,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.48 · 22/08/2026 03:43</div>
+    <div class="topbar-sub">Build v9.49 · 22/08/2026 13:33</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -835,7 +847,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.48 · 22/08/2026 03:43";
+var BUILD_VERSION = "v9.49 · 22/08/2026 13:33";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1846,7 +1858,7 @@ function _mostraReportImport(titolo, righe){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.48 · 22/08/2026 03:43";
+var BUILD_VERSION = "v9.49 · 22/08/2026 13:33";
 
 var DB = window.DB || null;
 var _db = window._db || null;
