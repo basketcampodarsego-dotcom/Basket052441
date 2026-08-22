@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.50 · 22/08/2026 18:09 -->
+<!-- basket052441-admin.html | v9.51 · 22/08/2026 19:23 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -115,6 +115,7 @@
   <script src="basket-core.js"></script>
   <script src="economia-core-DRAFT.js"></script>
   <script src="economia-admin-ui.js"></script>
+  <script src="economia-report-ui.js"></script>
 
 </head>
 <body>
@@ -124,7 +125,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.50 · 22/08/2026 18:09 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.51 · 22/08/2026 19:23 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -143,7 +144,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.50 · 22/08/2026 18:09</div>
+    <div class="topbar-sub">Build v9.51 · 22/08/2026 19:23</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -544,14 +545,29 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
     Un codice non si cancella mai: si disattiva (resta valido per lo storico).
   </p>
 
-  <div class="eco-tabs" style="display:flex;gap:8px;margin-bottom:12px;">
-    <button type="button" onclick="ecoMostraTab('categorie')" id="eco-tab-btn-categorie">Categorie</button>
-    <button type="button" onclick="ecoMostraTab('sottocategorie')" id="eco-tab-btn-sottocategorie">Sottocategorie</button>
-    <button type="button" onclick="ecoMostraTab('centriCosto')" id="eco-tab-btn-centriCosto">Centri di costo</button>
+  <div class="eco-tabs" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+    <button type="button" onclick="ecoMostraSezione('categorie')" id="eco-tab-btn-categorie">Categorie</button>
+    <button type="button" onclick="ecoMostraSezione('sottocategorie')" id="eco-tab-btn-sottocategorie">Sottocategorie</button>
+    <button type="button" onclick="ecoMostraSezione('centriCosto')" id="eco-tab-btn-centriCosto">Centri di costo</button>
+    <button type="button" onclick="ecoMostraSezione('bilancio')" id="eco-tab-btn-bilancio">Bilancio</button>
   </div>
 
   <div id="eco-seed-bar" style="margin-bottom:10px;"></div>
   <div id="eco-tab-content"></div>
+
+  <div id="eco-bilancio-wrap" style="display:none;">
+    <p style="color:#666;font-size:.9em;">
+      Saldi per centro di costo, per categoria e dettaglio per sottocategoria
+      (solo movimenti Pagati/Parziali, esercizio selezionato).
+    </p>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <label for="eco-rep-anno" style="font-size:.9em;">Esercizio:</label>
+      <select id="eco-rep-anno"></select>
+      <button type="button" onclick="ecoRepGenera()">📊 Genera</button>
+      <button type="button" id="eco-rep-btn-stampa" onclick="ecoRepStampa()" style="display:none;">🖨️ Stampa</button>
+    </div>
+    <div id="eco-rep-output" style="background:#060e18;border-radius:6px;padding:12px;overflow-x:auto;"></div>
+  </div>
 </div>
 
 
@@ -588,7 +604,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.50 · 22/08/2026 18:09";
+var BUILD_VERSION = "v9.51 · 22/08/2026 19:23";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1599,7 +1615,7 @@ function _mostraReportImport(titolo, righe){
 
 </script>
 <script>
-var BUILD_VERSION = "v9.50 · 22/08/2026 18:09";
+var BUILD_VERSION = "v9.51 · 22/08/2026 19:23";
 
 var DB = window.DB || null;
 var _db = window._db || null;

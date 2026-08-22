@@ -100,24 +100,29 @@ function ecoRenderTab(nomeTabella, righe) {
   html += '<th>Codice</th><th>Descrizione</th>' + (mostraColonnaCategoria ? '<th>Categoria</th>' : '') + '<th>Tipo</th><th>Stato</th><th></th></tr>';
 
   (righe || []).forEach(function (r) {
-    html += '<tr style="border-bottom:1px solid #eee;' + (r.attivo === false ? 'opacity:.5;' : '') + '">';
-    html += '<td><code>' + ecoEsc(r.codice) + '</code></td>';
-    html += '<td><input type="text" value="' + ecoEsc(r.descrizione) + '" onchange="ecoModificaDescrizione(\'' + nomeTabella + '\',\'' + r.codice + '\',this.value)"></td>';
+    // Opacity applicata alle SINGOLE celle (non alla riga): il bottone
+    // Riattiva deve restare leggibile anche su righe disattivate — prima
+    // era sulla <tr> e lo rendeva grigio come il resto, fuorviante
+    // (sembrava disattivato/non cliccabile pur essendo l'azione attiva).
+    var dim = r.attivo === false ? 'opacity:.5;' : '';
+    html += '<tr style="border-bottom:1px solid #eee;">';
+    html += '<td style="' + dim + '"><code>' + ecoEsc(r.codice) + '</code></td>';
+    html += '<td style="' + dim + '"><input type="text" value="' + ecoEsc(r.descrizione) + '" onchange="ecoModificaDescrizione(\'' + nomeTabella + '\',\'' + r.codice + '\',this.value)"></td>';
     if (mostraColonnaCategoria) {
       var catRow = categorieDisponibili.find(function(c){ return c.codice === r.categoriaCodice; });
       var catLabel = r.categoriaCodice ? (r.categoriaCodice + (catRow ? ' — ' + ecoEsc(catRow.descrizione) : '')) : '';
-      html += '<td>' + catLabel + '</td>';
+      html += '<td style="' + dim + '">' + catLabel + '</td>';
     }
     if (nomeTabella === 'centriCosto') {
-      html += '<td>-</td>';
+      html += '<td style="' + dim + '">-</td>';
     } else {
-      html += '<td><select onchange="ecoModificaTipo(\'' + nomeTabella + '\',\'' + r.codice + '\',this.value)">'
+      html += '<td style="' + dim + '"><select onchange="ecoModificaTipo(\'' + nomeTabella + '\',\'' + r.codice + '\',this.value)">'
         + '<option value=""' + (!r.tipo ? ' selected' : '') + '>(nessun tipo)</option>'
         + '<option value="ENTRATA"' + (r.tipo === 'ENTRATA' ? ' selected' : '') + '>ENTRATA</option>'
         + '<option value="USCITA"' + (r.tipo === 'USCITA' ? ' selected' : '') + '>USCITA</option>'
         + '</select></td>';
     }
-    html += '<td>' + (r.attivo === false ? 'Disattivo' : 'Attivo') + '</td>';
+    html += '<td style="' + dim + '">' + (r.attivo === false ? 'Disattivo' : 'Attivo') + '</td>';
     html += '<td>' + (r.attivo === false
       ? '<button type="button" onclick="ecoRiattiva(\'' + nomeTabella + '\',\'' + r.codice + '\')">Riattiva</button>'
       : '<button type="button" onclick="ecoDisattiva(\'' + nomeTabella + '\',\'' + r.codice + '\')">Disattiva</button>') + '</td>';
