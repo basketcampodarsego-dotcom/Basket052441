@@ -111,17 +111,29 @@ function ecoRepGenera() {
 // USCITE ed ENTRATE sono sezioni separate (mai in colonne affiancate sulla
 // stessa riga — errore della v1). Dentro ciascuna sezione: categoria con
 // subtotale, sottocategorie annidate con i loro valori. ──
+// ── Normalizzazione codici per confronto/raggruppamento: trim+uppercase.
+// ecoNuovoCodice() in economia-core-DRAFT.js impedisce già la creazione di
+// codici duplicati per case (es. non si può creare "Sport" se "SPORT" esiste
+// già), ma movimenti storici/importati prima di quel controllo, o inseriti
+// fuori da quel percorso, possono portare un centroCostoCodice/categoriaCodice
+// con case diverso da quello ufficiale in tabella. Senza normalizzare qui,
+// finiscono in due gruppi separati invece di unirsi (bug osservato 22/08:
+// due righe "Sport" nel Bilancio). ──
+function ecoRepNorm(s) {
+  return (s || '').toString().trim().toUpperCase();
+}
+
 // ── Risoluzione nomi da codice — condivisa tra Bilancio e Movimenti ──
 function ecoRepNomeCategoria(config, codice) {
-  var c = config.categorie.find(function (x) { return x.codice === codice; });
+  var c = config.categorie.find(function (x) { return ecoRepNorm(x.codice) === ecoRepNorm(codice); });
   return c ? c.descrizione : (!codice ? 'Senza categoria' : codice);
 }
 function ecoRepNomeSottocategoria(config, codice) {
-  var s = config.sottocategorie.find(function (x) { return x.codice === codice; });
+  var s = config.sottocategorie.find(function (x) { return ecoRepNorm(x.codice) === ecoRepNorm(codice); });
   return s ? s.descrizione : codice;
 }
 function ecoRepNomeCentroCosto(config, codice) {
-  var c = config.centriCosto.find(function (x) { return x.codice === codice; });
+  var c = config.centriCosto.find(function (x) { return ecoRepNorm(x.codice) === ecoRepNorm(codice); });
   return c ? c.descrizione : (!codice ? 'Senza centro di costo' : codice);
 }
 function ecoRepNomeConto(conti, id) {
@@ -135,29 +147,32 @@ function ecoRepCalcola(movimenti, config) {
     return m.stato === 'PAGATO' || m.stato === 'PARZIALE';
   });
 
-  function nomeCategoria(codice) { return ecoRepNomeCategoria(config, codice || '(nessuna)'); }
+  function nomeCategoria(codice) { return codice ? ecoRepNomeCategoria(config, codice) : 'Senza categoria'; }
   function nomeSottocategoria(codice) { return ecoRepNomeSottocategoria(config, codice); }
-  function nomeCentroCosto(codice) { return ecoRepNomeCentroCosto(config, codice || '(nessuno)'); }
+  function nomeCentroCosto(codice) { return codice ? ecoRepNomeCentroCosto(config, codice) : 'Senza centro di costo'; }
 
   // Raggruppa un elenco di movimenti (già filtrati per centro+tipo) in
   // categorie con sottocategorie annidate. Ritorna { totale, categorie:[...] }.
   function raggruppaPerCategoria(elenco) {
     var catMap = {};
     elenco.forEach(function (m) {
-      var key = m.categoriaCodice || '(nessuna)';
-      if (!catMap[key]) catMap[key] = { totale: 0, sotto: {} };
+      var key = ecoRepNorm(m.categoriaCodice) || '(nessuna)';
+      if (!catMap[key]) catMap[key] = { totale: 0, sotto: {}, codiceOriginale: m.categoriaCodice };
       var imp = Number(m.importoEur) || 0;
       catMap[key].totale += imp;
-      var subKey = m.sottocategoriaCodice || null;
+      var subKey = ecoRepNorm(m.sottocategoriaCodice) || null;
       if (subKey) {
-        if (!catMap[key].sotto[subKey]) catMap[key].sotto[subKey] = 0;
-        catMap[key].sotto[subKey] += imp;
+        if (!catMap[key].sotto[subKey]) catMap[key].sotto[subKey] = { totale: 0, codiceOriginale: m.sottocategoriaCodice };
+        catMap[key].sotto[subKey].totale += imp;
       }
     });
-    var categorie = Object.keys(catMap).map(function (codice) {
-      var entry = catMap[codice];
-      var sottocategorie = Object.keys(entry.sotto).map(function (subCod) {
-        return { codice: subCod, descrizione: nomeSottocategoria(subCod), totale: entry.sotto[subCod] };
+    var categorie = Object.keys(catMap).map(function (key) {
+      var entry = catMap[key];
+      var codice = entry.codiceOriginale || null;
+      var sottocategorie = Object.keys(entry.sotto).map(function (subKey) {
+        var subEntry = entry.sotto[subKey];
+        var subCod = subEntry.codiceOriginale || subKey;
+        return { codice: subCod, descrizione: nomeSottocategoria(subCod), totale: subEntry.totale };
       }).sort(function (a, b) { return b.totale - a.totale; });
       return { codice: codice, descrizione: nomeCategoria(codice), totale: entry.totale, sottocategorie: sottocategorie };
     }).sort(function (a, b) { return b.totale - a.totale; });
@@ -165,16 +180,19 @@ function ecoRepCalcola(movimenti, config) {
     return { totale: totale, categorie: categorie };
   }
 
-  // Raggruppa TUTTI i movimenti attivi per centro di costo
+  // Raggruppa TUTTI i movimenti attivi per centro di costo (chiave
+  // normalizzata: unisce varianti di case dello stesso codice — vedi
+  // ecoRepNorm sopra).
   var ccGroups = {};
   attivi.forEach(function (m) {
-    var key = m.centroCostoCodice || '(nessuno)';
-    if (!ccGroups[key]) ccGroups[key] = [];
-    ccGroups[key].push(m);
+    var key = ecoRepNorm(m.centroCostoCodice) || '(nessuno)';
+    if (!ccGroups[key]) ccGroups[key] = { mov: [], codiceOriginale: m.centroCostoCodice };
+    ccGroups[key].mov.push(m);
   });
 
-  var perCentroCosto = Object.keys(ccGroups).map(function (codiceCc) {
-    var movCc = ccGroups[codiceCc];
+  var perCentroCosto = Object.keys(ccGroups).map(function (key) {
+    var codiceCc = ccGroups[key].codiceOriginale || null;
+    var movCc = ccGroups[key].mov;
     var movUscite = movCc.filter(function (m) { return m.tipoMovimento === 'USCITA'; });
     var movEntrate = movCc.filter(function (m) { return m.tipoMovimento === 'ENTRATA'; });
     var uscite = raggruppaPerCategoria(movUscite);
@@ -507,9 +525,9 @@ function ecoMovApplicaFiltri() {
     var dataRif = m.dataDocumento || m.dataRegistrazione || '';
     if (dataDa && dataRif && dataRif < dataDa) return false;
     if (dataA && dataRif && dataRif > dataA) return false;
-    if (catF && m.categoriaCodice !== catF) return false;
-    if (subF && m.sottocategoriaCodice !== subF) return false;
-    if (centroF && m.centroCostoCodice !== centroF) return false;
+    if (catF && ecoRepNorm(m.categoriaCodice) !== ecoRepNorm(catF)) return false;
+    if (subF && ecoRepNorm(m.sottocategoriaCodice) !== ecoRepNorm(subF)) return false;
+    if (centroF && ecoRepNorm(m.centroCostoCodice) !== ecoRepNorm(centroF)) return false;
     if (contoF && m.contoFinanziarioId !== contoF) return false;
     if (statoF && m.stato !== statoF) return false;
     if (tipoF && m.tipoMovimento !== tipoF) return false;
