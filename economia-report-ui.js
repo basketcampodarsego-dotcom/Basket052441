@@ -17,18 +17,25 @@ var ecoRepAnno = new Date().getFullYear();
 // solo le 3 tabelle di codici) — zero rischio di regressione su quelle. ──
 function ecoMostraSezione(sezione) {
   var isBilancio = (sezione === 'bilancio');
+  var isMovimenti = (sezione === 'movimenti');
+  var isReport = isBilancio || isMovimenti;
   var elTabContent = document.getElementById('eco-tab-content');
   var elSeedBar = document.getElementById('eco-seed-bar');
   var elBilancioWrap = document.getElementById('eco-bilancio-wrap');
-  if (elTabContent) elTabContent.style.display = isBilancio ? 'none' : '';
-  if (elSeedBar) elSeedBar.style.display = isBilancio ? 'none' : '';
+  var elMovimentiWrap = document.getElementById('eco-movimenti-wrap');
+  if (elTabContent) elTabContent.style.display = isReport ? 'none' : '';
+  if (elSeedBar) elSeedBar.style.display = isReport ? 'none' : '';
   if (elBilancioWrap) elBilancioWrap.style.display = isBilancio ? '' : 'none';
-  ['categorie', 'sottocategorie', 'centriCosto', 'bilancio'].forEach(function (t) {
+  if (elMovimentiWrap) elMovimentiWrap.style.display = isMovimenti ? '' : 'none';
+  ['categorie', 'sottocategorie', 'centriCosto', 'bilancio', 'movimenti'].forEach(function (t) {
     var btn = document.getElementById('eco-tab-btn-' + t);
     if (btn) btn.style.fontWeight = (t === sezione) ? 'bold' : 'normal';
   });
   if (isBilancio) {
     ecoRepPopolaAnni();
+  } else if (isMovimenti) {
+    ecoMovPopolaAnni();
+    ecoMovPopolaFiltriCodici();
   } else if (typeof ecoMostraTab === 'function') {
     ecoMostraTab(sezione);
   }
@@ -104,24 +111,33 @@ function ecoRepGenera() {
 // USCITE ed ENTRATE sono sezioni separate (mai in colonne affiancate sulla
 // stessa riga — errore della v1). Dentro ciascuna sezione: categoria con
 // subtotale, sottocategorie annidate con i loro valori. ──
+// ── Risoluzione nomi da codice — condivisa tra Bilancio e Movimenti ──
+function ecoRepNomeCategoria(config, codice) {
+  var c = config.categorie.find(function (x) { return x.codice === codice; });
+  return c ? c.descrizione : (!codice ? 'Senza categoria' : codice);
+}
+function ecoRepNomeSottocategoria(config, codice) {
+  var s = config.sottocategorie.find(function (x) { return x.codice === codice; });
+  return s ? s.descrizione : codice;
+}
+function ecoRepNomeCentroCosto(config, codice) {
+  var c = config.centriCosto.find(function (x) { return x.codice === codice; });
+  return c ? c.descrizione : (!codice ? 'Senza centro di costo' : codice);
+}
+function ecoRepNomeConto(conti, id) {
+  var c = (conti || []).find(function (x) { return x.id === id; });
+  return c ? c.nome : (!id ? '—' : id);
+}
+
 function ecoRepCalcola(movimenti, config) {
   config = config || { categorie: [], sottocategorie: [], centriCosto: [] };
   var attivi = (movimenti || []).filter(function (m) {
     return m.stato === 'PAGATO' || m.stato === 'PARZIALE';
   });
 
-  function nomeCategoria(codice) {
-    var c = config.categorie.find(function (x) { return x.codice === codice; });
-    return c ? c.descrizione : (codice === '(nessuna)' ? 'Senza categoria' : codice);
-  }
-  function nomeSottocategoria(codice) {
-    var s = config.sottocategorie.find(function (x) { return x.codice === codice; });
-    return s ? s.descrizione : codice;
-  }
-  function nomeCentroCosto(codice) {
-    var c = config.centriCosto.find(function (x) { return x.codice === codice; });
-    return c ? c.descrizione : (codice === '(nessuno)' ? 'Senza centro di costo' : codice);
-  }
+  function nomeCategoria(codice) { return ecoRepNomeCategoria(config, codice || '(nessuna)'); }
+  function nomeSottocategoria(codice) { return ecoRepNomeSottocategoria(config, codice); }
+  function nomeCentroCosto(codice) { return ecoRepNomeCentroCosto(config, codice || '(nessuno)'); }
 
   // Raggruppa un elenco di movimenti (già filtrati per centro+tipo) in
   // categorie con sottocategorie annidate. Ritorna { totale, categorie:[...] }.
@@ -352,6 +368,271 @@ function ecoRepStampa() {
   } catch (e) {
     console.error('[economia-report] errore stampa', e);
     if (typeof log === 'function') log('[economia-report] errore stampa: ' + (e && e.message || e), 'err');
+    alert('Errore stampa: ' + (e && e.message || e));
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// REPORT MOVIMENTI (prima nota) — elenco cronologico filtrabile.
+// Legge economiaConti + economiaConfig + movimenti dell'esercizio
+// selezionato (stesso pattern di caricamento di economia-movimenti-ui.js:
+// where('annoEsercizio','==',anno) sulla stessa collection). Tutti gli
+// altri filtri (date, categoria, centro, conto, stato, tipo, testo) sono
+// applicati lato client dopo il caricamento — coerente con l'unico altro
+// consumatore esistente di questa collection. ──
+var ecoMovAnno = new Date().getFullYear();
+var ecoMovDati = [];      // movimenti grezzi dell'esercizio caricato
+var ecoMovConfigCache = { categorie: [], sottocategorie: [], centriCosto: [] };
+var ecoMovContiCache = [];
+var ecoMovOrdineAsc = false; // false = più recenti in cima (default)
+
+function ecoMovPopolaAnni() {
+  var sel = document.getElementById('mov-filtro-anno');
+  if (!sel) return;
+  var oggi = new Date().getFullYear();
+  var cur = sel.value;
+  sel.innerHTML = '';
+  for (var y = oggi + 1; y >= oggi - 5; y--) {
+    sel.innerHTML += '<option value="' + y + '"' + (y === ecoMovAnno ? ' selected' : '') + '>' + y + '</option>';
+  }
+  sel.value = cur || String(ecoMovAnno);
+}
+
+function ecoMovPopolaFiltriCodici() {
+  var cfg = ecoMovConfigCache;
+  function fill(id, righe, conEmpty) {
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var cur = sel.value;
+    sel.innerHTML = '<option value="">' + conEmpty + '</option>';
+    righe.forEach(function (r) {
+      sel.innerHTML += '<option value="' + r.codice + '">' + ecoRepEsc(r.descrizione) + '</option>';
+    });
+    sel.value = cur;
+  }
+  fill('mov-filtro-categoria', cfg.categorie, 'Tutte le categorie');
+  fill('mov-filtro-sottocategoria', cfg.sottocategorie, 'Tutte le sottocategorie');
+  fill('mov-filtro-centro', cfg.centriCosto, 'Tutti i centri di costo');
+  var selConto = document.getElementById('mov-filtro-conto');
+  if (selConto) {
+    var curC = selConto.value;
+    selConto.innerHTML = '<option value="">Tutti i conti</option>';
+    ecoMovContiCache.forEach(function (c) {
+      selConto.innerHTML += '<option value="' + c.id + '">' + ecoRepEsc(c.nome) + '</option>';
+    });
+    selConto.value = curC;
+  }
+}
+
+function ecoMovCarica() {
+  var selAnno = document.getElementById('mov-filtro-anno');
+  ecoMovAnno = selAnno ? (parseInt(selAnno.value, 10) || new Date().getFullYear()) : new Date().getFullYear();
+  var out = document.getElementById('mov-output');
+  if (!window._db) {
+    var msgNoDb = '[economia-report] _db non pronto — Firestore non inizializzato';
+    console.error(msgNoDb);
+    if (typeof log === 'function') log(msgNoDb, 'err');
+    alert('Firestore non pronto: attendi il login e riprova.');
+    return;
+  }
+  if (out) out.innerHTML = '<p style="color:#888">Caricamento...</p>';
+  var col = window._db.collection('basket052441');
+  Promise.all([
+    col.doc('economiaConfig').get(),
+    col.doc('economiaConti').get(),
+    col.doc('economia').collection('movimenti').where('annoEsercizio', '==', ecoMovAnno).get()
+  ]).then(function (res) {
+    var config = { categorie: [], sottocategorie: [], centriCosto: [] };
+    if (res[0].exists && res[0].data().v) {
+      try {
+        var parsed = JSON.parse(res[0].data().v);
+        if (parsed && typeof parsed === 'object') config = parsed;
+      } catch (ex) {
+        console.error('[economia-report] errore parsing economiaConfig', ex);
+      }
+    }
+    if (!config.categorie) config.categorie = [];
+    if (!config.sottocategorie) config.sottocategorie = [];
+    if (!config.centriCosto) config.centriCosto = [];
+    ecoMovConfigCache = config;
+
+    var conti = [];
+    if (res[1].exists && res[1].data().v) {
+      try {
+        var parsedC = JSON.parse(res[1].data().v);
+        if (Array.isArray(parsedC)) conti = parsedC;
+      } catch (ex) {
+        console.error('[economia-report] errore parsing economiaConti', ex);
+      }
+    }
+    ecoMovContiCache = conti;
+
+    var movimenti = [];
+    res[2].forEach(function (doc) { movimenti.push(doc.data()); });
+    ecoMovDati = movimenti;
+
+    ecoMovPopolaFiltriCodici();
+    ecoMovApplicaFiltri();
+    if (typeof log === 'function') log('Movimenti ' + ecoMovAnno + ': ' + movimenti.length + ' letti', 'ok');
+  }).catch(function (err) {
+    var msgErr = '[economia-report] errore caricamento movimenti: ' + (err && err.message || err);
+    console.error(msgErr, err);
+    if (typeof log === 'function') log(msgErr, 'err');
+    if (out) out.innerHTML = '<p style="color:#c00;">Errore caricamento: ' + (err && err.message || err) + '</p>';
+  });
+}
+
+function ecoMovToggleOrdine() {
+  ecoMovOrdineAsc = !ecoMovOrdineAsc;
+  var btn = document.getElementById('mov-btn-ordine');
+  if (btn) btn.textContent = ecoMovOrdineAsc ? '↑ Data (più vecchi in cima)' : '↓ Data (più recenti in cima)';
+  ecoMovApplicaFiltri();
+}
+
+// Filtro + ordinamento client-side, sempre a partire da ecoMovDati
+// (i movimenti dell'esercizio già caricato — cambiare esercizio richiede
+// ecoMovCarica(), tutti gli altri filtri no). ──
+function ecoMovApplicaFiltri() {
+  var dataDa = document.getElementById('mov-filtro-data-da').value || null;
+  var dataA = document.getElementById('mov-filtro-data-a').value || null;
+  var catF = document.getElementById('mov-filtro-categoria').value || null;
+  var subF = document.getElementById('mov-filtro-sottocategoria').value || null;
+  var centroF = document.getElementById('mov-filtro-centro').value || null;
+  var contoF = document.getElementById('mov-filtro-conto').value || null;
+  var statoF = document.getElementById('mov-filtro-stato').value || null;
+  var tipoF = document.getElementById('mov-filtro-tipo').value || null;
+  var testoF = (document.getElementById('mov-filtro-testo').value || '').trim().toLowerCase();
+
+  var risultati = ecoMovDati.filter(function (m) {
+    var dataRif = m.dataDocumento || m.dataRegistrazione || '';
+    if (dataDa && dataRif && dataRif < dataDa) return false;
+    if (dataA && dataRif && dataRif > dataA) return false;
+    if (catF && m.categoriaCodice !== catF) return false;
+    if (subF && m.sottocategoriaCodice !== subF) return false;
+    if (centroF && m.centroCostoCodice !== centroF) return false;
+    if (contoF && m.contoFinanziarioId !== contoF) return false;
+    if (statoF && m.stato !== statoF) return false;
+    if (tipoF && m.tipoMovimento !== tipoF) return false;
+    if (testoF && (m.note || '').toLowerCase().indexOf(testoF) === -1 &&
+        (m.numeroDocumento || '').toLowerCase().indexOf(testoF) === -1) return false;
+    return true;
+  }).sort(function (a, b) {
+    var da = a.dataDocumento || a.dataRegistrazione || '';
+    var db = b.dataDocumento || b.dataRegistrazione || '';
+    return ecoMovOrdineAsc ? da.localeCompare(db) : db.localeCompare(da);
+  });
+
+  ecoMovRender(risultati);
+}
+
+function ecoMovRender(risultati) {
+  var html = ecoMovBuildHtml(risultati);
+  window._ecoMovHTML = html;
+  var out = document.getElementById('mov-output');
+  if (out) out.innerHTML = html;
+  var btnStampa = document.getElementById('mov-btn-stampa');
+  if (btnStampa) btnStampa.style.display = risultati.length ? '' : 'none';
+}
+
+var ECO_MOV_STATO_COLORI = {
+  DA_PAGARE: '#c8a84b', PAGATO: '#1a7a3a', PARZIALE: '#1a5aaa', SCADUTO: '#c02020', ANNULLATO: '#888'
+};
+var ECO_MOV_STATO_LABEL = {
+  DA_PAGARE: 'Da pagare', PAGATO: 'Pagato', PARZIALE: 'Parziale', SCADUTO: 'Scaduto', ANNULLATO: 'Annullato'
+};
+
+function ecoMovBuildHtml(risultati) {
+  var CSS = '<style>' +
+    '.movrpt{font-family:Arial,Helvetica,sans-serif;font-size:11.5px;color:#1a1a1a;' +
+      'background:#fff;padding:16px;max-width:100%;}' +
+    '.movrpt h1{font-family:Georgia,"Times New Roman",serif;font-size:16px;color:#1a2a4a;' +
+      'text-align:center;margin:0 0 2px;}' +
+    '.movrpt .sub{font-family:Georgia,"Times New Roman",serif;font-size:12px;color:#444;' +
+      'text-align:center;margin-bottom:4px;}' +
+    '.movrpt .meta{font-size:9.5px;color:#888;text-align:center;margin-bottom:12px;}' +
+    '.movrpt hr{border:none;border-top:2px solid #1a2a4a;margin:0 0 12px;}' +
+    '.movrpt table{width:100%;border-collapse:collapse;}' +
+    '.movrpt th{background:#1a2a4a;color:#fff;padding:5px 7px;font-size:10.5px;text-align:left;' +
+      'position:sticky;top:0;}' +
+    '.movrpt th.num{text-align:right;}' +
+    '.movrpt td{padding:4px 7px;border-bottom:1px solid #e5e5e5;font-size:11px;white-space:nowrap;}' +
+    '.movrpt td.num{text-align:right;font-variant-numeric:tabular-nums;}' +
+    '.movrpt td.desc{white-space:normal;max-width:220px;}' +
+    '.movrpt tr:nth-child(even){background:#fafafa;}' +
+    '.movrpt tr.tot td{font-weight:bold;background:#eef1f6;border-top:2px solid #1a2a4a;border-bottom:none;}' +
+    '.movrpt .stato-badge{font-weight:bold;font-size:10px;padding:1px 6px;border-radius:3px;color:#fff;}' +
+    '.movrpt .vuoto{color:#888;font-style:italic;padding:12px 0;text-align:center;}' +
+    '@media print{.movrpt{padding:0;} .movrpt table{font-size:10px;}}' +
+    '</style>';
+
+  var html = CSS + '<div class="movrpt">';
+  html += '<div style="text-align:center;margin-bottom:6px">';
+  if (typeof _LOGO_B64 !== 'undefined' && _LOGO_B64) {
+    html += '<img src="data:image/jpeg;base64,' + _LOGO_B64 + '" style="height:44px;" alt="Logo">';
+  }
+  html += '</div>';
+  html += '<h1>A.S.D. Basket Campodarsego</h1>';
+  html += '<div class="sub">Registro movimenti — esercizio ' + ecoMovAnno + '</div>';
+  html += '<div class="meta">Data generazione: ' + (typeof nowStr === 'function' ? nowStr() : new Date().toLocaleDateString('it-IT')) +
+    ' — ' + risultati.length + ' movimenti</div>';
+  html += '<hr>';
+
+  if (!risultati.length) {
+    html += '<div class="vuoto">Nessun movimento corrisponde ai filtri selezionati.</div></div>';
+    return html;
+  }
+
+  html += '<table><thead><tr>' +
+    '<th>Data</th><th class="left">Descrizione</th><th>Categoria</th><th>Sottocategoria</th>' +
+    '<th>Centro di costo</th><th>Conto</th><th>Tipo</th><th class="num">Importo</th><th>Stato</th>' +
+    '</tr></thead><tbody>';
+
+  var totEntrate = 0, totUscite = 0;
+  risultati.forEach(function (m) {
+    var imp = Number(m.importoEur) || 0;
+    if (m.tipoMovimento === 'ENTRATA') totEntrate += imp; else totUscite += imp;
+    var segno = m.tipoMovimento === 'ENTRATA' ? '+' : '−';
+    var dataRif = m.dataDocumento || m.dataRegistrazione || '';
+    var statoColore = ECO_MOV_STATO_COLORI[m.stato] || '#888';
+    var statoLabel = ECO_MOV_STATO_LABEL[m.stato] || m.stato || '';
+    html += '<tr>' +
+      '<td>' + ecoRepEsc(dataRif) + '</td>' +
+      '<td class="desc">' + ecoRepEsc(m.note || m.numeroDocumento || '') + '</td>' +
+      '<td>' + ecoRepEsc(ecoRepNomeCategoria(ecoMovConfigCache, m.categoriaCodice)) + '</td>' +
+      '<td>' + ecoRepEsc(m.sottocategoriaCodice ? ecoRepNomeSottocategoria(ecoMovConfigCache, m.sottocategoriaCodice) : '—') + '</td>' +
+      '<td>' + ecoRepEsc(ecoRepNomeCentroCosto(ecoMovConfigCache, m.centroCostoCodice)) + '</td>' +
+      '<td>' + ecoRepEsc(ecoRepNomeConto(ecoMovContiCache, m.contoFinanziarioId)) + '</td>' +
+      '<td>' + (m.tipoMovimento === 'ENTRATA' ? 'Entrata' : 'Uscita') + '</td>' +
+      '<td class="num">' + segno + ' ' + ecoRepEuro(imp) + '</td>' +
+      '<td><span class="stato-badge" style="background:' + statoColore + '">' + ecoRepEsc(statoLabel) + '</span></td>' +
+      '</tr>';
+  });
+
+  html += '<tr class="tot"><td colspan="7">Totali (risultati filtrati)</td>' +
+    '<td class="num">' + ecoRepEuro(totEntrate - totUscite) + '</td><td></td></tr>';
+  html += '<tr><td colspan="7" style="border:none;font-size:10px;color:#666">Entrate: ' + ecoRepEuro(totEntrate) +
+    ' &nbsp;|&nbsp; Uscite: ' + ecoRepEuro(totUscite) + '</td><td colspan="2" style="border:none"></td></tr>';
+  html += '</tbody></table></div>';
+  return html;
+}
+
+function ecoMovStampa() {
+  if (!window._ecoMovHTML) {
+    alert('Nessun risultato da stampare.');
+    return;
+  }
+  var titolo = 'Movimenti ' + ecoMovAnno;
+  var fullHtml = '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>' + titolo + '</title>' +
+    '<style>@page{size:A4 landscape;margin:8mm} @media print{body{margin:0}}</style></head><body>' + window._ecoMovHTML + '</body></html>';
+  try {
+    if (typeof _apriStampa === 'function') {
+      _apriStampa(fullHtml, titolo);
+    } else {
+      alert('Funzione di stampa non disponibile.');
+    }
+  } catch (e) {
+    console.error('[economia-report] errore stampa movimenti', e);
+    if (typeof log === 'function') log('[economia-report] errore stampa movimenti: ' + (e && e.message || e), 'err');
     alert('Errore stampa: ' + (e && e.message || e));
   }
 }
