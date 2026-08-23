@@ -1,8 +1,13 @@
 // ═══════════════════════════════════════════════════════
-// economia-movimenti-ui.js — ASD Basket Campodarsego
-// UI movimenti/scadenziario/conti finanziari (app principale)
-// Estratto da basket052441.html il 20/08/2026 per lavorare a file separati
-// (richiesta Alberto: file piccoli, moduli per argomento).
+// FILE: economia-movimenti-ui.js — ASD Basket Campodarsego
+// VERSIONE: v1.1 · 23/08/2026 · BK
+// v1.1: aggiunto ecoCopiaMovimento() + bottone "Copia" in ecoRenderMovimenti()
+//   (richiesta Alberto 23/08: duplicare un movimento esistente con data
+//   odierna, utile per la seconda gamba dei GIROCONTO). Data documento
+//   impostata a oggi per esplicita richiesta della funzione — non è un
+//   default di form generico, resto dei campi vuoti resta invariato altrove.
+// v1.0 · 20/08/2026: estratto da basket052441.html per lavorare a file
+//   separati (richiesta Alberto: file piccoli, moduli per argomento).
 // Dipende da: economia-core-DRAFT.js (funzioni pure), caricato PRIMA di
 // questo file. Va incluso con <script src> in basket052441.html, dopo
 // economia-core-DRAFT.js.
@@ -145,7 +150,8 @@ function ecoRenderMovimenti() {
       '<td>' + segno + '€' + Number(m.importoEur || 0).toFixed(2) + '</td>' +
       '<td>' + (m.dataScadenza || '-') + '</td>' +
       '<td><span style="color:' + colStato + ';font-weight:700;font-size:11px">' + m.stato + '</span></td>' +
-      '<td><button class="btn btn-gray btn-xs" onclick="ecoApriModalMovimento(\'' + m.id + '\')">Apri</button></td>' +
+      '<td><button class="btn btn-gray btn-xs" onclick="ecoApriModalMovimento(\'' + m.id + '\')">Apri</button> ' +
+      '<button class="btn btn-gray btn-xs" onclick="ecoCopiaMovimento(\'' + m.id + '\')">Copia</button></td>' +
       '</tr>';
   }).join('');
 }
@@ -212,6 +218,42 @@ function ecoApriModalMovimento(id) {
   document.getElementById('em-metodo').value = m ? (m.metodoPagamento || 'Bonifico') : 'Bonifico';
   document.getElementById('em-errore').textContent = '';
   document.getElementById('em-btn-annulla').style.display = (m && m.stato !== 'ANNULLATO') ? '' : 'none';
+  ecoOnCambioStato();
+  openModal('modal-eco-mov');
+}
+
+// ── Copia un movimento esistente in un nuovo movimento (v1.1, 23/08/2026).
+// Tutti i campi dell'originale tranne id/numeroMovimento, che vengono
+// rigenerati al salvataggio. Data documento portata a OGGI per esplicita
+// richiesta della funzione (caso d'uso: seconda gamba di un GIROCONTO,
+// o qualunque movimento ricorrente identico salvo la data). Se lo stato
+// copiato è PAGATO, anche la data di pagamento viene portata a oggi —
+// altrimenti resterebbe la data di pagamento originale su un movimento
+// che tecnicamente non è ancora stato pagato di nuovo; Alberto corregge
+// se serve prima di salvare. ──
+function ecoCopiaMovimento(id) {
+  var m = ecoMovimenti.find(function (x) { return x.id === id; });
+  if (!m) { console.error('[economia-ui] ecoCopiaMovimento: movimento non trovato: ' + id); alert('Movimento non trovato: ' + id); return; }
+  ecoPopolaSelectCodici();
+  var oggi = new Date().toISOString().slice(0, 10);
+  document.getElementById('em-id').value = '';
+  document.getElementById('modal-eco-mov-title').textContent = 'Copia movimento (nuovo)';
+  document.getElementById('em-tipo').value = m.tipoMovimento;
+  document.getElementById('em-importo').value = m.importoEur;
+  document.getElementById('em-categoria').value = m.categoriaCodice || '';
+  document.getElementById('em-sottocategoria').value = m.sottocategoriaCodice || '';
+  document.getElementById('em-centrocosto').value = m.centroCostoCodice || '';
+  document.getElementById('em-conto').value = m.contoFinanziarioId || '';
+  document.getElementById('em-datadoc').value = oggi;
+  document.getElementById('em-datascad').value = m.dataScadenza || '';
+  document.getElementById('em-annoesercizio').value = ecoAnnoCorrente;
+  document.getElementById('em-numdoc').value = '';
+  document.getElementById('em-note').value = m.note || '';
+  document.getElementById('em-stato').value = m.stato;
+  document.getElementById('em-datapag').value = m.stato === 'PAGATO' ? oggi : (m.dataPagamento || '');
+  document.getElementById('em-metodo').value = m.metodoPagamento || 'Bonifico';
+  document.getElementById('em-errore').textContent = '';
+  document.getElementById('em-btn-annulla').style.display = 'none'; // nuovo movimento, non ancora salvato: nulla da annullare
   ecoOnCambioStato();
   openModal('modal-eco-mov');
 }
