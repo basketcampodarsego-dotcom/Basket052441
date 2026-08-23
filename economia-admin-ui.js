@@ -34,6 +34,7 @@ function ecoCaricaConfig(onOk, onErrore) {
           var msgParse = '[economia-admin] errore parsing economiaConfig: ' + ex.message;
           console.error(msgParse, ex);
           if (typeof log === 'function') log(msgParse, 'err');
+          alert('ATTENZIONE: economiaConfig corrotto (' + ex.message + '). Le tabelle codici verranno mostrate VUOTE anche se in realtà contengono dati — NON aggiungere/modificare codici finché non è risolto, si rischia di sovrascrivere i dati esistenti.');
         }
       }
     }
@@ -161,7 +162,7 @@ var ECO_SEED_MAP = { categorie: (typeof ECO_SEED_CATEGORIE !== 'undefined' ? ECO
 
 function ecoRenderSeedBar(nomeTabella, righe) {
   var bar = document.getElementById('eco-seed-bar');
-  if (!bar) return;
+  if (!bar) { console.error('[economia-admin] #eco-seed-bar non trovato nel DOM — HTML disallineato dal JS?'); return; }
   var seed = ECO_SEED_MAP[nomeTabella];
   if (!seed || (righe && righe.length > 0)) { bar.innerHTML = ''; return; }
   bar.innerHTML = '<button type="button" onclick="ecoCaricaSeed(\'' + nomeTabella + '\')">'

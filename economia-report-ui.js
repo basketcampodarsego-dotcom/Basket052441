@@ -43,7 +43,7 @@ function ecoMostraSezione(sezione) {
 
 function ecoRepPopolaAnni() {
   var sel = document.getElementById('eco-rep-anno');
-  if (!sel) return;
+  if (!sel) { console.error('[economia-report] #eco-rep-anno non trovato nel DOM — HTML disallineato dal JS?'); return; }
   var oggi = new Date().getFullYear();
   var cur = sel.value;
   sel.innerHTML = '';
@@ -86,6 +86,7 @@ function ecoRepGenera() {
       } catch (ex) {
         console.error('[economia-report] errore parsing economiaConfig', ex);
         if (typeof log === 'function') log('[economia-report] errore parsing economiaConfig: ' + ex.message, 'err');
+        alert('ATTENZIONE: economiaConfig non leggibile (' + ex.message + '). Categorie/sottocategorie/centri di costo NON risolti nel Bilancio — i nomi mostreranno i codici grezzi.');
       }
     }
     if (!config.categorie) config.categorie = [];
@@ -414,7 +415,7 @@ var ecoMovOrdineAsc = false; // false = più recenti in cima (default)
 
 function ecoMovPopolaAnni() {
   var sel = document.getElementById('mov-filtro-anno');
-  if (!sel) return;
+  if (!sel) { console.error('[economia-report] #mov-filtro-anno non trovato nel DOM — HTML disallineato dal JS?'); return; }
   var oggi = new Date().getFullYear();
   var cur = sel.value;
   sel.innerHTML = '';
@@ -428,7 +429,7 @@ function ecoMovPopolaFiltriCodici() {
   var cfg = ecoMovConfigCache;
   function fill(id, righe, conEmpty) {
     var sel = document.getElementById(id);
-    if (!sel) return;
+    if (!sel) { console.error('[economia-report] #' + id + ' non trovato nel DOM — HTML disallineato dal JS?'); return; }
     var cur = sel.value;
     sel.innerHTML = '<option value="">' + conEmpty + '</option>';
     righe.forEach(function (r) {
@@ -479,6 +480,8 @@ function ecoMovCarica() {
         if (parsed && typeof parsed === 'object') config = parsed;
       } catch (ex) {
         console.error('[economia-report] errore parsing economiaConfig', ex);
+        if (typeof log === 'function') log('[economia-report] errore parsing economiaConfig: ' + ex.message, 'err');
+        alert('ATTENZIONE: economiaConfig non leggibile (' + ex.message + '). Categorie/sottocategorie/centri di costo NON risolti — i nomi mostreranno i codici grezzi.');
       }
     }
     if (!config.categorie) config.categorie = [];
@@ -493,6 +496,8 @@ function ecoMovCarica() {
         if (Array.isArray(parsedC)) conti = parsedC;
       } catch (ex) {
         console.error('[economia-report] errore parsing economiaConti', ex);
+        if (typeof log === 'function') log('[economia-report] errore parsing economiaConti: ' + ex.message, 'err');
+        alert('ATTENZIONE: economiaConti non leggibile (' + ex.message + '). Il filtro Conto non funzionerà correttamente.');
       }
     }
     ecoMovContiCache = conti;
@@ -528,6 +533,12 @@ function ecoMovToggleOrdine() {
 // Filtro + ordinamento client-side, sempre a partire da ecoMovDati
 // (i movimenti dell'esercizio già caricato — cambiare esercizio richiede
 // ecoMovCarica(), tutti gli altri filtri no). ──
+// ── Filtro con traccia diagnostica passo-passo. Ogni filtro viene applicato
+// separatamente e si conta quanti movimenti sopravvivono DOPO ciascuno —
+// così si vede esattamente quale filtro sta scartando più del previsto,
+// invece di un'unica catena opaca. Richiesta esplicita di Alberto 23/08:
+// "ad ogni errore/filtraggio venga fuori un messaggio", coerente con R2
+// (nessuna uscita silenziosa). ──
 function ecoMovApplicaFiltri() {
   var dataDa = document.getElementById('mov-filtro-data-da').value || null;
   var dataA = document.getElementById('mov-filtro-data-a').value || null;
@@ -539,26 +550,75 @@ function ecoMovApplicaFiltri() {
   var tipoF = document.getElementById('mov-filtro-tipo').value || null;
   var testoF = (document.getElementById('mov-filtro-testo').value || '').trim().toLowerCase();
 
-  var risultati = ecoMovDati.filter(function (m) {
-    var dataRif = m.dataDocumento || m.dataRegistrazione || '';
-    if (dataDa && dataRif && dataRif < dataDa) return false;
-    if (dataA && dataRif && dataRif > dataA) return false;
-    if (catF && ecoRepNorm(m.categoriaCodice) !== ecoRepNorm(catF)) return false;
-    if (subF && ecoRepNorm(m.sottocategoriaCodice) !== ecoRepNorm(subF)) return false;
-    if (centroF && ecoRepNorm(m.centroCostoCodice) !== ecoRepNorm(centroF)) return false;
-    if (contoF && m.contoFinanziarioId !== contoF) return false;
-    if (statoF && m.stato !== statoF) return false;
-    if (tipoF && m.tipoMovimento !== tipoF) return false;
-    if (testoF && (m.note || '').toLowerCase().indexOf(testoF) === -1 &&
-        (m.numeroDocumento || '').toLowerCase().indexOf(testoF) === -1) return false;
-    return true;
-  }).sort(function (a, b) {
+  var traccia = [];
+  var attuali = ecoMovDati.slice();
+  traccia.push({ passo: 'Movimenti caricati (esercizio ' + ecoMovAnno + ')', rimasti: attuali.length });
+
+  if (dataDa) {
+    attuali = attuali.filter(function (m) {
+      var dataRif = m.dataDocumento || m.dataRegistrazione || '';
+      return !dataRif || dataRif >= dataDa;
+    });
+    traccia.push({ passo: 'Data da ' + dataDa, rimasti: attuali.length });
+  }
+  if (dataA) {
+    attuali = attuali.filter(function (m) {
+      var dataRif = m.dataDocumento || m.dataRegistrazione || '';
+      return !dataRif || dataRif <= dataA;
+    });
+    traccia.push({ passo: 'Data a ' + dataA, rimasti: attuali.length });
+  }
+  if (catF) {
+    attuali = attuali.filter(function (m) { return ecoRepNorm(m.categoriaCodice) === ecoRepNorm(catF); });
+    traccia.push({ passo: 'Categoria = ' + catF, rimasti: attuali.length });
+  }
+  if (subF) {
+    attuali = attuali.filter(function (m) { return ecoRepNorm(m.sottocategoriaCodice) === ecoRepNorm(subF); });
+    traccia.push({ passo: 'Sottocategoria = ' + subF, rimasti: attuali.length });
+  }
+  if (centroF) {
+    attuali = attuali.filter(function (m) { return ecoRepNorm(m.centroCostoCodice) === ecoRepNorm(centroF); });
+    traccia.push({ passo: 'Centro di costo = ' + centroF, rimasti: attuali.length });
+  }
+  if (contoF) {
+    attuali = attuali.filter(function (m) { return m.contoFinanziarioId === contoF; });
+    traccia.push({ passo: 'Conto = ' + contoF, rimasti: attuali.length });
+  }
+  if (statoF) {
+    attuali = attuali.filter(function (m) { return m.stato === statoF; });
+    traccia.push({ passo: 'Stato = ' + statoF, rimasti: attuali.length });
+  }
+  if (tipoF) {
+    attuali = attuali.filter(function (m) { return m.tipoMovimento === tipoF; });
+    traccia.push({ passo: 'Tipo = ' + tipoF, rimasti: attuali.length });
+  }
+  if (testoF) {
+    attuali = attuali.filter(function (m) {
+      return (m.note || '').toLowerCase().indexOf(testoF) > -1 ||
+        (m.numeroDocumento || '').toLowerCase().indexOf(testoF) > -1;
+    });
+    traccia.push({ passo: 'Testo contiene "' + testoF + '"', rimasti: attuali.length });
+  }
+
+  var risultati = attuali.sort(function (a, b) {
     var da = a.dataDocumento || a.dataRegistrazione || '';
     var db = b.dataDocumento || b.dataRegistrazione || '';
     return ecoMovOrdineAsc ? da.localeCompare(db) : db.localeCompare(da);
   });
 
+  ecoMovRenderTraccia(traccia);
   ecoMovRender(risultati);
+}
+
+function ecoMovRenderTraccia(traccia) {
+  var el = document.getElementById('mov-traccia-diag');
+  if (!el) { console.error('[economia-report] #mov-traccia-diag non trovato nel DOM — HTML disallineato dal JS?'); return; }
+  if (traccia.length <= 1) { el.innerHTML = ''; return; }
+  var html = '<div style="font-size:.78em;color:#8a9aaa;background:#0d1a2a;border-radius:4px;padding:6px 10px;margin-bottom:8px;">';
+  html += '<strong>Traccia filtri:</strong> ';
+  html += traccia.map(function (t) { return t.passo + ' → ' + t.rimasti; }).join(' &nbsp;|&nbsp; ');
+  html += '</div>';
+  el.innerHTML = html;
 }
 
 function ecoMovRender(risultati) {
