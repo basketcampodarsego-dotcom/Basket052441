@@ -425,6 +425,23 @@ function ecoMovPopolaAnni() {
   sel.value = cur || String(ecoMovAnno);
 }
 
+// ── Solo codici ATTIVI nelle select di scelta filtro (23/08/2026, richiesta
+// Alberto: i disattivati restano ingombro/fastidio nelle liste). Usa
+// ecoCodiciAttivi() di economia-core-DRAFT.js se disponibile — stessa
+// funzione già usata in economia-admin-ui.js, non reinventata qui. Fallback
+// esplicito con log se manca (deploy parziale), mai un filtro silenzioso
+// diverso da quello reale. NOTA: questo NON tocca la risoluzione
+// nome->codice nei tabulati (ecoRepNome*), che deve continuare a leggere
+// l'intera tabella inclusi i disattivati — un movimento storico con un
+// codice ormai disattivato deve restare leggibile con la sua descrizione,
+// non sparire o mostrare il codice grezzo. ──
+function ecoRepSoloAttivi(righe) {
+  if (typeof ecoCodiciAttivi === 'function') return ecoCodiciAttivi(righe);
+  console.error('[economia-report] ecoCodiciAttivi non disponibile (economia-core-DRAFT.js mancante/vecchio) — filtro attivo/disattivo NON applicato, mostro tutti i codici');
+  if (typeof log === 'function') log('[economia-report] ecoCodiciAttivi mancante: filtri codici mostrano anche i disattivati', 'err');
+  return righe || [];
+}
+
 function ecoMovPopolaFiltriCodici() {
   var cfg = ecoMovConfigCache;
   function fill(id, righe, conEmpty) {
@@ -432,7 +449,7 @@ function ecoMovPopolaFiltriCodici() {
     if (!sel) { console.error('[economia-report] #' + id + ' non trovato nel DOM — HTML disallineato dal JS?'); return; }
     var cur = sel.value;
     sel.innerHTML = '<option value="">' + conEmpty + '</option>';
-    righe.forEach(function (r) {
+    ecoRepSoloAttivi(righe).forEach(function (r) {
       sel.innerHTML += '<option value="' + r.codice + '">' + ecoRepEsc(r.descrizione) + '</option>';
     });
     sel.value = cur;
