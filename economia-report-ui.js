@@ -71,7 +71,12 @@ function ecoRepGenera() {
   var col = window._db.collection('basket052441');
   Promise.all([
     col.doc('economiaConfig').get(),
-    col.doc('economia').collection('movimenti').where('annoEsercizio', '==', ecoRepAnno).get()
+    // NIENTE where('annoEsercizio','==',...) qui: Firestore confronta anche
+    // il TIPO, non solo il valore — un solo movimento con annoEsercizio
+    // salvato come stringa "2026" invece di numero 2026 sparirebbe dai
+    // risultati senza errori. Si carica tutto e si filtra lato client con
+    // confronto tollerante al tipo (23/08/2026, bug reale riscontrato).
+    col.doc('economia').collection('movimenti').get()
   ]).then(function (res) {
     var config = { categorie: [], sottocategorie: [], centriCosto: [] };
     if (res[0].exists && res[0].data().v) {
@@ -86,11 +91,14 @@ function ecoRepGenera() {
     if (!config.categorie) config.categorie = [];
     if (!config.sottocategorie) config.sottocategorie = [];
     if (!config.centriCosto) config.centriCosto = [];
-    var movimenti = [];
-    res[1].forEach(function (doc) { movimenti.push(doc.data()); });
+    var tuttiMovimenti = [];
+    res[1].forEach(function (doc) { tuttiMovimenti.push(doc.data()); });
+    var movimenti = tuttiMovimenti.filter(function (m) {
+      return parseInt(m.annoEsercizio, 10) === ecoRepAnno;
+    });
     var dati = ecoRepCalcola(movimenti, config);
     ecoRepRender(dati, ecoRepAnno);
-    if (typeof log === 'function') log('Bilancio ' + ecoRepAnno + ': ' + movimenti.length + ' movimenti letti', 'ok');
+    if (typeof log === 'function') log('Bilancio ' + ecoRepAnno + ': ' + movimenti.length + '/' + tuttiMovimenti.length + ' movimenti (esercizio/totale)', 'ok');
   }).catch(function (err) {
     var msgErr = '[economia-report] errore caricamento dati bilancio: ' + (err && err.message || err);
     console.error(msgErr, err);
@@ -458,7 +466,11 @@ function ecoMovCarica() {
   Promise.all([
     col.doc('economiaConfig').get(),
     col.doc('economiaConti').get(),
-    col.doc('economia').collection('movimenti').where('annoEsercizio', '==', ecoMovAnno).get()
+    // NIENTE where('annoEsercizio','==',...): vedi nota in ecoRepGenera —
+    // un mismatch di tipo (stringa vs numero) sul campo fa sparire
+    // silenziosamente i documenti dalla query. Si carica tutto, si filtra
+    // qui sotto con parseInt tollerante.
+    col.doc('economia').collection('movimenti').get()
   ]).then(function (res) {
     var config = { categorie: [], sottocategorie: [], centriCosto: [] };
     if (res[0].exists && res[0].data().v) {
@@ -485,13 +497,19 @@ function ecoMovCarica() {
     }
     ecoMovContiCache = conti;
 
-    var movimenti = [];
-    res[2].forEach(function (doc) { movimenti.push(doc.data()); });
+    var tuttiMovimenti = [];
+    res[2].forEach(function (doc) { tuttiMovimenti.push(doc.data()); });
+    var movimenti = tuttiMovimenti.filter(function (m) {
+      return parseInt(m.annoEsercizio, 10) === ecoMovAnno;
+    });
     ecoMovDati = movimenti;
 
     ecoMovPopolaFiltriCodici();
     ecoMovApplicaFiltri();
-    if (typeof log === 'function') log('Movimenti ' + ecoMovAnno + ': ' + movimenti.length + ' letti', 'ok');
+    var msgConteggio = 'Movimenti esercizio ' + ecoMovAnno + ': ' + movimenti.length + ' su ' + tuttiMovimenti.length + ' totali nel database';
+    if (typeof log === 'function') log(msgConteggio, 'ok');
+    var contatoreEl = document.getElementById('mov-contatore-diag');
+    if (contatoreEl) contatoreEl.textContent = msgConteggio;
   }).catch(function (err) {
     var msgErr = '[economia-report] errore caricamento movimenti: ' + (err && err.message || err);
     console.error(msgErr, err);
