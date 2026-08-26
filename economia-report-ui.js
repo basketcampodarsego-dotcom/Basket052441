@@ -1,10 +1,20 @@
 // ════════════════════════════════════════════════════════
-// economia-report-ui.js — ASD Basket Campodarsego
-// Report Bilancio (eco-04): saldi per centro di costo, per categoria,
-// dettaglio per sottocategoria. Vista a schermo + stampabile con logo.
-// Creato il 22/08/2026. Dipende da: economia-core-DRAFT.js (nessuna
-// funzione pura specifica qui, calcolo self-contained) e da funzioni
-// già in basket-core.js: nowStr(), _apriStampa(), _LOGO_B64.
+// FILE: economia-report-ui.js — ASD Basket Campodarsego
+// VERSIONE: v1.2 · 23/08/2026 · BK
+// v1.2: aggiunta ecoMovEsportaCSV() + bottone "Esporta CSV" nel Registro
+//   Movimenti (richiesta Alberto: liste costi/ricavi per centro di costo
+//   utilizzabili fuori dall'app, es. offerte amministrative). Esporta
+//   sempre gli stessi risultati filtrati già mostrati a schermo
+//   (window._ecoMovRisultati), mai un ricalcolo separato.
+// v1.1 · 23/08/2026: aggiunta ecoRepSoloAttivi()/ecoCodiciAttivi() in
+//   ecoMovPopolaFiltriCodici() — le select filtro Movimenti mostrano solo
+//   codici attivi (i disattivati restavano in lista, "fastidio").
+// v1.0 · 22/08/2026: creazione — Report Bilancio (eco-04): saldi per
+//   centro di costo, per categoria, dettaglio per sottocategoria. Vista a
+//   schermo + stampabile con logo.
+// Dipende da: economia-core-DRAFT.js (nessuna funzione pura specifica qui,
+// calcolo self-contained) e da funzioni già in basket-core.js: nowStr(),
+// _apriStampa(), _LOGO_B64.
 // Legge Firestore direttamente (sola lettura): basket052441/economiaConfig
 // e basket052441/economia/movimenti — stessa struttura dati di
 // economia-movimenti-ui.js, nessuna scrittura da qui.
@@ -294,7 +304,7 @@ function ecoRepBuildHtml(dati, anno) {
     '.rpt tr.riga-tot-flusso td{font-weight:bold;border-top:1px solid #999;border-bottom:none;padding-top:5px;}' +
     '.rpt .vuoto{color:#999;font-style:italic;font-size:11px;padding:4px 0 8px;}' +
     '.rpt .centro-saldo-riga{background:#f4f4f4;padding:6px 14px;display:flex;justify-content:space-between;' +
-      'font-weight:bold;font-size:12.5px;border-top:1px solid #ccc;}' +
+      'font-size:12px;font-weight:bold;}' +
     '.rpt .centro-saldo-riga .neg{color:#a02020;}' +
     '.rpt .centro-saldo-riga .pos{color:#1a2a4a;}' +
     // Totale finale
@@ -627,6 +637,62 @@ function ecoMovApplicaFiltri() {
   ecoMovRender(risultati);
 }
 
+// ── Esporta CSV (v1, 23/08/2026) — richiesta Alberto: liste costi/ricavi
+// per centro di costo per uso esterno (offerte amministrative, commercialista,
+// ecc.). Esporta ESATTAMENTE window._ecoMovRisultati, cioè la stessa lista
+// filtrata già mostrata a schermo da ecoMovApplicaFiltri()/ecoMovRender() —
+// mai un ricalcolo separato, altrimenti CSV e vista a schermo potrebbero
+// divergere silenziosamente in futuro se uno dei due punti viene toccato
+// senza toccare l'altro. Nomi di categoria/centro di costo risolti tramite
+// ecoRepNome*() (stessa risoluzione usata nel tabulato stampato), non i
+// codici grezzi — più leggibile per chi riceve il file fuori dall'app. ──
+function ecoMovEsportaCSV() {
+  var risultati = window._ecoMovRisultati || [];
+  if (!risultati.length) { console.error('[economia-report] ecoMovEsportaCSV: nessun risultato da esportare'); alert('Nessun movimento da esportare con i filtri correnti.'); return; }
+  var config = ecoMovConfigCache || { categorie: [], sottocategorie: [], centriCosto: [] };
+  var conti = ecoMovContiCache || [];
+
+  function csvCella(v) {
+    v = (v == null) ? '' : String(v);
+    if (v.indexOf('"') > -1 || v.indexOf(';') > -1 || v.indexOf('\n') > -1) {
+      v = '"' + v.replace(/"/g, '""') + '"';
+    }
+    return v;
+  }
+
+  var intestazione = ['Data', 'Numero movimento', 'Tipo', 'Categoria', 'Sottocategoria', 'Centro di costo', 'Conto', 'Importo EUR', 'Stato', 'Note'];
+  var righe = [intestazione.join(';')];
+  risultati.forEach(function (m) {
+    var riga = [
+      m.dataDocumento || m.dataRegistrazione || '',
+      m.numeroMovimento || '',
+      m.tipoMovimento === 'ENTRATA' ? 'Entrata' : 'Uscita',
+      ecoRepNomeCategoria(config, m.categoriaCodice),
+      ecoRepNomeSottocategoria(config, m.sottocategoriaCodice),
+      ecoRepNomeCentroCosto(config, m.centroCostoCodice),
+      ecoRepNomeConto(conti, m.contoFinanziarioId),
+      Number(m.importoEur || 0).toFixed(2).replace('.', ','),
+      m.stato || '',
+      m.note || ''
+    ];
+    righe.push(riga.map(csvCella).join(';'));
+  });
+
+  // BOM UTF-8 iniziale: senza, Excel su Windows interpreta male gli accenti.
+  var contenuto = '\uFEFF' + righe.join('\r\n');
+  var blob = new Blob([contenuto], { type: 'text/csv;charset=utf-8;' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  var oggi = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = 'movimenti_' + oggi + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  if (typeof log === 'function') log('Economia: esportati ' + risultati.length + ' movimenti in CSV', 'ok');
+}
+
 function ecoMovRenderTraccia(traccia) {
   var el = document.getElementById('mov-traccia-diag');
   if (!el) { console.error('[economia-report] #mov-traccia-diag non trovato nel DOM — HTML disallineato dal JS?'); return; }
@@ -641,10 +707,13 @@ function ecoMovRenderTraccia(traccia) {
 function ecoMovRender(risultati) {
   var html = ecoMovBuildHtml(risultati);
   window._ecoMovHTML = html;
+  window._ecoMovRisultati = risultati; // usato da ecoMovEsportaCSV — stessa lista, stessi filtri
   var out = document.getElementById('mov-output');
   if (out) out.innerHTML = html;
   var btnStampa = document.getElementById('mov-btn-stampa');
   if (btnStampa) btnStampa.style.display = risultati.length ? '' : 'none';
+  var btnCsv = document.getElementById('mov-btn-csv');
+  if (btnCsv) btnCsv.style.display = risultati.length ? '' : 'none';
 }
 
 var ECO_MOV_STATO_COLORI = {
@@ -736,7 +805,7 @@ function ecoMovStampa() {
   }
   var titolo = 'Movimenti ' + ecoMovAnno;
   var fullHtml = '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>' + titolo + '</title>' +
-    '<style>@page{size:A4 landscape;margin:8mm} @media print{body{margin:0}}</style></head><body>' + window._ecoMovHTML + '</body></html>';
+    '<style>@page{size:A4 landscape;margin:8mm}</style></head><body>' + window._ecoMovHTML + '</body></html>';
   try {
     if (typeof _apriStampa === 'function') {
       _apriStampa(fullHtml, titolo);
