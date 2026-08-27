@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.58 · 26/08/2026 09:50 -->
+<!-- basket052441-admin.html | v9.59 · 27/08/2026 01:15 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,50 +8,63 @@
 <title>Basket052441 — Admin DB v6.0</title>
 <style>
   :root{
-    --bg:#0d1117;--bg2:#161b22;--bg3:#1a2332;
-    --border:#2a3a4a;--gold:#c8a84b;--text:#c8d8e8;--muted:#6a8a9a;
-    --green:#2ea043;--red:#da3633;--blue:#388bfd;
+    /* Palette unificata con basket052441.html (26/08/2026) — prima l'admin
+       usava un grigio-scuro generico da "strumento per sviluppatori"
+       (#0d1117, letteralmente i colori di GitHub), mentre l'app principale
+       ha già un'identità reale legata al club (navy + oro, i colori di
+       un'ASD/arbitro). Qui si porta la stessa identità, non se ne inventa
+       una nuova: continuità grafica tra le pagine di uno stesso prodotto. */
+    --bg:#08111f;--bg2:#101e34;--bg3:#0d1829;
+    --border:#1e3050;--gold:#c8a84b;--gold2:#e8c86b;--text:#e2ddd4;--muted:#7a8fa8;--dark:#3a5070;
+    --green:#22a85a;--red:#e03545;--blue:#1a5aaa;--orange:#c87020;--radius:10px;
   }
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-  /* TOPBAR */
-  .topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
-  .topbar-logo{width:36px;height:36px;border-radius:50%;object-fit:cover;}
-  .topbar-title{font-size:15px;font-weight:700;color:var(--gold);flex:1;}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+  /* TOPBAR — stesso trattamento del topbar dell'app principale (gradiente
+     scuro + bordo oro sotto), non più un rettangolo piatto grigio */
+  .topbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:linear-gradient(90deg,#06101c,#0d1e38);border-bottom:1px solid var(--gold);position:sticky;top:0;z-index:100;min-height:52px;}
+  .topbar-logo{width:36px;height:36px;object-fit:contain;}
+  .topbar-title{font-size:15px;font-weight:700;color:var(--gold);flex:1;letter-spacing:.01em;}
   .topbar-sub{font-size:10px;color:var(--muted);}
   .topbar-right{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);}
-  /* NAV TABS */
+  /* NAV TABS — target tocco portato a 44px minimi (era ~40px), stesso
+     accento oro sotto la tab attiva già usato nel drawer dell'app principale */
   .nav-tabs{display:flex;overflow-x:auto;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 8px;gap:2px;scrollbar-width:none;}
   .nav-tabs-wrap{position:relative;}
   .nav-tabs-fade{position:absolute;top:0;right:0;bottom:1px;width:28px;pointer-events:none;background:linear-gradient(to right, transparent, var(--bg2) 80%);opacity:1;transition:opacity .15s;}
   .nav-tabs-fade.hidden{opacity:0;}
   .nav-tabs::-webkit-scrollbar{display:none;}
-  .nav-tab{padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;}
+  .nav-tab{padding:13px 14px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:color .15s;min-height:44px;display:flex;align-items:center;}
   .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
   .nav-tab:hover:not(.active){color:var(--text);}
   /* PAGES */
   .adm-page{display:none;padding:16px;max-width:760px;margin:0 auto;}
   .adm-page.active{display:block;}
-  /* CARDS */
-  .card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:14px;}
+  /* CARDS — raggio coerente col resto dell'app (10px, era 8px) */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
   .card-title{color:var(--gold);font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
   .card-desc{font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5;}
-  /* FORM */
-  label{font-size:11px;color:var(--muted);display:block;margin-bottom:3px;}
-  input,select,textarea{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:13px;margin-bottom:10px;}
+  /* FORM — input più alti e leggibili (14px invece di 13px, padding
+     verticale maggiore) per essere comodi da toccare su telefono */
+  label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px;font-weight:500;}
+  input,select,textarea{width:100%;padding:11px 12px;background:#06101c;border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;margin-bottom:10px;transition:border-color .15s;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);}
   textarea{height:160px;font-family:'Courier New',monospace;font-size:12px;resize:vertical;}
-  /* BUTTONS */
-  .btn{padding:8px 16px;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:600;min-height:36px;}
-  .btn-gold{background:var(--gold);color:#0d1117;}
+  /* BUTTONS — 44px minimo (standard di accessibilità touch, era 36px);
+     btn-gold con lo stesso gradiente oro del bottone di login principale
+     invece di un oro piatto, per coerenza con l'identità del brand */
+  .btn{padding:10px 16px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;min-height:44px;transition:opacity .15s;}
+  .btn:active{opacity:.85;}
+  .btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold2));color:#06101c;}
   .btn-red{background:#3a1010;color:#ff9090;border:1px solid #6a2020;}
   .btn-blue{background:#0d2a4a;color:#88c0ff;border:1px solid #1a4a7a;}
   .btn-green{background:#0d2a1a;color:#88ffaa;border:1px solid #1a4a2a;}
   .btn-gray{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
   .btn:disabled{opacity:0.35;cursor:not-allowed;}
-  .btn-sm{padding:5px 12px;font-size:11px;min-height:28px;}
+  .btn-sm{padding:7px 12px;font-size:11px;min-height:36px;}
   /* STATS */
   .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:14px;}
-  .stat{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;}
+  .stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 10px;text-align:center;}
   .stat-n{font-size:26px;font-weight:700;color:var(--gold);}
   .stat-l{font-size:10px;color:var(--muted);margin-top:2px;}
   /* STATUS */
@@ -61,20 +74,20 @@
   @keyframes pulse{from{opacity:.5}to{opacity:1}}
   /* OP ROWS */
   .op-list{display:flex;flex-direction:column;gap:8px;}
-  .op-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:6px;}
+  .op-row{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
   .op-info{flex:1;}
   .op-title{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;}
   .op-desc{font-size:11px;color:var(--muted);}
   .params{margin-top:8px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   /* BADGES */
-  .badge{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;font-weight:700;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;}
   .badge-warn{background:#3a2a00;color:var(--gold);}
   .badge-safe{background:#0d2a1a;color:#88ffaa;}
   .badge-mod{background:#0d1a3a;color:#88c0ff;}
   /* LOG */
-  .log{background:#060e18;border:1px solid var(--border);border-radius:5px;padding:12px;font-family:'Courier New',monospace;font-size:11px;height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
-  .log .ok{color:#4aaa6a;} .log .warn{color:var(--gold);} .log .err{color:#cc4444;} .log .info{color:#4a9aaa;}
+  .log{background:#060e18;border:1px solid var(--border);border-radius:8px;padding:12px;font-family:'Courier New',monospace;font-size:11px;height:260px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
+  .log .ok{color:#4aaa6a;} .log .warn{color:var(--gold);} .log .err{color:#ff6868;} .log .info{color:#5aa8ba;}
   .sep{border:none;border-top:1px solid var(--border);margin:12px 0;}
   .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
@@ -88,7 +101,7 @@
   ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
   .modal-ov{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;}
   .modal-ov.show{display:flex;}
-  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;width:92%;max-width:640px;max-height:85vh;overflow-y:auto;}
+  .modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:92%;max-width:640px;max-height:85vh;overflow-y:auto;}
   .modal-title{font-weight:700;color:var(--gold);margin-bottom:14px;font-size:14px;}
   .btn-bar{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;}
   /* TOAST — porta il pattern da basket052441.html (mancava qui: causa del
@@ -125,7 +138,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.58 · 26/08/2026 09:50 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.59 · 27/08/2026 01:15 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -144,7 +157,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.58 · 26/08/2026 09:50</div>
+    <div class="topbar-sub">Build v9.59 · 27/08/2026 01:15</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -157,12 +170,11 @@
 <!-- NAV TABS -->
 <div class="nav-tabs-wrap">
 <div class="nav-tabs" id="nav-tabs" onscroll="_navTabsFadeUpdate()">
-  <div class="nav-tab active" onclick="admGoTab('db')">🗄 DB</div>
-  <div class="nav-tab" onclick="admGoTab('import')">📥 Import</div>
+  <div class="nav-tab active" onclick="admGoTab('dati')">📇 Dati</div>
   <div class="nav-tab" onclick="admGoTab('report')">📊 Report</div>
-  <div class="nav-tab" onclick="admGoTab('ops')">🔧 Operazioni</div>
-  <div class="nav-tab" onclick="admGoTab('log')">📋 Log</div>
+  <div class="nav-tab" onclick="admGoTab('backup')">🔒 Backup e sicurezza</div>
   <div class="nav-tab" onclick="admGoTab('economia')">💶 Economia</div>
+  <div class="nav-tab" onclick="admGoTab('log')">📋 Log</div>
 </div>
 <div class="nav-tabs-fade" id="nav-tabs-fade"></div>
 </div>
@@ -180,52 +192,22 @@ window.addEventListener('resize', _navTabsFadeUpdate);
 document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFadeUpdate, 50); });
 </script>
 
-<!-- PAGE: DB -->
-<div class="adm-page active" id="adm-page-db">
+<!-- PAGE: DATI (26/08/2026 — prima erano DB+Import+parte di Operazioni
+     su 3 tab diverse: import/export/salvataggio dati atleti mescolati con
+     nomi tecnici invece che per compito. Consolidati qui: tutto quello che
+     riguarda l'anagrafica atleti in un solo posto.) -->
+<div class="adm-page active" id="adm-page-dati">
   <div class="card">
     <div class="card-title">Stato database</div>
     <div class="stats-row">
       <div class="stat"><div class="stat-n" id="s-atleti">—</div><div class="stat-l">Atleti</div></div>
       <div class="stat"><div class="stat-n" id="s-pag">—</div><div class="stat-l">Pagamenti</div></div>
     </div>
-    <button class="btn btn-gray btn-sm" onclick="clearLog()">Pulisci log</button>
   </div>
 
   <div class="card">
-    <div class="card-title">📦 Utility DB</div>
-    <div class="op-list">
-      <!-- Genera ZIP ricevute -->
-      <div class="op-row">
-        <div class="op-info">
-          <div class="op-title">Genera ZIP ricevute PDF <span class="badge badge-safe">SOLA LETTURA</span></div>
-          <div class="op-desc">Archivio ZIP con ricevute PDF detraibili per anno/tipo.</div>
-          <div class="params" style="display:block">
-            <div class="grid2">
-              <div><label>Annata</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
-              <div><label>Tipo</label><select id="op-det-pdf"><option value="det">Solo detraibili</option><option value="ndet">Solo N-DET</option><option value="tutti">Tutti</option></select></div>
-            </div>
-          </div>
-        </div>
-        <button class="btn btn-blue" onclick="runOp('ricevutePDF')" id="btn-ricevutePDF" disabled>Genera ZIP</button>
-      </div>
-      <!-- Backup -->
-      <div class="op-row">
-        <div class="op-info">
-          <div class="op-title">Backup completo DB <span class="badge badge-safe">SOLA LETTURA</span></div>
-          <div class="op-desc">Scarica JSON con tutto il contenuto Firebase.</div>
-        </div>
-        <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
-      </div>
-    </div>
-  </div>
-</div><!-- fine adm-page-db -->
-
-<!-- PAGE: IMPORT -->
-<div class="adm-page" id="adm-page-import">
-
-  <div class="card">
-    <div class="card-title">📋 Iscrizioni FIP</div>
-    <div class="card-desc">Importa iscrizioni FIP da statini storici (2013/14–oggi). Non sovrascrive dati esistenti.</div>
+    <div class="card-title">📋 Iscrizioni FIP — statini storici (testo)</div>
+    <div class="card-desc">Per gli statini FIP vecchi già in formato testo (2013/14–oggi). Se hai il PDF originale più recente, usa invece "Iscrizioni FIP da PDF" qui sotto. Non sovrascrive dati esistenti.</div>
     <div class="op-list">
       <div class="op-row">
         <div class="op-info">
@@ -251,26 +233,10 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title">👨‍👩‍👦 Import Tutori da Ricevute</div>
-    <div class="card-desc">Carica ricevute DOCX/PDF degli anni precedenti. Estrae CF tutore, nome, indirizzo e aggiorna l'anagrafica senza sovrascrivere dati esistenti. Import multiplo supportato.</div>
-    <div class="op-row">
-      <div class="op-info">
-        <div class="op-title">Carica ricevute <span class="badge badge-safe">NON DISTRUTTIVO</span></div>
-        <div class="op-desc">Seleziona uno o più file DOCX/PDF delle certificazioni fiscali.</div>
-      </div>
-      <div style="position:relative;display:inline-block">
-        <button class="btn btn-gold">📂 Carica</button>
-        <input type="file" id="tut-file" accept=".docx,.pdf" multiple style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="importaTutoriRicevute(this)">
-      </div>
-    </div>
-    <div id="tut-log" style="margin-top:10px;font-size:11px;color:var(--muted);display:none"></div>
-  </div>
-
   <!-- Import da file originali FIP/CSI -->
   <div class="card">
-    <div class="card-title">&#128196; Import da Statino FIP (PDF)</div>
-    <div class="card-desc">Carica uno o più statini FIP in PDF. Seleziona la stagione e conferma l'import.</div>
+    <div class="card-title">&#128196; Iscrizioni FIP da PDF (originale)</div>
+    <div class="card-desc">Per il file PDF originale dello statino FIP, quando lo hai (più affidabile della versione testo qui sopra). Seleziona la stagione e conferma.</div>
     <div class="op-row">
       <div class="op-info">
         <div class="op-title">Statini FIP <span class="badge badge-safe">NON DISTRUTTIVO</span></div>
@@ -298,7 +264,64 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
     </div>
   </div>
 
-</div><!-- fine adm-page-import -->
+  <div class="card">
+    <div class="card-title">👨‍👩‍👦 Import Tutori da Ricevute</div>
+    <div class="card-desc">Carica ricevute DOCX/PDF degli anni precedenti. Estrae CF tutore, nome, indirizzo e aggiorna l'anagrafica senza sovrascrivere dati esistenti. Import multiplo supportato.</div>
+    <div class="op-row">
+      <div class="op-info">
+        <div class="op-title">Carica ricevute <span class="badge badge-safe">NON DISTRUTTIVO</span></div>
+        <div class="op-desc">Seleziona uno o più file DOCX/PDF delle certificazioni fiscali.</div>
+      </div>
+      <div style="position:relative;display:inline-block">
+        <button class="btn btn-gold">📂 Carica</button>
+        <input type="file" id="tut-file" accept=".docx,.pdf" multiple style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="importaTutoriRicevute(this)">
+      </div>
+    </div>
+    <div id="tut-log" style="margin-top:10px;font-size:11px;color:var(--muted);display:none"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">&#128190; Salva / Recupera dati</div>
+    <div class="card-desc">Salva campi selezionati per ogni atleta (chiave: CF). Recupera solo i campi selezionati, indipendentemente da quanti ne contiene il file.</div>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--gold)">CAMPI DA INCLUDERE</div>
+        <button class="btn btn-gray btn-sm" onclick="(function(){var all=document.querySelectorAll('.snap-field');var chk=Array.from(all).some(function(c){return!c.checked;});all.forEach(function(c){c.checked=chk;});})()">Seleziona / Deseleziona tutto</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="nome"> Nome / Cognome</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="anag"> Anagrafica base</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="doc"> Documento</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="tel"> Contatti atleta</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="mag" checked> Maglia</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="cs"> Cert. medico</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="ind"> Indirizzo atleta</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="tut"> Tutore</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="note"> Note</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="iscr"> Iscrizioni</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="ritirato"> Ritirato</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="conv"> Convocabile</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="scheda"> Scheda</label>
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px">MODALITÀ RECUPERO</div>
+      <div style="display:flex;gap:16px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="snap-mode" value="overwrite" checked> Sovrascrivi sempre</label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="snap-mode" value="empty"> Solo se vuoto</label>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-gold" onclick="salvaDati()" id="btn-salva-dati">&#128190; Salva dati</button>
+      <label class="btn btn-blue" style="cursor:pointer;position:relative;overflow:hidden" id="btn-recupera-dati-lbl">
+        &#128257; Recupera dati
+        <input type="file" id="recupera-dati-file" accept=".json" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="recuperaDati(this)">
+      </label>
+    </div>
+    <div id="snap-log" style="display:none;margin-top:10px;font-size:11px;max-height:150px;overflow-y:auto;background:var(--bg);border-radius:4px;padding:8px"></div>
+  </div>
+
+</div><!-- fine adm-page-dati -->
 
 <!-- PAGE: REPORT -->
 <div class="adm-page" id="adm-page-report">
@@ -388,48 +411,38 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
 
 </div><!-- fine adm-page-report -->
 
-<!-- PAGE: OPERAZIONI -->
-<div class="adm-page" id="adm-page-ops">
-
+<!-- PAGE: BACKUP E SICUREZZA (26/08/2026 — prima "Utility DB" stava nella
+     tab DB e "Zona Pericolosa" nella tab Operazioni, separate senza motivo:
+     sono entrambe operazioni che toccano l'intero database, non i singoli
+     atleti. Ora insieme, con il rischio comunque distinto visivamente
+     (badge SOLA LETTURA vs riquadro rosso IRREVERSIBILE).) -->
+<div class="adm-page" id="adm-page-backup">
   <div class="card">
-    <div class="card-title">&#128190; Salva / Recupera dati</div>
-    <div class="card-desc">Salva campi selezionati per ogni atleta (chiave: CF). Recupera solo i campi selezionati, indipendentemente da quanti ne contiene il file.</div>
-    <div style="margin-bottom:12px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <div style="font-size:11px;font-weight:700;color:var(--gold)">CAMPI DA INCLUDERE</div>
-        <button class="btn btn-gray btn-sm" onclick="(function(){var all=document.querySelectorAll('.snap-field');var chk=Array.from(all).some(function(c){return!c.checked;});all.forEach(function(c){c.checked=chk;});})()">Seleziona / Deseleziona tutto</button>
+    <div class="card-title">📦 Esportazioni</div>
+    <div class="op-list">
+      <!-- Genera ZIP ricevute -->
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Genera ZIP ricevute PDF <span class="badge badge-safe">SOLA LETTURA</span></div>
+          <div class="op-desc">Archivio ZIP con ricevute PDF detraibili per anno/tipo.</div>
+          <div class="params" style="display:block">
+            <div class="grid2">
+              <div><label>Annata</label><select id="op-anno-pdf"><option>2025</option><option>2024</option><option>2023</option></select></div>
+              <div><label>Tipo</label><select id="op-det-pdf"><option value="det">Solo detraibili</option><option value="ndet">Solo N-DET</option><option value="tutti">Tutti</option></select></div>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-blue" onclick="runOp('ricevutePDF')" id="btn-ricevutePDF" disabled>Genera ZIP</button>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="nome"> Nome / Cognome</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="anag"> Anagrafica base</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="doc"> Documento</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="tel"> Contatti atleta</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="mag" checked> Maglia</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="cs"> Cert. medico</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="ind"> Indirizzo atleta</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="tut"> Tutore</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="note"> Note</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="iscr"> Iscrizioni</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="ritirato"> Ritirato</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="conv"> Convocabile</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" class="snap-field" value="scheda"> Scheda</label>
-      </div>
-    </div>
-    <div style="margin-bottom:10px">
-      <div style="font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px">MODALITÀ RECUPERO</div>
-      <div style="display:flex;gap:16px">
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="snap-mode" value="overwrite" checked> Sovrascrivi sempre</label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="radio" name="snap-mode" value="empty"> Solo se vuoto</label>
+      <!-- Backup -->
+      <div class="op-row">
+        <div class="op-info">
+          <div class="op-title">Backup completo DB <span class="badge badge-safe">SOLA LETTURA</span></div>
+          <div class="op-desc">Scarica JSON con tutto il contenuto Firebase.</div>
+        </div>
+        <button class="btn btn-blue" onclick="runOp('backup')" id="btn-backup" disabled>Scarica</button>
       </div>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-gold" onclick="salvaDati()" id="btn-salva-dati">&#128190; Salva dati</button>
-      <label class="btn btn-blue" style="cursor:pointer;position:relative;overflow:hidden" id="btn-recupera-dati-lbl">
-        &#128257; Recupera dati
-        <input type="file" id="recupera-dati-file" accept=".json" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer" onchange="recuperaDati(this)">
-      </label>
-    </div>
-    <div id="snap-log" style="display:none;margin-top:10px;font-size:11px;max-height:150px;overflow-y:auto;background:var(--bg);border-radius:4px;padding:8px"></div>
   </div>
 
   <div class="card card-danger">
@@ -456,7 +469,8 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
     </div>
   </div>
 
-</div><!-- fine adm-page-ops -->
+</div><!-- fine adm-page-backup -->
+
 
 <!-- PAGE: LOG -->
 <div class="adm-page" id="adm-page-log">
@@ -672,7 +686,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.58 · 26/08/2026 09:50";
+var BUILD_VERSION = "v9.59 · 27/08/2026 01:15";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1719,6 +1733,34 @@ window.addEventListener('unhandledrejection', function(e){
   try{ log('PROMISE non gestita: '+(e.reason&&e.reason.message||e.reason),'err'); }catch(_){ console.error('PROMISE non gestita (log non disponibile):', e.reason); }
 });
 
+// ── Controllo integrità moduli JS (26/08/2026, richiesta Alberto: troppo
+// tempo perso a capire "a occhio" quale file .js fosse rimasto vecchio su
+// GitHub mentre l'HTML era già aggiornato — sintomo tipico: un bottone non
+// appare/non funziona senza nessun errore visibile). Ad ogni apertura
+// pagina, controlla che le funzioni chiave di ogni modulo esterno esistano
+// davvero: se manca una funzione, quel file è vecchio o non caricato —
+// lo dice subito in Diagnostica, prima che serva un bottone per scoprirlo. ──
+var ECO_MODULI_ATTESI = [
+  { file: 'economia-core-DRAFT.js', fn: 'ecoNuovoCodice' },
+  { file: 'economia-admin-ui.js', fn: 'ecoCaricaConfig' },
+  { file: 'economia-report-ui.js', fn: 'ecoMovEsportaCSV' }
+];
+function ecoVerificaModuli() {
+  var mancanti = ECO_MODULI_ATTESI.filter(function (m) { return typeof window[m.fn] !== 'function'; });
+  if (mancanti.length) {
+    mancanti.forEach(function (m) {
+      log('⚠️ MODULO NON AGGIORNATO: ' + m.file + ' — manca la funzione "' + m.fn + '". Ricarica questo file su GitHub.', 'err');
+    });
+  } else {
+    log('✓ Moduli Economia OK (' + ECO_MODULI_ATTESI.length + '/' + ECO_MODULI_ATTESI.length + ' funzioni chiave trovate)', 'ok');
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', ecoVerificaModuli);
+} else {
+  ecoVerificaModuli();
+}
+
 function _doppioControllo(messaggio, parola){
   if(!confirm(messaggio)) return false;
   var inp=prompt('⚠️ Operazione irreversibile.\nDigita "'+parola+'" per confermare:','');
@@ -1758,7 +1800,7 @@ function admGoTab(tab){
   var el=document.getElementById('adm-page-'+tab);
   if(el)el.classList.add('active');
   var tabs=document.querySelectorAll('.nav-tab');
-  var map={db:0,import:1,report:2,ops:3,log:4,economia:5};
+  var map={dati:0,report:1,backup:2,economia:3,log:4};
   if(map[tab]!==undefined&&tabs[map[tab]])tabs[map[tab]].classList.add('active');
   // Economia: caricamento lazy al primo apertura tab (mai su DOMContentLoaded —
   // a quel punto _db non è ancora pronto, vedi log fix 19/08/2026).
