@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.60 · 28/08/2026 08:56 -->
+<!-- basket052441-admin.html | v9.61 · 28/08/2026 09:30 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -62,6 +62,20 @@
   .btn-gray{background:var(--bg3);color:var(--muted);border:1px solid var(--border);}
   .btn:disabled{opacity:0.35;cursor:not-allowed;}
   .btn-sm{padding:7px 12px;font-size:11px;min-height:36px;}
+  /* Editor Verbali — richiesta esplicita di Alberto (28/08/2026): le aree
+     di testo libero devono sentirsi come un editor, non come <textarea>
+     grezze. Toolbar minimale (B/I/lista) + contenteditable stilizzato
+     come un vero campo di input, con placeholder via CSS :empty. */
+  .vrb-editor-toolbar{display:flex;gap:4px;margin-bottom:2px;}
+  .vrb-editor-toolbar button{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:6px 6px 0 0;padding:5px 10px;font-size:12px;cursor:pointer;min-height:30px;min-width:30px;}
+  .vrb-editor-toolbar button:active{background:var(--gold);color:#06101c;}
+  .vrb-editor{min-height:60px;max-height:200px;overflow-y:auto;padding:10px 12px;background:#06101c;border:1px solid var(--border);border-radius:0 8px 8px 8px;color:var(--text);font-size:13px;line-height:1.5;margin-bottom:10px;}
+  .vrb-editor:focus{outline:none;border-color:var(--gold);}
+  .vrb-editor:empty:before{content:attr(data-placeholder);color:var(--muted);}
+  .vrb-editor ul{margin-left:18px;}
+  .vrb-editor-savestate{font-size:10.5px;color:var(--muted);text-align:right;margin-bottom:8px;}
+  .vrb-odg-punto{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;}
+  .vrb-bilancio-box{background:var(--bg3);border:1px solid var(--gold);border-radius:8px;padding:12px;margin-bottom:14px;}
   /* STATS */
   .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:14px;}
   .stat{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 10px;text-align:center;}
@@ -119,6 +133,7 @@
   <!-- Firebase SDK 10.12 -->
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js'></script>
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js'></script>
+  <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js'></script>
   <script src='https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js'></script>
   <!-- Core condiviso via jsDelivr -->
 
@@ -131,6 +146,7 @@
   <script src="economia-report-ui.js"></script>
   <script src="verbali-core.js"></script>
   <script src="verbali-admin-ui.js"></script>
+  <script src="verbali-content-ui.js"></script>
 
 </head>
 <body>
@@ -140,7 +156,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.60 · 28/08/2026 08:56 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.61 · 28/08/2026 09:30 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -159,7 +175,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.60 · 28/08/2026 08:56</div>
+    <div class="topbar-sub">Build v9.61 · 28/08/2026 09:30</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -513,9 +529,9 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
 </div></div>
 
 <div class="modal-ov" id="modal-vrb-dettaglio">
-<div class="modal" style="max-width:420px">
+<div class="modal" style="max-width:640px">
   <div class="modal-title" id="modal-vrb-dettaglio-title">Verbale</div>
-  <div id="vrb-dettaglio-body"></div>
+  <div id="vrb-dettaglio-body" style="max-height:65vh;overflow-y:auto;"></div>
   <div class="btn-bar">
     <button class="btn btn-gray" onclick="closeModal('modal-vrb-dettaglio')">Chiudi</button>
   </div>
@@ -723,7 +739,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.60 · 28/08/2026 08:56";
+var BUILD_VERSION = "v9.61 · 28/08/2026 09:30";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];

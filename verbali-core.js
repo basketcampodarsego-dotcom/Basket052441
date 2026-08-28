@@ -1,4 +1,4 @@
-// ──────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────
 // FILE: verbali-core.js — ASD Basket Campodarsego
 // VERSIONE: v0.1 · 28/08/2026 · BK
 // v0.1: creazione — schema dati, numerazione progressiva separata per
@@ -217,6 +217,307 @@ function vrbSalvaBozza(id, campiAggiornati) {
       log('[verbali-core] errore salvataggio bozza ' + id + ': ' + (err && err.message || err), 'err');
     }
     throw err;
+  });
+}
+
+// ────────────────────────────────────────────────────────────
+// v0.2 · 28/08/2026 · BK — step 2/5: contenuto verbale, generazione PDF,
+// upload Firebase Storage, transizione di stato autorizzata, collegamento
+// Economia per il modello BILANCIO (§3.4/§4 della specifica).
+// Richiede in basket052441-admin.html, oltre a quanto già presente:
+//   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+// caricato DOPO firebase-app-compat.js, PRIMA di questo file.
+// ────────────────────────────────────────────────────────────
+
+var VRB_NUMERO_CONVOCAZIONE = { PRIMA: 'PRIMA', SECONDA: 'SECONDA' };
+var VRB_ESITO_VOTO = { UNANIMITA: 'UNANIMITA', MAGGIORANZA: 'MAGGIORANZA' };
+
+// Testo standard di constatazione quorum (§4.1) — parametrico sul fatto
+// che il quorum sia raggiunto o meno, mai un unico testo che nasconde
+// il caso "sotto quorum".
+function vrbTestoQuorum(numPresenti, numTotaleAventiDiritto, quorumRaggiunto) {
+  if (quorumRaggiunto) {
+    return 'Constatata la presenza di ' + numPresenti + ' su ' + numTotaleAventiDiritto +
+      ' aventi diritto, il Presidente dichiara valida la riunione.';
+  }
+  return 'ATTENZIONE: presenti ' + numPresenti + ' su ' + numTotaleAventiDiritto +
+    ' aventi diritto — quorum NON raggiunto. Nota da valutare prima della generazione del PDF definitivo.';
+}
+
+// ── Collegamento Economia (§3.4, solo tipo BILANCIO) ──
+// Riusa ESATTAMENTE ecoRepCalcola() di economia-report-ui.js (stessa
+// funzione pura già usata dal Report Bilancio a schermo) — mai un
+// ricalcolo separato, come richiesto esplicitamente dalla specifica.
+// Le uniche letture Firestore qui sono le stesse che fa ecoRepGenera()
+// per popolare quella funzione pura, non un percorso dati alternativo.
+function vrbBilancioTotali(anno) {
+  if (typeof ecoRepCalcola !== 'function') {
+    var msgFn = '[verbali-core] vrbBilancioTotali: ecoRepCalcola non disponibile (economia-report-ui.js mancante/non ancora caricato) — impossibile collegare i totali senza ricalcolarli separatamente, cosa vietata dalla specifica';
+    console.error(msgFn);
+    if (typeof log === 'function') log(msgFn, 'err');
+    return Promise.reject(new Error('Modulo Economia non disponibile: impossibile recuperare i totali'));
+  }
+  if (!window._db) {
+    var msgDb = '[verbali-core] vrbBilancioTotali: _db non pronto';
+    console.error(msgDb);
+    if (typeof log === 'function') log(msgDb, 'err');
+    return Promise.reject(new Error('Firestore non pronto'));
+  }
+  var col = window._db.collection('basket052441');
+  return Promise.all([
+    col.doc('economiaConfig').get(),
+    col.doc('economia').collection('movimenti').get()
+  ]).then(function (res) {
+    var config = { categorie: [], sottocategorie: [], centriCosto: [] };
+    if (res[0].exists && res[0].data().v) {
+      try {
+        var parsed = JSON.parse(res[0].data().v);
+        if (parsed && typeof parsed === 'object') config = parsed;
+      } catch (ex) {
+        var msgParse = '[verbali-core] vrbBilancioTotali: errore parsing economiaConfig: ' + ex.message;
+        console.error(msgParse, ex);
+        if (typeof log === 'function') log(msgParse, 'err');
+        // Non blocco: ecoRepCalcola gestisce config vuoto restituendo comunque
+        // i totali corretti (categorie/nomi non risolti, ma cifre giuste).
+      }
+    }
+    var tutti = [];
+    res[1].forEach(function (doc) { tutti.push(doc.data()); });
+    var movimenti = tutti.filter(function (m) { return parseInt(m.annoEsercizio, 10) === parseInt(anno, 10); });
+    if (!movimenti.length) {
+      var msgVuoto = '[verbali-core] vrbBilancioTotali: nessun movimento trovato per l\'esercizio ' + anno + ' — Bilancio non ancora generato/consultato per questo anno';
+      console.error(msgVuoto);
+      if (typeof log === 'function') log(msgVuoto, 'err');
+      return Promise.reject(new Error('Nessun movimento registrato per l\'esercizio ' + anno + ' — genera prima il Bilancio in Economia'));
+    }
+    var dati = ecoRepCalcola(movimenti, config);
+    if (typeof log === 'function') log('Verbali: totali Bilancio ' + anno + ' recuperati da Economia (' + movimenti.length + ' movimenti)', 'ok');
+    return { totEntrate: dati.totEntrate, totUscite: dati.totUscite, saldoEsercizio: dati.saldoEsercizio };
+  }).catch(function (err) {
+    if (!/Nessun movimento|non disponibile|non pronto/.test(err.message || '')) {
+      var msg = '[verbali-core] errore recupero totali Bilancio: ' + (err && err.message || err);
+      console.error(msg, err);
+      if (typeof log === 'function') log(msg, 'err');
+    }
+    throw err;
+  });
+}
+
+// ── Transizione di stato autorizzata (bypassa il blocco BOZZA-only di
+// vrbSalvaBozza, che è per modifiche di contenuto normali) ──
+// Unico punto che può cambiare `stato` dopo la creazione — valida sempre
+// con vrbStatoAvanzabile prima di scrivere (mai indietro, mai salti, §5).
+function vrbTransizionaStato(id, nuovoStato, patchExtra) {
+  var col = vrbCollection();
+  if (!col) return Promise.reject(new Error('Firestore non pronto'));
+  return col.doc(id).get().then(function (doc) {
+    if (!doc.exists) {
+      var msgNf = '[verbali-core] vrbTransizionaStato: id non trovato: ' + id;
+      console.error(msgNf);
+      if (typeof log === 'function') log(msgNf, 'err');
+      throw new Error('Verbale non trovato: ' + id);
+    }
+    var attuale = doc.data();
+    if (!vrbStatoAvanzabile(attuale.stato, nuovoStato)) {
+      var msgBlk = '[verbali-core] vrbTransizionaStato RIFIUTATA: ' + id + ' da ' + attuale.stato + ' a ' + nuovoStato + ' non è una transizione valida';
+      console.error(msgBlk);
+      if (typeof log === 'function') log(msgBlk, 'err');
+      throw new Error('Transizione di stato non valida: ' + attuale.stato + ' → ' + nuovoStato);
+    }
+    var patch = Object.assign({}, patchExtra || {}, { stato: nuovoStato });
+    return col.doc(id).update(patch);
+  }).then(function () {
+    if (typeof log === 'function') log('Verbale ' + id + ': transizione a ' + nuovoStato + ' completata', 'ok');
+  }).catch(function (err) {
+    console.error('[verbali-core] errore transizione stato ' + id, err);
+    if (typeof log === 'function' && !/non trovato|non valida/.test(err.message || '')) {
+      log('[verbali-core] errore transizione stato ' + id + ': ' + (err && err.message || err), 'err');
+    }
+    throw err;
+  });
+}
+
+// ── Firebase Storage ──
+function vrbStorage() {
+  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
+    var msg = '[verbali-core] vrbStorage: Firebase non inizializzato';
+    console.error(msg);
+    if (typeof log === 'function') log(msg, 'err');
+    return null;
+  }
+  if (typeof firebase.storage !== 'function') {
+    var msgSdk = '[verbali-core] vrbStorage: firebase-storage-compat.js non caricato (SDK Storage assente)';
+    console.error(msgSdk);
+    if (typeof log === 'function') log(msgSdk, 'err');
+    return null;
+  }
+  return firebase.storage();
+}
+
+function vrbUploadPdf(id, blob, nomeCampo) {
+  var storage = vrbStorage();
+  if (!storage) return Promise.reject(new Error('Firebase Storage non disponibile'));
+  var path = 'verbali/' + id + '/' + nomeCampo + '.pdf';
+  var ref = storage.ref(path);
+  return ref.put(blob, { contentType: 'application/pdf' }).then(function () {
+    return ref.getDownloadURL();
+  }).then(function (url) {
+    if (typeof log === 'function') log('Verbale ' + id + ': PDF caricato su Storage (' + nomeCampo + ')', 'ok');
+    return url;
+  }).catch(function (err) {
+    var msg = '[verbali-core] errore upload PDF ' + id + '/' + nomeCampo + ': ' + (err && err.message || err);
+    console.error(msg, err);
+    if (typeof log === 'function') log(msg, 'err');
+    throw err;
+  });
+}
+
+// ── Generazione PDF (§3.2) — costruisce, non salva/carica: separazione
+// tra "produrre il documento" e "persisterlo", per poter testare/rivedere
+// prima dell'upload che rende tutto irreversibile. ──
+function vrbGeneraPdfBlob(record) {
+  if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF !== 'function') {
+    var msg = '[verbali-core] vrbGeneraPdfBlob: libreria jsPDF non disponibile';
+    console.error(msg);
+    if (typeof log === 'function') log(msg, 'err');
+    throw new Error('Libreria PDF non disponibile');
+  }
+  var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+  var y = 20;
+  var margine = 20;
+  var largh = 210 - margine * 2;
+
+  function riga(testo, opts) {
+    opts = opts || {};
+    var size = opts.size || 11;
+    var stile = opts.stile || 'normal';
+    doc.setFont('helvetica', stile);
+    doc.setFontSize(size);
+    var linee = doc.splitTextToSize(testo, largh);
+    linee.forEach(function (l) {
+      if (y > 280) { doc.addPage(); y = 20; }
+      doc.text(l, margine, y);
+      y += size * 0.5;
+    });
+    y += 2;
+  }
+
+  riga('A.S.D. Basket Campodarsego', { size: 15, stile: 'bold' });
+  riga((VRB_ORGANO_LABEL[record.organo] || record.organo) + ' — Verbale n. ' + record.id, { size: 12, stile: 'bold' });
+  y += 2;
+
+  if (record.retroattivo) {
+    riga('VERBALE STORICO / RETROATTIVO', { size: 10, stile: 'bold' });
+  }
+
+  riga('Data redazione: ' + record.dataRedazione + '    Data riunione: ' + (record.dataRiunione || '—'));
+  riga('Luogo: ' + (record.luogo || '—') + '    Convocazione: ' + (VRB_NUMERO_CONVOCAZIONE[record.numeroConvocazione] ? record.numeroConvocazione.toLowerCase() : '—'));
+  riga('Ora inizio: ' + (record.oraInizio || '—') + '    Ora chiusura: ' + (record.oraFine || '—'));
+  y += 2;
+
+  riga('Presenti: ' + ((record.presenti || []).join(', ') || '—'));
+  riga('Assenti: ' + ((record.assenti || []).join(', ') || '—'));
+  y += 2;
+
+  if (record.quorumNota) riga(record.quorumNota, { size: 10 });
+  y += 3;
+
+  riga('Ordine del giorno e delibere', { size: 12, stile: 'bold' });
+  (record.ordineDelGiorno || []).forEach(function (p, i) {
+    riga((i + 1) + '. ' + (p.testo || ''), { stile: 'bold' });
+    if (p.discussione) riga('Discussione: ' + vrbStripHtml(p.discussione), { size: 10 });
+    if (p.delibera) riga('Delibera: ' + vrbStripHtml(p.delibera), { size: 10 });
+    if (p.esitoVoto) {
+      var ev = p.esitoVoto;
+      var testoVoto = ev.tipo === 'UNANIMITA' ? 'Approvato all\'unanimità.' :
+        'Esito voto: favorevoli ' + (ev.favorevoli || 0) + ', contrari ' + (ev.contrari || 0) + ', astenuti ' + (ev.astenuti || 0) + '.';
+      riga(testoVoto, { size: 10 });
+    }
+    y += 2;
+  });
+
+  if (record.tipo === 'BILANCIO') {
+    if (record.relazioneTesoriere) { riga('Relazione del tesoriere', { size: 11, stile: 'bold' }); riga(vrbStripHtml(record.relazioneTesoriere), { size: 10 }); }
+    if (record.osservazioniSoci) { riga('Osservazioni dei soci', { size: 11, stile: 'bold' }); riga(vrbStripHtml(record.osservazioniSoci), { size: 10 }); }
+    if (record.destinazioneAvanzo) { riga('Destinazione avanzo di gestione', { size: 11, stile: 'bold' }); riga(vrbStripHtml(record.destinazioneAvanzo), { size: 10 }); }
+  }
+
+  y += 8;
+  riga('Il Presidente: ' + (record.presidente || '_______________________'));
+  y += 6;
+  riga('Il Segretario verbalizzante: ' + (record.segretario || '_______________________'));
+
+  return doc.output('blob');
+}
+
+function vrbStripHtml(html) {
+  var tmp = document.createElement('div');
+  tmp.innerHTML = html || '';
+  return tmp.textContent || tmp.innerText || '';
+}
+
+// Orchestrazione step2 completa: genera PDF, carica su Storage, blocca
+// il verbale in GENERATO. Da qui in poi il contenuto non è più editabile
+// (vrbSalvaBozza rifiuta già scritture su stato diverso da BOZZA).
+function vrbAvanzaAGenerato(id, record) {
+  var blob;
+  try {
+    blob = vrbGeneraPdfBlob(record);
+  } catch (e) {
+    return Promise.reject(e);
+  }
+  return vrbUploadPdf(id, blob, 'generato').then(function (url) {
+    return vrbTransizionaStato(id, VRB_STATI.GENERATO, { pdfGeneratoUrl: url }).then(function () {
+      return url;
+    });
+  });
+}
+
+// ── Caricamento PDF firmato (§3.3, step 3) ──
+// Verifica SOLO strutturale (magic bytes %PDF + presenza indicatore di
+// firma incorporata) — MAI una verifica crittografica completa, che la
+// specifica demanda esplicitamente a strumenti esterni dedicati.
+function vrbVerificaStrutturaPdfFirmato(arrayBuffer) {
+  var bytes = new Uint8Array(arrayBuffer.slice(0, 5));
+  var header = String.fromCharCode.apply(null, bytes);
+  if (header !== '%PDF-') {
+    return { valido: false, motivo: 'Il file non inizia con l\'intestazione %PDF — non è un PDF valido.' };
+  }
+  // Ricerca euristica di indicatori di firma digitale incorporata
+  // (PAdES/ByteRange) nell'intero file — falsi negativi possibili su
+  // file molto grandi con firma in una posizione non scansionata, ma
+  // sufficiente come controllo di primo livello dichiarato in spec.
+  var testo = '';
+  var view = new Uint8Array(arrayBuffer);
+  var chunk = 65536;
+  for (var i = 0; i < view.length; i += chunk) {
+    testo += String.fromCharCode.apply(null, view.subarray(i, Math.min(i + chunk, view.length)));
+  }
+  var haFirma = testo.indexOf('/ByteRange') > -1 && testo.indexOf('/Sig') > -1;
+  if (!haFirma) {
+    return { valido: false, motivo: 'Il PDF non sembra contenere una firma digitale incorporata (nessun /ByteRange e /Sig trovati). Verifica di aver caricato il file dopo la firma, non l\'originale non firmato.' };
+  }
+  return { valido: true, motivo: '' };
+}
+
+function vrbCaricaFirmato(id, file, metadati) {
+  return file.arrayBuffer().then(function (buf) {
+    var check = vrbVerificaStrutturaPdfFirmato(buf);
+    if (!check.valido) {
+      var msg = '[verbali-core] vrbCaricaFirmato: verifica strutturale fallita per ' + id + ': ' + check.motivo;
+      console.error(msg);
+      if (typeof log === 'function') log(msg, 'err');
+      return Promise.reject(new Error(check.motivo));
+    }
+    return vrbUploadPdf(id, new Blob([buf], { type: 'application/pdf' }), 'firmato');
+  }).then(function (url) {
+    var patch = {
+      pdfFirmatoUrl: url,
+      dataFirma: new Date().toISOString().slice(0, 10),
+      firmatari: (metadati && metadati.firmatari) || [],
+      tipoFirmaDichiarato: (metadati && metadati.tipoFirmaDichiarato) || ''
+    };
+    return vrbTransizionaStato(id, VRB_STATI.FIRMATO, patch);
   });
 }
 
