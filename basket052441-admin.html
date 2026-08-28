@@ -1,4 +1,4 @@
-<!-- basket052441-admin.html | v9.59 · 27/08/2026 01:15 -->
+<!-- basket052441-admin.html | v9.60 · 28/08/2026 08:56 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -129,6 +129,8 @@
   <script src="economia-core-DRAFT.js"></script>
   <script src="economia-admin-ui.js"></script>
   <script src="economia-report-ui.js"></script>
+  <script src="verbali-core.js"></script>
+  <script src="verbali-admin-ui.js"></script>
 
 </head>
 <body>
@@ -138,7 +140,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.59 · 27/08/2026 01:15 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.60 · 28/08/2026 08:56 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -157,7 +159,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.59 · 27/08/2026 01:15</div>
+    <div class="topbar-sub">Build v9.60 · 28/08/2026 08:56</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -174,6 +176,7 @@
   <div class="nav-tab" onclick="admGoTab('report')">📊 Report</div>
   <div class="nav-tab" onclick="admGoTab('backup')">🔒 Backup e sicurezza</div>
   <div class="nav-tab" onclick="admGoTab('economia')">💶 Economia</div>
+  <div class="nav-tab" onclick="admGoTab('verbali')">📜 Verbali</div>
   <div class="nav-tab" onclick="admGoTab('log')">📋 Log</div>
 </div>
 <div class="nav-tabs-fade" id="nav-tabs-fade"></div>
@@ -481,9 +484,43 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
   </div>
 </div><!-- fine adm-page-log -->
 
+<!-- ═══════════════════════════════════════════════════════════
+  Tab Verbali — Direttivo/Assemblea Soci
+  Step 1/5 del piano approvato da AR (DECISION-AR516, 27/08/2026):
+  solo registro + creazione bozza. Compilazione contenuto, PDF,
+  firma, modalita' storica sono step 2-5 (verbali-core.js/-admin-ui.js).
+  ═══════════════════════════════════════════════════════════ -->
+<div class="adm-page" id="adm-page-verbali">
+  <div class="card">
+    <div class="card-title">📜 Registro Verbali</div>
+    <div class="card-desc">Verbali del Consiglio Direttivo e dell'Assemblea Soci. Numerazione progressiva separata per organo.</div>
+    <button type="button" class="btn btn-gold" onclick="vrbAdmMostraFormNuovo()">➕ Nuovo verbale</button>
+    <button type="button" class="btn btn-gray btn-sm" onclick="vrbAdmInit()" style="margin-left:8px;">🔄 Ricarica</button>
+    <div id="vrb-lista-output" style="margin-top:14px;"></div>
+  </div>
+</div><!-- fine adm-page-verbali -->
+
 <!-- Firebase SDK -->
 
 <!-- MODALI -->
+<div class="modal-ov" id="modal-vrb-nuovo">
+<div class="modal" style="max-width:420px">
+  <div class="modal-title">Nuovo verbale</div>
+  <div id="vrb-nuovo-body"></div>
+  <div class="btn-bar">
+    <button class="btn btn-gray" onclick="closeModal('modal-vrb-nuovo')">Annulla</button>
+  </div>
+</div></div>
+
+<div class="modal-ov" id="modal-vrb-dettaglio">
+<div class="modal" style="max-width:420px">
+  <div class="modal-title" id="modal-vrb-dettaglio-title">Verbale</div>
+  <div id="vrb-dettaglio-body"></div>
+  <div class="btn-bar">
+    <button class="btn btn-gray" onclick="closeModal('modal-vrb-dettaglio')">Chiudi</button>
+  </div>
+</div></div>
+
 <div class="modal-ov" id="modal-ric-anno">
 <div class="modal" style="max-width:320px">
   <div class="modal-title">Seleziona anno ricevuta</div>
@@ -686,7 +723,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.59 · 27/08/2026 01:15";
+var BUILD_VERSION = "v9.60 · 28/08/2026 08:56";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1800,11 +1837,13 @@ function admGoTab(tab){
   var el=document.getElementById('adm-page-'+tab);
   if(el)el.classList.add('active');
   var tabs=document.querySelectorAll('.nav-tab');
-  var map={dati:0,report:1,backup:2,economia:3,log:4};
+  var map={dati:0,report:1,backup:2,economia:3,verbali:4,log:5};
   if(map[tab]!==undefined&&tabs[map[tab]])tabs[map[tab]].classList.add('active');
   // Economia: caricamento lazy al primo apertura tab (mai su DOMContentLoaded —
-  // a quel punto _db non è ancora pronto, vedi log fix 19/08/2026).
+  // a quel punto _db non è ancora pronto, vedi log fix 19/08/2026). Stesso
+  // principio applicato a Verbali (vrbAdmInit).
   if(tab==='economia' && typeof ecoMostraTab==='function') ecoMostraTab(ecoTabAttiva||'categorie');
+  if(tab==='verbali' && typeof vrbAdmInit==='function') vrbAdmInit();
 }
 
 function setBtns(on){
