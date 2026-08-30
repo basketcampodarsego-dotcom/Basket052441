@@ -162,9 +162,15 @@ function vrbEditorBloccoBilancio(v) {
   var html = '<div class="vrb-bilancio-box">';
   html += '<label>Esercizio di riferimento</label>' +
     '<input type="number" id="vrb-c-anno-esercizio" value="' + vrbAdmEsc(v.annoEsercizioRif || v.dataRiunione ? (v.annoEsercizioRif || v.dataRiunione.slice(0, 4)) : '') + '" oninput="vrbEditorSegnaModifica()">';
-  html += '<button type="button" class="btn btn-blue btn-sm" style="margin-bottom:10px;" onclick="vrbRecuperaTotaliBilancio()">🔄 Recupera totali da Economia</button>';
-  html += '<div id="vrb-bilancio-totali" style="font-size:12px;color:var(--muted);margin-bottom:10px;">' +
-    (v.totaliBilancioTesto ? vrbAdmEsc(v.totaliBilancioTesto) : 'Totali non ancora recuperati.') + '</div>';
+  html += '<label style="display:flex;align-items:center;gap:8px;margin-top:4px;">' +
+    '<input type="checkbox" id="vrb-c-confronto-anno-prec" style="width:auto;margin:0;"' + (v.confrontoAnnoPrecedenteTesto ? ' checked' : '') + '> Includi confronto con esercizio precedente</label>';
+  html += '<button type="button" class="btn btn-blue btn-sm" style="margin:8px 0 10px;" onclick="vrbRecuperaTotaliBilancio()">🔄 Recupera totali da Economia</button>';
+  html += '<div id="vrb-bilancio-totali" style="font-size:12px;color:var(--muted);margin-bottom:6px;">' +
+    (v.totaliBilancioTesto ? vrbAdmEsc(v.totaliBilancioTesto) : 'Totali non ancora recuperati — obbligatorio prima di generare il PDF.') + '</div>';
+  html += '<div id="vrb-bilancio-confronto" style="font-size:11px;color:var(--muted);margin-bottom:10px;">' +
+    (v.confrontoAnnoPrecedenteTesto ? vrbAdmEsc(v.confrontoAnnoPrecedenteTesto) : '') + '</div>';
+  html += '<button type="button" class="btn btn-gray btn-sm" onclick="vrbSuggerisciPunto1Bilancio()">✍️ Suggerisci punto 1 (approvazione bilancio)</button>' +
+    '<p style="font-size:10px;color:var(--muted);margin:6px 0 10px;">Richiede prima "Recupera totali". Aggiunge un punto all\'ordine del giorno, sempre modificabile.</p>';
   html += '<label>Relazione del tesoriere</label>' + vrbCreaEditorHtml('vrb-c-relazione', v.relazioneTesoriere, 'Testo della relazione…');
   html += '<label style="margin-top:10px;">Osservazioni dei soci</label>' + vrbCreaEditorHtml('vrb-c-osservazioni', v.osservazioniSoci, 'Eventuali dissensi o osservazioni…');
   html += '<label style="margin-top:10px;">Destinazione avanzo di gestione <span style="font-weight:400;color:var(--muted)">(opzionale)</span></label>' + vrbCreaEditorHtml('vrb-c-destinazione', v.destinazioneAvanzo, 'Es. accantonamento a riserva…');
@@ -172,12 +178,19 @@ function vrbEditorBloccoBilancio(v) {
   return html;
 }
 
+// Recupera i totali dell'esercizio selezionato e, se richiesto, anche
+// quelli dell'anno precedente per il confronto (§4.2: "eventuale
+// confronto con esercizio precedente"). Stessa funzione pura riusata
+// due volte con anni diversi — mai due percorsi di calcolo diversi.
 function vrbRecuperaTotaliBilancio() {
   var annoEl = document.getElementById('vrb-c-anno-esercizio');
+  var confrontoEl = document.getElementById('vrb-c-confronto-anno-prec');
   var anno = annoEl ? annoEl.value : '';
   var out = document.getElementById('vrb-bilancio-totali');
+  var outConfronto = document.getElementById('vrb-bilancio-confronto');
   if (!anno) { alert('Indica prima l\'esercizio di riferimento.'); return; }
   if (out) out.textContent = 'Caricamento…';
+  if (outConfronto) outConfronto.textContent = '';
   vrbBilancioTotali(anno).then(function (tot) {
     var testo = 'Totale entrate: € ' + tot.totEntrate.toFixed(2) +
       ' — Totale uscite: € ' + tot.totUscite.toFixed(2) +
@@ -185,11 +198,60 @@ function vrbRecuperaTotaliBilancio() {
     if (out) out.textContent = testo;
     vrbEditorBilancioTotaliCache = { anno: anno, testo: testo, dati: tot };
     vrbEditorSegnaModifica();
+
+    if (!confrontoEl || !confrontoEl.checked) {
+      vrbEditorConfrontoCache = null;
+      return;
+    }
+    var annoPrec = String(parseInt(anno, 10) - 1);
+    return vrbBilancioTotali(annoPrec).then(function (totPrec) {
+      var deltaSaldo = tot.saldoEsercizio - totPrec.saldoEsercizio;
+      var testoConfronto = 'Confronto con esercizio ' + annoPrec + ': saldo € ' + totPrec.saldoEsercizio.toFixed(2) +
+        ' → variazione ' + (deltaSaldo >= 0 ? '+' : '') + deltaSaldo.toFixed(2) + ' rispetto all\'anno precedente.';
+      if (outConfronto) outConfronto.textContent = testoConfronto;
+      vrbEditorConfrontoCache = { anno: anno, testo: testoConfronto };
+      vrbEditorSegnaModifica();
+    }).catch(function (errPrec) {
+      // Il confronto è un extra (§4.2 dice "eventuale") — se l'anno
+      // precedente non ha dati non blocco tutto, ma lo dichiaro
+      // esplicitamente invece di lasciare il campo vuoto senza spiegazione.
+      var msg = 'Confronto non disponibile: ' + (errPrec && errPrec.message || errPrec);
+      if (outConfronto) outConfronto.textContent = msg;
+      vrbEditorConfrontoCache = null;
+    });
   }).catch(function (err) {
     if (out) out.textContent = 'Errore: ' + (err && err.message || err);
   });
 }
 var vrbEditorBilancioTotaliCache = null;
+var vrbEditorConfrontoCache = null;
+
+// Precompila il punto 1 dell'ordine del giorno per l'approvazione
+// bilancio (§4.2) — richiede che i totali siano già stati recuperati,
+// altrimenti si rifiuterebbe di generare un testo con numeri finti/zero.
+function vrbSuggerisciPunto1Bilancio() {
+  var annoEl = document.getElementById('vrb-c-anno-esercizio');
+  var anno = annoEl ? annoEl.value : '';
+  if (!anno) { alert('Indica prima l\'esercizio di riferimento.'); return; }
+  if (!vrbEditorBilancioTotaliCache || vrbEditorBilancioTotaliCache.anno !== anno) {
+    alert('Recupera prima i totali da Economia per questo esercizio.');
+    return;
+  }
+  var delibera = 'Il Presidente illustra i risultati dell\'esercizio ' + anno + ': ' + vrbEditorBilancioTotaliCache.testo + '.';
+  if (vrbEditorConfrontoCache && vrbEditorConfrontoCache.anno === anno) {
+    delibera += ' ' + vrbEditorConfrontoCache.testo;
+  }
+  delibera += ' L\'assemblea approva il bilancio consuntivo come presentato.';
+  vrbOdgSincronizzaDalDom();
+  vrbOdgCache.unshift({
+    testo: 'Esame e approvazione del bilancio consuntivo esercizio ' + anno,
+    discussione: '',
+    delibera: delibera,
+    esitoVoto: { tipo: 'UNANIMITA', favorevoli: 0, contrari: 0, astenuti: 0 }
+  });
+  vrbOdgRenderLista();
+  vrbEditorSegnaModifica();
+}
 
 // ── Ordine del giorno: lista dinamica di punti ──
 var vrbOdgCache = [];
@@ -299,6 +361,9 @@ function vrbEditorRaccogliCampi() {
     if (vrbEditorBilancioTotaliCache && vrbEditorBilancioTotaliCache.anno === campi.annoEsercizioRif) {
       campi.totaliBilancioTesto = vrbEditorBilancioTotaliCache.testo;
     }
+    if (vrbEditorConfrontoCache && vrbEditorConfrontoCache.anno === campi.annoEsercizioRif) {
+      campi.confrontoAnnoPrecedenteTesto = vrbEditorConfrontoCache.testo;
+    }
   }
   return campi;
 }
@@ -321,8 +386,17 @@ function vrbEditorAutosalva() {
 
 // ── Genera PDF definitivo (transizione BOZZA → GENERATO, irreversibile) ──
 function vrbConfermaGeneraPdf() {
+  var v = vrbListaCache.find(function (x) { return x.id === vrbEditorVerbaleId; });
+  var campiAnteprima = vrbEditorRaccogliCampi();
+  // §3.4: "non permette di procedere con numeri mancanti o a zero senza
+  // avviso" — controllo PRIMA del confirm, cosi' non si chiede conferma
+  // per un'operazione che comunque verrebbe bloccata subito dopo.
+  if (v && v.tipo === 'BILANCIO' && !campiAnteprima.totaliBilancioTesto) {
+    alert('Questo è un verbale di Approvazione Bilancio ma i totali non sono stati recuperati da Economia. Usa "Recupera totali da Economia" prima di generare il PDF definitivo.');
+    return;
+  }
   if (!confirm('Generare il PDF definitivo? Da questo momento il contenuto non sarà più modificabile.')) return;
-  var campi = vrbEditorRaccogliCampi();
+  var campi = campiAnteprima;
   var id = vrbEditorVerbaleId;
   vrbSalvaBozza(id, campi).then(function () {
     return vrbLeggi(id);

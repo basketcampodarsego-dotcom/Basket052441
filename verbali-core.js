@@ -447,6 +447,14 @@ function vrbGeneraPdfBlob(record) {
   });
 
   if (record.tipo === 'BILANCIO') {
+    riga('Riepilogo cifre — esercizio ' + (record.annoEsercizioRif || '—'), { size: 11, stile: 'bold' });
+    if (record.totaliBilancioTesto) {
+      riga(record.totaliBilancioTesto, { size: 10 });
+    } else {
+      riga('ATTENZIONE: totali non recuperati da Economia al momento della generazione.', { size: 10, stile: 'bold' });
+    }
+    if (record.confrontoAnnoPrecedenteTesto) riga(record.confrontoAnnoPrecedenteTesto, { size: 10 });
+    y += 2;
     if (record.relazioneTesoriere) { riga('Relazione del tesoriere', { size: 11, stile: 'bold' }); riga(vrbStripHtml(record.relazioneTesoriere), { size: 10 }); }
     if (record.osservazioniSoci) { riga('Osservazioni dei soci', { size: 11, stile: 'bold' }); riga(vrbStripHtml(record.osservazioniSoci), { size: 10 }); }
     if (record.destinazioneAvanzo) { riga('Destinazione avanzo di gestione', { size: 11, stile: 'bold' }); riga(vrbStripHtml(record.destinazioneAvanzo), { size: 10 }); }
