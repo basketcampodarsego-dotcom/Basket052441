@@ -1,4 +1,4 @@
-<!-- operazioni-giornaliere.html | v0.1 · 30/08/2026 · BK -->
+<!-- operazioni-giornaliere.html | v0.3 · 30/08/2026 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -107,7 +107,7 @@
   <div class="topbar">
     <div>
       <div class="topbar-title">📋 Operazioni giornaliere</div>
-      <div class="topbar-sub">Build v0.1 · 30/08/2026</div>
+      <div class="topbar-sub">Build v0.3 · 30/08/2026</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="auth-badge"></span>
@@ -142,23 +142,48 @@
   <div class="page" id="page-nuova">
     <div class="card">
       <div class="card-title">➕ Nuova operazione</div>
-      <label>Titolo</label>
-      <input type="text" id="nuova-titolo" placeholder="es. Pulizia canestro esterno">
-      <label>Frequenza</label>
-      <select id="nuova-frequenza" onchange="opToggleFrequenzaPersonalizzata()">
-        <option value="1">Giornaliera (lun-sab)</option>
-        <option value="2">Ogni 2 giorni</option>
-        <option value="7">Settimanale</option>
-        <option value="15">Quindicinale</option>
-        <option value="30">Mensile</option>
-        <option value="0">Personalizzata (giorni)</option>
+      <label>Tipo</label>
+      <select id="nuova-tipo" onchange="opToggleTipoOperazione()">
+        <option value="RICORRENTE">Ricorrente (si ripropone a intervalli)</option>
+        <option value="OCCASIONALE">Occasionale (intervento una tantum)</option>
       </select>
-      <div id="nuova-frequenza-personalizzata-box" style="display:none;">
-        <label>Ogni quanti giorni</label>
-        <input type="number" id="nuova-frequenza-personalizzata" min="1" value="1">
+      <label>Titolo</label>
+      <input type="text" id="nuova-titolo" placeholder="es. Riparazione canestro esterno">
+
+      <!-- Blocco RICORRENTE -->
+      <div id="nuova-blocco-ricorrente">
+        <label>Frequenza</label>
+        <select id="nuova-frequenza" onchange="opToggleFrequenzaPersonalizzata()">
+          <option value="1">Giornaliera (lun-sab)</option>
+          <option value="2">Ogni 2 giorni</option>
+          <option value="7">Settimanale</option>
+          <option value="15">Quindicinale</option>
+          <option value="30">Mensile</option>
+          <option value="0">Personalizzata (giorni)</option>
+        </select>
+        <div id="nuova-frequenza-personalizzata-box" style="display:none;">
+          <label>Ogni quanti giorni</label>
+          <input type="number" id="nuova-frequenza-personalizzata" min="1" value="1">
+        </div>
+        <label>Prima scadenza</label>
+        <input type="date" id="nuova-scadenza">
       </div>
-      <label>Prima scadenza</label>
-      <input type="date" id="nuova-scadenza">
+
+      <!-- Blocco OCCASIONALE -->
+      <div id="nuova-blocco-occasionale" style="display:none;">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;">
+          <input type="checkbox" id="nuova-gia-fatto" style="width:auto;margin:0;" onchange="opToggleGiaFatto()">
+          Ho già finito — registra solo il tempo, non serve il cronometro
+        </label>
+        <div id="nuova-gia-fatto-box" style="display:none;">
+          <label>Data intervento</label>
+          <input type="date" id="nuova-gia-fatto-data">
+          <label>Durata (minuti)</label>
+          <input type="number" id="nuova-gia-fatto-minuti" min="1" placeholder="es. 25">
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin:2px 0 10px;">Se lasci deselezionato, l'intervento compare in "Oggi" così puoi usare Inizia/Fine lavoro dal vivo.</p>
+      </div>
+
       <label>Note <span style="text-transform:none;font-weight:400;">(facoltative)</span></label>
       <textarea id="nuova-note" rows="2" placeholder="Dettagli, materiali necessari…"></textarea>
       <button class="btn-gold btn-block" onclick="opCreaNuova()">Crea operazione</button>
@@ -199,9 +224,32 @@
       <div id="stat-riepilogo"></div>
     </div>
     <div class="card">
+      <div class="card-title">⚖️ Manutenzione vs imprevisti</div>
+      <div class="card-desc">Quanto del tuo tempo è programmato e quanto no — la domanda che conta per capire se è sostenibile.</div>
+      <div id="stat-ripartizione"></div>
+    </div>
+    <div class="card">
       <div class="card-title">⏱️ Tempo medio per operazione</div>
       <div class="card-desc">Solo esecuzioni concluse con "Fine lavoro" (esclusi salti/rinvii).</div>
       <div id="stat-medie"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📄 Report stampabile</div>
+      <div class="card-desc">Consuntivo per un periodo, esportabile in PDF con totali finali.</div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;"><label>Dal</label><input type="date" id="report-da"></div>
+        <div style="flex:1;"><label>Al</label><input type="date" id="report-a"></div>
+      </div>
+      <label>Formato</label>
+      <select id="report-tipo">
+        <option value="RIEPILOGO">Riepilogo per operazione (totali)</option>
+        <option value="CRONOLOGICO">Elenco cronologico (ogni esecuzione)</option>
+      </select>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <button class="btn-gray" style="flex:1;" onclick="opAnteprimaReport()">👁 Anteprima</button>
+        <button class="btn-gold" style="flex:1;" onclick="opScaricaReportPdf()">📄 Scarica PDF</button>
+      </div>
+      <div id="report-anteprima" style="margin-top:12px;"></div>
     </div>
   </div>
 </div>
@@ -213,11 +261,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 // ────────────────────────────────────────────────────────────
 // operazioni-giornaliere.html — ASD Basket Campodarsego
-// v0.1 · 30/08/2026 · BK
+// v0.3 · 30/08/2026 · BK
 // Tool standalone (non parte del gestionale Basket052441). Stesso
 // progetto Firebase (stesso login email/password), ma collezione
 // Firestore separata (operazioniPersonali/*) — nessun dato si mischia
@@ -450,6 +499,7 @@ function opCaricaSeed() {
     var ref = col.doc();
     batch.set(ref, {
       id: ref.id,
+      tipo: 'RICORRENTE',
       titolo: item.titolo,
       frequenzaGiorni: item.frequenzaGiorni,
       escludiDomenica: !!item.escludiDomenica,
@@ -475,43 +525,128 @@ function opToggleFrequenzaPersonalizzata() {
   document.getElementById('nuova-frequenza-personalizzata-box').style.display = sel.value === '0' ? 'block' : 'none';
 }
 
+function opToggleTipoOperazione() {
+  var tipo = document.getElementById('nuova-tipo').value;
+  document.getElementById('nuova-blocco-ricorrente').style.display = tipo === 'RICORRENTE' ? 'block' : 'none';
+  document.getElementById('nuova-blocco-occasionale').style.display = tipo === 'OCCASIONALE' ? 'block' : 'none';
+}
+
+function opToggleGiaFatto() {
+  var checked = document.getElementById('nuova-gia-fatto').checked;
+  document.getElementById('nuova-gia-fatto-box').style.display = checked ? 'block' : 'none';
+  if (checked && !document.getElementById('nuova-gia-fatto-data').value) {
+    document.getElementById('nuova-gia-fatto-data').value = opOggiStr();
+  }
+}
+
 function opCreaNuova() {
+  var tipo = document.getElementById('nuova-tipo').value;
   var titolo = document.getElementById('nuova-titolo').value.trim();
+  var note = document.getElementById('nuova-note').value.trim();
+  if (!titolo) { alert('Il titolo è obbligatorio.'); return; }
+
+  if (tipo === 'OCCASIONALE') {
+    opCreaOccasionale(titolo, note);
+  } else {
+    opCreaRicorrente(titolo, note);
+  }
+}
+
+function opCreaRicorrente(titolo, note) {
   var freqSel = document.getElementById('nuova-frequenza').value;
   var freqGiorni = freqSel === '0'
     ? parseInt(document.getElementById('nuova-frequenza-personalizzata').value, 10)
     : parseInt(freqSel, 10);
   var scadenza = document.getElementById('nuova-scadenza').value || opOggiStr();
-  var note = document.getElementById('nuova-note').value.trim();
-
-  if (!titolo) { alert('Il titolo è obbligatorio.'); return; }
   if (!freqGiorni || freqGiorni < 1) { alert('Frequenza non valida.'); return; }
 
   var col = opDefCol();
   if (!col) { alert('Database non pronto.'); return; }
   var ref = col.doc();
   var record = {
-    id: ref.id,
-    titolo: titolo,
-    frequenzaGiorni: freqGiorni,
-    escludiDomenica: freqGiorni === 1,
-    prossimaScadenza: scadenza,
-    note: note,
-    attiva: true,
-    origine: 'MANUALE',
-    creataIl: opOggiStr()
+    id: ref.id, tipo: 'RICORRENTE', titolo: titolo,
+    frequenzaGiorni: freqGiorni, escludiDomenica: freqGiorni === 1,
+    prossimaScadenza: scadenza, note: note, attiva: true,
+    origine: 'MANUALE', creataIl: opOggiStr()
   };
   ref.set(record).then(function () {
-    opLog('Operazione creata: ' + titolo, 'ok');
-    document.getElementById('nuova-titolo').value = '';
-    document.getElementById('nuova-note').value = '';
-    document.getElementById('nuova-scadenza').value = '';
+    opLog('Operazione ricorrente creata: ' + titolo, 'ok');
+    opPuliciFormNuova();
     opGoTab('oggi');
     opRicaricaTutto();
   }).catch(function (err) {
     opLog('Errore creazione operazione: ' + (err && err.message || err), 'err');
     alert('Errore creazione operazione: ' + (err && err.message || err));
   });
+}
+
+// Occasionale: due percorsi.
+// (a) "già fatto" spuntato -> creo la definizione GIA' disattivata
+//     (attiva:false, non deve mai riproporsi in "Oggi") e scrivo subito
+//     un log FATTO con la durata dichiarata — un'unica azione.
+// (b) non spuntato -> creo una definizione pendente (attiva:true,
+//     prossimaScadenza:oggi) che compare in "Oggi" per usare il
+//     cronometro dal vivo, esattamente come una ricorrente ma senza
+//     frequenza (dopo "Fine lavoro" si disattiva da sola, non si ripete).
+function opCreaOccasionale(titolo, note) {
+  var giaFatto = document.getElementById('nuova-gia-fatto').checked;
+  var col = opDefCol();
+  if (!col) { alert('Database non pronto.'); return; }
+  var ref = col.doc();
+
+  if (giaFatto) {
+    var dataInt = document.getElementById('nuova-gia-fatto-data').value || opOggiStr();
+    var minuti = parseInt(document.getElementById('nuova-gia-fatto-minuti').value, 10);
+    if (!minuti || minuti < 1) { alert('Indica la durata in minuti (almeno 1).'); return; }
+    var record = {
+      id: ref.id, tipo: 'OCCASIONALE', titolo: titolo,
+      frequenzaGiorni: null, escludiDomenica: false,
+      prossimaScadenza: null, note: note, attiva: false,
+      origine: 'MANUALE', creataIl: opOggiStr()
+    };
+    ref.set(record).then(function () {
+      var refLog = opLogCol().doc();
+      return refLog.set({
+        id: refLog.id, operazioneId: ref.id, titoloSnapshot: titolo,
+        data: dataInt, stato: OP_STATI.FATTO, durataSecondi: minuti * 60, note: note,
+        registratoIl: new Date().toISOString()
+      });
+    }).then(function () {
+      opLog('Intervento occasionale registrato: ' + titolo + ' (' + minuti + ' min)', 'ok');
+      opStoricoCompletoCache = null;
+      opPuliciFormNuova();
+      opGoTab('storico');
+      opRicaricaTutto();
+    }).catch(function (err) {
+      opLog('Errore registrazione intervento: ' + (err && err.message || err), 'err');
+      alert('Errore registrazione: ' + (err && err.message || err));
+    });
+  } else {
+    var record2 = {
+      id: ref.id, tipo: 'OCCASIONALE', titolo: titolo,
+      frequenzaGiorni: null, escludiDomenica: false,
+      prossimaScadenza: opOggiStr(), note: note, attiva: true,
+      origine: 'MANUALE', creataIl: opOggiStr()
+    };
+    ref.set(record2).then(function () {
+      opLog('Operazione occasionale creata (in attesa): ' + titolo, 'ok');
+      opPuliciFormNuova();
+      opGoTab('oggi');
+      opRicaricaTutto();
+    }).catch(function (err) {
+      opLog('Errore creazione operazione: ' + (err && err.message || err), 'err');
+      alert('Errore creazione operazione: ' + (err && err.message || err));
+    });
+  }
+}
+
+function opPuliciFormNuova() {
+  document.getElementById('nuova-titolo').value = '';
+  document.getElementById('nuova-note').value = '';
+  document.getElementById('nuova-scadenza').value = '';
+  document.getElementById('nuova-gia-fatto').checked = false;
+  document.getElementById('nuova-gia-fatto-minuti').value = '';
+  opToggleGiaFatto();
 }
 
 // ── RENDER: OGGI ──
@@ -551,8 +686,8 @@ function opRenderOggi() {
     var inRitardo = o.prossimaScadenza < oggi;
     var timerAttivo = opTimerAttivi.hasOwnProperty(o.id);
     html += '<div class="op-row ' + (inRitardo ? 'in-ritardo' : '') + (timerAttivo ? ' attiva' : '') + '" id="op-row-' + o.id + '">';
-    html += '<div class="op-title">' + opEsc(o.titolo) + '</div>';
-    html += '<div class="op-meta">' + opEsc(opFreqLabel(o.frequenzaGiorni, o.escludiDomenica)) +
+    html += '<div class="op-title">' + opEsc(o.titolo) + (o.tipo === 'OCCASIONALE' ? ' <span style="font-size:10px;font-weight:400;color:var(--blue);border:1px solid var(--blue);border-radius:4px;padding:1px 5px;vertical-align:middle;">🔧 occasionale</span>' : '') + '</div>';
+    html += '<div class="op-meta">' + (o.tipo === 'OCCASIONALE' ? 'Intervento una tantum' : opEsc(opFreqLabel(o.frequenzaGiorni, o.escludiDomenica))) +
       (inRitardo ? ' · <span class="badge-ritardo">in ritardo dal ' + opEsc(o.prossimaScadenza) + '</span>' : '') +
       (o.note ? ' · ' + opEsc(o.note) : '') + '</div>';
     if (timerAttivo) {
@@ -565,7 +700,7 @@ function opRenderOggi() {
       html += '<div class="op-btns">' +
         '<button class="btn-gold" onclick="opIniziaLavoro(\'' + o.id + '\')">▶️ Inizia</button>' +
         '<button class="btn-gray btn-sm" onclick="opPosticipa(\'' + o.id + '\')">⏭ Posticipa</button>' +
-        '<button class="btn-gray btn-sm" onclick="opSalta(\'' + o.id + '\')">⏭⏭ Salta</button>' +
+        (o.tipo === 'OCCASIONALE' ? '' : '<button class="btn-gray btn-sm" onclick="opSalta(\'' + o.id + '\')">⏭⏭ Salta</button>') +
         '<button class="btn-red btn-sm" onclick="opRimuovi(\'' + o.id + '\')">🗑 Rimuovi</button>' +
         '</div>';
     }
@@ -615,10 +750,12 @@ function opFineLavoro(id) {
     data: oggi, stato: OP_STATI.FATTO, durataSecondi: durataSecondi, note: note,
     registratoIl: new Date().toISOString()
   };
-  var nuovaScadenza = opProssimaScadenzaDa(oggi, op.frequenzaGiorni, op.escludiDomenica);
+  var patchDef = op.tipo === 'OCCASIONALE'
+    ? { attiva: false, prossimaScadenza: null }
+    : { prossimaScadenza: opProssimaScadenzaDa(oggi, op.frequenzaGiorni, op.escludiDomenica) };
 
   refLog.set(logRecord).then(function () {
-    return opDefCol().doc(id).update({ prossimaScadenza: nuovaScadenza });
+    return opDefCol().doc(id).update(patchDef);
   }).then(function () {
     delete opTimerAttivi[id];
     opSalvaTimerSuLocalStorage();
@@ -763,6 +900,41 @@ function opRenderStatistiche() {
       '<div class="stat-riga"><span>Tasso di completamento</span><span class="val">' + percFatto + '%</span></div>' +
       '<div class="stat-riga"><span>Tempo totale lavorato</span><span class="val">' + Math.round(totaleSecondi / 60) + ' min</span></div>';
 
+    // Ripartizione ricorrente/occasionale — è la domanda che ha motivato
+    // l'introduzione degli interventi occasionali: quanto tempo va nella
+    // manutenzione di routine vs negli imprevisti, per valutare la
+    // sostenibilità nel tempo. Lookup del tipo dal registro operazioni
+    // (mai inventato: se un log referenzia un id sconosciuto, lo segnalo
+    // esplicitamente invece di darlo per scontato in un bucket a caso).
+    var secondiPerTipo = { RICORRENTE: 0, OCCASIONALE: 0 };
+    var contPerTipo = { RICORRENTE: 0, OCCASIONALE: 0 };
+    var sconosciuti = 0;
+    fatti.forEach(function (l) {
+      var def = opDefCache.find(function (d) { return d.id === l.operazioneId; });
+      var t = def ? def.tipo : null;
+      if (t === 'RICORRENTE' || t === 'OCCASIONALE') {
+        secondiPerTipo[t] += (l.durataSecondi || 0);
+        contPerTipo[t] += 1;
+      } else {
+        sconosciuti++;
+      }
+    });
+    var totRipSecondi = secondiPerTipo.RICORRENTE + secondiPerTipo.OCCASIONALE;
+    var percOccasionale = totRipSecondi ? Math.round(secondiPerTipo.OCCASIONALE / totRipSecondi * 100) : 0;
+    var ripartEl = document.getElementById('stat-ripartizione');
+    if (ripartEl) {
+      var htmlRip =
+        '<div class="stat-riga"><span>Manutenzione ricorrente</span><span class="val">' + Math.round(secondiPerTipo.RICORRENTE / 60) + ' min (' + contPerTipo.RICORRENTE + ')</span></div>' +
+        '<div class="stat-riga"><span>Interventi occasionali</span><span class="val">' + Math.round(secondiPerTipo.OCCASIONALE / 60) + ' min (' + contPerTipo.OCCASIONALE + ')</span></div>' +
+        '<div class="bar-bg" style="margin:8px 0;"><div class="bar-fill" style="width:' + percOccasionale + '%;background:var(--blue);"></div></div>' +
+        '<div style="font-size:11px;color:var(--muted);">' + percOccasionale + '% del tempo registrato è andato in interventi occasionali, non pianificati.</div>';
+      if (sconosciuti) {
+        htmlRip += '<div style="font-size:11px;color:var(--err);margin-top:6px;">⚠️ ' + sconosciuti + ' esecuzioni fanno riferimento a un\'operazione non trovata nel registro — dato escluso da questa ripartizione, ma incluso nel tempo totale sopra.</div>';
+        opLog('Statistiche: ' + sconosciuti + ' log con operazioneId sconosciuto', 'err');
+      }
+      ripartEl.innerHTML = htmlRip;
+    }
+
     // Medie per operazione — raggruppo per operazioneId sui soli FATTO.
     var gruppi = {};
     fatti.forEach(function (l) {
@@ -799,6 +971,214 @@ function opRenderStatistiche() {
       opStoricoCompletoCache = elenco;
       render(elenco);
     });
+  }
+}
+
+// ── REPORT STAMPABILE ──
+// Filtra lo storico completo sul periodo scelto. Se l'utente non ha
+// ancora impostato le date, uso come default il mese corrente — mai un
+// filtro implicito "tutto" senza che sia una scelta esplicita visibile
+// nei due campi data.
+function opDefaultDateReport() {
+  var daEl = document.getElementById('report-da');
+  var aEl = document.getElementById('report-a');
+  if (!daEl.value) {
+    var oggi = new Date();
+    daEl.value = oggi.toISOString().slice(0, 8) + '01';
+  }
+  if (!aEl.value) aEl.value = opOggiStr();
+}
+
+function opFiltraStoricoPerPeriodo(elenco) {
+  opDefaultDateReport();
+  var da = document.getElementById('report-da').value;
+  var a = document.getElementById('report-a').value;
+  return elenco.filter(function (l) { return l.data >= da && l.data <= a; });
+}
+
+// Costruisce i dati del riepilogo per operazione (usato sia da anteprima
+// che da PDF) — un'unica fonte di calcolo per i due formati di output,
+// mai due logiche di aggregazione diverse che potrebbero disallinearsi.
+function opCalcolaRiepilogoPerOperazione(elencoFiltrato) {
+  var fatti = elencoFiltrato.filter(function (l) { return l.stato === OP_STATI.FATTO; });
+  var gruppi = {};
+  fatti.forEach(function (l) {
+    if (!gruppi[l.operazioneId]) {
+      var def = opDefCache.find(function (d) { return d.id === l.operazioneId; });
+      gruppi[l.operazioneId] = { titolo: l.titoloSnapshot, tipo: def ? def.tipo : '—', conteggio: 0, secondi: 0 };
+    }
+    gruppi[l.operazioneId].conteggio += 1;
+    gruppi[l.operazioneId].secondi += (l.durataSecondi || 0);
+  });
+  var righe = Object.keys(gruppi).map(function (k) { return gruppi[k]; })
+    .sort(function (a, b) { return b.secondi - a.secondi; });
+  var totSecondi = righe.reduce(function (s, r) { return s + r.secondi; }, 0);
+  var totRicorrente = righe.filter(function (r) { return r.tipo === 'RICORRENTE'; }).reduce(function (s, r) { return s + r.secondi; }, 0);
+  var totOccasionale = righe.filter(function (r) { return r.tipo === 'OCCASIONALE'; }).reduce(function (s, r) { return s + r.secondi; }, 0);
+  var saltati = elencoFiltrato.filter(function (l) { return l.stato === OP_STATI.SALTATO; }).length;
+  var posticipati = elencoFiltrato.filter(function (l) { return l.stato === OP_STATI.POSTICIPATO; }).length;
+  return { righe: righe, totSecondi: totSecondi, totRicorrente: totRicorrente, totOccasionale: totOccasionale, saltati: saltati, posticipati: posticipati, totEsecuzioni: fatti.length };
+}
+
+function opCalcolaCronologico(elencoFiltrato) {
+  var ordinati = elencoFiltrato.slice().sort(function (a, b) {
+    return a.data === b.data ? 0 : (a.data < b.data ? -1 : 1);
+  });
+  var totSecondi = ordinati.filter(function (l) { return l.stato === OP_STATI.FATTO; })
+    .reduce(function (s, l) { return s + (l.durataSecondi || 0); }, 0);
+  return { righe: ordinati, totSecondi: totSecondi };
+}
+
+function opAnteprimaReport() {
+  if (!opStoricoCompletoCache) {
+    opCaricaStoricoCompleto().then(function (elenco) { opStoricoCompletoCache = elenco; opAnteprimaReport(); });
+    return;
+  }
+  var filtrato = opFiltraStoricoPerPeriodo(opStoricoCompletoCache);
+  var tipo = document.getElementById('report-tipo').value;
+  var cont = document.getElementById('report-anteprima');
+  if (!filtrato.length) {
+    cont.innerHTML = '<div class="empty-state">Nessun dato nel periodo selezionato.</div>';
+    return;
+  }
+  if (tipo === 'RIEPILOGO') {
+    var dati = opCalcolaRiepilogoPerOperazione(filtrato);
+    var html = '<div class="tabella-scroll"><table><thead><tr><th>Operazione</th><th>Tipo</th><th>N.</th><th>Tempo tot.</th><th>Media</th></tr></thead><tbody>';
+    dati.righe.forEach(function (r) {
+      html += '<tr><td>' + opEsc(r.titolo) + '</td><td>' + (r.tipo === 'OCCASIONALE' ? 'Occas.' : 'Ricorr.') + '</td><td>' + r.conteggio + '</td><td>' + opFormattaDurata(r.secondi) + '</td><td>' + opFormattaDurata(Math.round(r.secondi / r.conteggio)) + '</td></tr>';
+    });
+    html += '</tbody></table></div>';
+    html += '<div class="stat-riga" style="margin-top:8px;"><span>Totale ricorrente</span><span class="val">' + Math.round(dati.totRicorrente / 60) + ' min</span></div>';
+    html += '<div class="stat-riga"><span>Totale occasionale</span><span class="val">' + Math.round(dati.totOccasionale / 60) + ' min</span></div>';
+    html += '<div class="stat-riga"><span>TOTALE PERIODO</span><span class="val">' + Math.round(dati.totSecondi / 60) + ' min (' + dati.totEsecuzioni + ' esecuzioni)</span></div>';
+    html += '<div class="stat-riga"><span>Saltate / Posticipate nel periodo</span><span class="val">' + dati.saltati + ' / ' + dati.posticipati + '</span></div>';
+    cont.innerHTML = html;
+  } else {
+    var datiC = opCalcolaCronologico(filtrato);
+    var htmlC = '<div class="tabella-scroll"><table><thead><tr><th>Data</th><th>Operazione</th><th>Stato</th><th>Durata</th><th>Note</th></tr></thead><tbody>';
+    datiC.righe.forEach(function (l) {
+      htmlC += '<tr><td>' + opEsc(l.data) + '</td><td>' + opEsc(l.titoloSnapshot) + '</td><td class="stato-' + l.stato + '">' + opEsc(l.stato) + '</td><td>' + (l.stato === OP_STATI.FATTO ? opFormattaDurata(l.durataSecondi || 0) : '—') + '</td><td>' + opEsc(l.note || '') + '</td></tr>';
+    });
+    htmlC += '</tbody></table></div>';
+    htmlC += '<div class="stat-riga" style="margin-top:8px;"><span>TOTALE TEMPO LAVORATO</span><span class="val">' + Math.round(datiC.totSecondi / 60) + ' min</span></div>';
+    cont.innerHTML = htmlC;
+  }
+}
+
+// ── PDF ──
+// Tabella disegnata a mano (nessuna libreria autotable) — stesso
+// principio già usato per i verbali: righe con testo, interruzione di
+// pagina quando si avvicina al fondo, intestazione ripetuta sulla
+// pagina nuova. Numero pagina/totale pagine aggiunto in un secondo
+// passaggio finale, quando si conosce il numero totale di pagine.
+function opDisegnaTabella(doc, headers, colX, colW, righe, startY, margineBasso) {
+  var y = startY;
+  var rigaAltezza = 6;
+
+  function disegnaIntestazione() {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+    headers.forEach(function (h, i) { doc.text(h, colX[i], y); });
+    y += 2;
+    doc.setDrawColor(180); doc.line(colX[0], y, colX[colX.length - 1] + colW[colW.length - 1], y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+  }
+
+  disegnaIntestazione();
+  righe.forEach(function (cells) {
+    if (y > 285 - margineBasso) {
+      doc.addPage();
+      y = 20;
+      disegnaIntestazione();
+    }
+    cells.forEach(function (val, i) {
+      var testo = doc.splitTextToSize(String(val == null ? '' : val), colW[i] - 2);
+      doc.text(testo[0] || '', colX[i], y); // una riga per cella: tronca il resto invece di spezzare la tabella — accettabile per un report, non per un documento legale
+    });
+    y += rigaAltezza;
+  });
+  return y;
+}
+
+function opAggiungiNumeriPagina(doc) {
+  var totPagine = doc.internal.getNumberOfPages();
+  for (var i = 1; i <= totPagine; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('Pag. ' + i + ' di ' + totPagine, 105, 292, { align: 'center' });
+    doc.setTextColor(0);
+  }
+}
+
+function opScaricaReportPdf() {
+  if (typeof window.jspdf === 'undefined') {
+    opLog('jsPDF non disponibile — impossibile generare il report', 'err');
+    alert('Libreria PDF non disponibile (verifica la connessione e ricarica la pagina).');
+    return;
+  }
+  var genera = function () {
+    var filtrato = opFiltraStoricoPerPeriodo(opStoricoCompletoCache);
+    if (!filtrato.length) { alert('Nessun dato nel periodo selezionato — niente da esportare.'); return; }
+    var tipo = document.getElementById('report-tipo').value;
+    var da = document.getElementById('report-da').value;
+    var a = document.getElementById('report-a').value;
+
+    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+    doc.text('Report operazioni — Palestra via Hermagor', 20, 20);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text('Periodo: ' + da + '  →  ' + a, 20, 27);
+    doc.setFontSize(8); doc.setTextColor(140);
+    doc.text('Generato il ' + opOggiStr(), 20, 32);
+    doc.setTextColor(0);
+
+    var yFine;
+    if (tipo === 'RIEPILOGO') {
+      var dati = opCalcolaRiepilogoPerOperazione(filtrato);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.text('Riepilogo per operazione', 20, 42);
+      var righePdf = dati.righe.map(function (r) {
+        return [r.titolo, r.tipo === 'OCCASIONALE' ? 'Occas.' : 'Ricorr.', String(r.conteggio), opFormattaDurata(r.secondi), opFormattaDurata(Math.round(r.secondi / r.conteggio))];
+      });
+      yFine = opDisegnaTabella(doc,
+        ['Operazione', 'Tipo', 'N.', 'Tempo tot.', 'Media'],
+        [20, 110, 135, 150, 175], [88, 22, 13, 22, 20],
+        righePdf, 50, 25);
+      yFine += 4;
+      doc.setDrawColor(0); doc.line(20, yFine, 190, yFine); yFine += 6;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+      doc.text('Totale ricorrente: ' + opFormattaDurata(dati.totRicorrente), 20, yFine); yFine += 6;
+      doc.text('Totale occasionale: ' + opFormattaDurata(dati.totOccasionale), 20, yFine); yFine += 6;
+      doc.setFontSize(11);
+      doc.text('TOTALE PERIODO: ' + opFormattaDurata(dati.totSecondi) + '  (' + dati.totEsecuzioni + ' esecuzioni)', 20, yFine); yFine += 7;
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text('Operazioni saltate nel periodo: ' + dati.saltati + '   ·   Posticipate: ' + dati.posticipati, 20, yFine);
+    } else {
+      var datiC = opCalcolaCronologico(filtrato);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.text('Elenco cronologico', 20, 42);
+      var righeC = datiC.righe.map(function (l) {
+        return [l.data, l.titoloSnapshot, l.stato, l.stato === OP_STATI.FATTO ? opFormattaDurata(l.durataSecondi || 0) : '—', l.note || ''];
+      });
+      yFine = opDisegnaTabella(doc,
+        ['Data', 'Operazione', 'Stato', 'Durata', 'Note'],
+        [20, 45, 100, 125, 148], [23, 53, 23, 20, 42],
+        righeC, 50, 25);
+      yFine += 4;
+      doc.setDrawColor(0); doc.line(20, yFine, 190, yFine); yFine += 7;
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.text('TOTALE TEMPO LAVORATO: ' + opFormattaDurata(datiC.totSecondi), 20, yFine);
+    }
+
+    opAggiungiNumeriPagina(doc);
+    doc.save('report-operazioni_' + da + '_' + a + '.pdf');
+    opLog('Report PDF generato (' + tipo + ', ' + da + ' → ' + a + ')', 'ok');
+  };
+
+  if (opStoricoCompletoCache) {
+    genera();
+  } else {
+    opCaricaStoricoCompleto().then(function (elenco) { opStoricoCompletoCache = elenco; genera(); });
   }
 }
 
