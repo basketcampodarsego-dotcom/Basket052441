@@ -1,4 +1,4 @@
-<!-- operazioni-giornaliere.html | v0.6 · 30/08/2026 · BK -->
+<!-- operazioni-giornaliere.html | v0.8 · 30/08/2026 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -108,7 +108,7 @@
   <div class="topbar">
     <div>
       <div class="topbar-title">📋 Operazioni giornaliere</div>
-      <div class="topbar-sub">Build v0.6 · 30/08/2026</div>
+      <div class="topbar-sub">Build v0.8 · 30/08/2026</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="auth-badge"></span>
@@ -134,8 +134,14 @@
       <button class="btn-gray btn-sm" onclick="opRicaricaTutto()">🔄 Ricarica</button>
       <div id="seed-box" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
         <p style="font-size:12px;color:var(--muted);">Nessuna operazione impostata. Carica le 20 operazioni di base (pulizia/custodia) o creane una nuova dalla scheda "➕ Nuova".</p>
-        <button class="btn-gold btn-block" onclick="opCaricaSeed()">Carica le 20 operazioni di base</button>
+        <button class="btn-gold btn-block" id="seed-btn-carica" onclick="opCaricaSeed()">Carica le 20 operazioni di base</button>
       </div>
+    </div>
+    <div class="card" id="duplicati-box" style="display:none;border-color:var(--err);">
+      <div class="card-title" style="color:var(--err);">⚠️ Operazioni duplicate rilevate</div>
+      <div id="duplicati-lista" style="font-size:12px;color:var(--muted);margin-bottom:10px;"></div>
+      <button class="btn-red btn-block" onclick="opPuliziaDuplicati()">🧹 Tieni solo una copia per gruppo</button>
+      <p style="font-size:10px;color:var(--muted);margin-top:6px;">Le copie in eccesso vengono disattivate (mai cancellate) — se avessero già delle esecuzioni registrate, quello storico resta intatto.</p>
     </div>
     <div id="oggi-lista"></div>
   </div>
@@ -300,7 +306,7 @@
 <script>
 // ────────────────────────────────────────────────────────────
 // operazioni-giornaliere.html — ASD Basket Campodarsego
-// v0.6 · 30/08/2026 · BK
+// v0.8 · 30/08/2026 · BK
 // Tool standalone (non parte del gestionale Basket052441). Stesso
 // progetto Firebase (stesso login email/password), ma collezione
 // Firestore separata (operazioniPersonali/*) — nessun dato si mischia
@@ -385,6 +391,7 @@ function opGoTab(tab) {
   var idx = { oggi: 0, settimana: 1, nuova: 2, storico: 3, statistiche: 4 }[tab];
   document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'nuova' && !opEditingId) opRiabilitaBottoneSalva();
   if (tab === 'settimana') opRenderSettimana();
   if (tab === 'storico') opRenderStorico();
   if (tab === 'statistiche') opRenderStatistiche();
@@ -440,6 +447,20 @@ function opLogCol() {
 var opDefCache = [];
 var opLogCache = [];
 var opTimerAttivi = {}; // { operazioneId: timestampInizioMs } — sopravvive a refresh via localStorage
+
+// Lock per-operazione contro scritture doppie: stessa classe di bug del
+// doppio tocco su "Crea operazione", ma qui serve un lock per singola
+// riga (id), non un solo pulsante globale — più righe possono avere
+// un'azione in corso in parallelo, ognuna indipendente dalle altre.
+var opAzioneInCorso = {};
+function opBloccaAzione(id) {
+  if (opAzioneInCorso[id]) return false; // già in corso — ignora
+  opAzioneInCorso[id] = true;
+  return true;
+}
+function opSbloccaAzione(id) {
+  delete opAzioneInCorso[id];
+}
 var opTimerInterval = null;
 
 function opCaricaTimerDaLocalStorage() {
@@ -468,10 +489,13 @@ function opRicaricaTutto() {
     opDefCache = [];
     snap.forEach(function (doc) { opDefCache.push(doc.data()); });
     opLog('Operazioni caricate: ' + opDefCache.length, 'ok');
-    return opLogCol().where('data', '>=', opAggiungiGiorni(opOggiStr(), -1)).get().catch(function () {
+    return opLogCol().where('data', '>=', opAggiungiGiorni(opOggiStr(), -1)).get().catch(function (errPrimario) {
       // Fallback se manca l'indice composito per il filtro data — carico
-      // comunque tutto il log di oggi filtrando lato client, mai un
-      // errore silenzioso che lascia il contatore a zero senza spiegare.
+      // comunque tutto il log di oggi filtrando lato client. L'errore
+      // originale va SEMPRE registrato qui: prima non lo era, ed era
+      // un'uscita silenziosa reale nonostante questo stesso commento
+      // dicesse il contrario (trovato in audit, corretto 30/08/2026).
+      opLog('Query con filtro data fallita (uso ripiego senza filtro): ' + (errPrimario && errPrimario.message || errPrimario), 'err');
       return opLogCol().get();
     });
   }).then(function (snapLog) {
@@ -526,8 +550,11 @@ var OP_SEED = [
 ];
 
 function opCaricaSeed() {
+  var btn = document.getElementById('seed-btn-carica');
+  if (btn.disabled) return; // già in corso — questo era esattamente il bug: doppio tocco = 20 doppioni
+  btn.disabled = true;
   var col = opDefCol();
-  if (!col) return;
+  if (!col) { btn.disabled = false; return; }
   var oggi = opOggiStr();
   var batch = _db.batch();
   OP_SEED.forEach(function (item) {
@@ -547,8 +574,9 @@ function opCaricaSeed() {
   });
   batch.commit().then(function () {
     opLog('20 operazioni di base caricate', 'ok');
-    opRicaricaTutto();
+    opRicaricaTutto(); // il seed-box sparisce appena opDefCache non è più vuota, il bottone non serve più riabilitarlo
   }).catch(function (err) {
+    btn.disabled = false;
     opLog('Errore caricamento operazioni di base: ' + (err && err.message || err), 'err');
     alert('Errore caricamento operazioni di base: ' + (err && err.message || err));
   });
@@ -577,10 +605,13 @@ function opToggleGiaFatto() {
 var opEditingId = null;
 
 function opCreaNuova() {
+  var btn = document.getElementById('nuova-btn-salva');
+  if (btn.disabled) return; // salvataggio già in corso — ignora tocchi ripetuti (causa nota di duplicati)
   var tipo = document.getElementById('nuova-tipo').value;
   var titolo = document.getElementById('nuova-titolo').value.trim();
   var note = document.getElementById('nuova-note').value.trim();
   if (!titolo) { alert('Il titolo è obbligatorio.'); return; }
+  btn.disabled = true;
 
   if (opEditingId) { opSalvaModifiche(titolo, note); return; }
 
@@ -589,6 +620,11 @@ function opCreaNuova() {
   } else {
     opCreaRicorrente(titolo, note);
   }
+}
+
+function opRiabilitaBottoneSalva() {
+  var btn = document.getElementById('nuova-btn-salva');
+  if (btn) btn.disabled = false;
 }
 
 // ── MODIFICA OPERAZIONE ESISTENTE ──
@@ -652,7 +688,7 @@ function opAnnullaModifica() {
 function opSalvaModifiche(titolo, note) {
   var id = opEditingId;
   var op = opDefCache.find(function (x) { return x.id === id; });
-  if (!op) { opLog('opSalvaModifiche: operazione non in cache: ' + id, 'err'); return; }
+  if (!op) { opRiabilitaBottoneSalva(); opLog('opSalvaModifiche: operazione non in cache: ' + id, 'err'); return; }
   var patch = { titolo: titolo, note: note };
 
   if (op.tipo === 'OCCASIONALE') {
@@ -664,7 +700,7 @@ function opSalvaModifiche(titolo, note) {
     var freqGiorni = freqSel.value === '0'
       ? parseInt(document.getElementById('nuova-frequenza-personalizzata').value, 10)
       : parseInt(freqSel.value, 10);
-    if (!freqGiorni || freqGiorni < 1) { alert('Frequenza non valida.'); return; }
+    if (!freqGiorni || freqGiorni < 1) { opRiabilitaBottoneSalva(); alert('Frequenza non valida.'); return; }
     patch.frequenzaGiorni = freqGiorni;
     patch.escludiDomenica = freqGiorni === 1;
     var nuovaScadenza = document.getElementById('nuova-scadenza').value;
@@ -673,10 +709,12 @@ function opSalvaModifiche(titolo, note) {
 
   opDefCol().doc(id).update(patch).then(function () {
     opLog('Operazione modificata: ' + titolo, 'ok');
+    opRiabilitaBottoneSalva();
     opAnnullaModifica();
     opRicaricaTutto();
   }).catch(function (err) {
     opLog('Errore salvataggio modifiche: ' + (err && err.message || err), 'err');
+    opRiabilitaBottoneSalva();
     alert('Errore salvataggio: ' + (err && err.message || err));
   });
 }
@@ -687,10 +725,10 @@ function opCreaRicorrente(titolo, note) {
     ? parseInt(document.getElementById('nuova-frequenza-personalizzata').value, 10)
     : parseInt(freqSel, 10);
   var scadenza = document.getElementById('nuova-scadenza').value || opOggiStr();
-  if (!freqGiorni || freqGiorni < 1) { alert('Frequenza non valida.'); return; }
+  if (!freqGiorni || freqGiorni < 1) { opRiabilitaBottoneSalva(); alert('Frequenza non valida.'); return; }
 
   var col = opDefCol();
-  if (!col) { alert('Database non pronto.'); return; }
+  if (!col) { opRiabilitaBottoneSalva(); alert('Database non pronto.'); return; }
   var ref = col.doc();
   var record = {
     id: ref.id, tipo: 'RICORRENTE', titolo: titolo,
@@ -700,11 +738,13 @@ function opCreaRicorrente(titolo, note) {
   };
   ref.set(record).then(function () {
     opLog('Operazione ricorrente creata: ' + titolo, 'ok');
+    opRiabilitaBottoneSalva();
     opPuliciFormNuova();
     opGoTab('oggi');
     opRicaricaTutto();
   }).catch(function (err) {
     opLog('Errore creazione operazione: ' + (err && err.message || err), 'err');
+    opRiabilitaBottoneSalva();
     alert('Errore creazione operazione: ' + (err && err.message || err));
   });
 }
@@ -721,13 +761,13 @@ function opCreaOccasionale(titolo, note) {
   var giaFatto = document.getElementById('nuova-gia-fatto').checked;
   var categoria = document.getElementById('nuova-categoria').value;
   var col = opDefCol();
-  if (!col) { alert('Database non pronto.'); return; }
+  if (!col) { opRiabilitaBottoneSalva(); alert('Database non pronto.'); return; }
   var ref = col.doc();
 
   if (giaFatto) {
     var dataInt = document.getElementById('nuova-gia-fatto-data').value || opOggiStr();
     var minuti = parseInt(document.getElementById('nuova-gia-fatto-minuti').value, 10);
-    if (!minuti || minuti < 1) { alert('Indica la durata in minuti (almeno 1).'); return; }
+    if (!minuti || minuti < 1) { opRiabilitaBottoneSalva(); alert('Indica la durata in minuti (almeno 1).'); return; }
     var record = {
       id: ref.id, tipo: 'OCCASIONALE', categoria: categoria, titolo: titolo,
       frequenzaGiorni: null, escludiDomenica: false,
@@ -743,12 +783,14 @@ function opCreaOccasionale(titolo, note) {
       });
     }).then(function () {
       opLog('Intervento occasionale registrato: ' + titolo + ' (' + minuti + ' min)', 'ok');
+      opRiabilitaBottoneSalva();
       opStoricoCompletoCache = null;
       opPuliciFormNuova();
       opGoTab('storico');
       opRicaricaTutto();
     }).catch(function (err) {
       opLog('Errore registrazione intervento: ' + (err && err.message || err), 'err');
+      opRiabilitaBottoneSalva();
       alert('Errore registrazione: ' + (err && err.message || err));
     });
   } else {
@@ -760,11 +802,13 @@ function opCreaOccasionale(titolo, note) {
     };
     ref.set(record2).then(function () {
       opLog('Operazione occasionale creata (in attesa): ' + titolo, 'ok');
+      opRiabilitaBottoneSalva();
       opPuliciFormNuova();
       opGoTab('oggi');
       opRicaricaTutto();
     }).catch(function (err) {
       opLog('Errore creazione operazione: ' + (err && err.message || err), 'err');
+      opRiabilitaBottoneSalva();
       alert('Errore creazione operazione: ' + (err && err.message || err));
     });
   }
@@ -857,11 +901,76 @@ function opFormattaDurata(secondi) {
   return m + ':' + String(s).padStart(2, '0');
 }
 
+// ── RILEVAMENTO E PULIZIA DUPLICATI ──
+// Causa nota: un doppio tocco sul pulsante di creazione (rete lenta,
+// dito impreciso) prima che il primo salvataggio finisse — ora prevenuto
+// disabilitando il pulsante durante il salvataggio (vedi opCreaNuova/
+// opCaricaSeed), ma questo strumento resta per pulire i duplicati già
+// esistenti nel database da prima del fix.
+// Raggruppamento per tipo+titolo+frequenzaGiorni: due operazioni sono
+// "la stessa" solo se combaciano su tutti e tre — mai un raggruppamento
+// solo sul titolo, che potrebbe fondere per errore due operazioni
+// diverse che condividono per caso lo stesso nome.
+function opRilevaDuplicati() {
+  var attive = opDefCache.filter(function (o) { return o.attiva !== false; });
+  var gruppi = {};
+  attive.forEach(function (o) {
+    var chiave = o.tipo + '|' + o.titolo + '|' + (o.frequenzaGiorni == null ? 'null' : o.frequenzaGiorni);
+    if (!gruppi[chiave]) gruppi[chiave] = [];
+    gruppi[chiave].push(o);
+  });
+  return Object.keys(gruppi).map(function (k) { return gruppi[k]; }).filter(function (g) { return g.length > 1; });
+}
+
+function opRenderDuplicati() {
+  var gruppi = opRilevaDuplicati();
+  var box = document.getElementById('duplicati-box');
+  if (!gruppi.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  var totaleEccesso = gruppi.reduce(function (s, g) { return s + (g.length - 1); }, 0);
+  document.getElementById('duplicati-lista').innerHTML = gruppi.map(function (g) {
+    return opEsc(g[0].titolo) + ' — ' + g.length + ' copie';
+  }).join('<br>') + '<br><b>Totale copie in eccesso: ' + totaleEccesso + '</b>';
+}
+
+// Per ogni gruppo tiene la copia più vecchia (creataIl più basso — è
+// quasi certamente l'originale, le altre sono arrivate per il doppio
+// tocco subito dopo) e disattiva le altre. MAI una cancellazione fisica
+// e MAI un log ANNULLATO per queste: non sono state annullate da una
+// decisione, sono un errore tecnico da correggere silenziosamente sul
+// piano dei dati ma sempre con una traccia nel log diagnostico.
+function opPuliziaDuplicati() {
+  var gruppi = opRilevaDuplicati();
+  if (!gruppi.length) return;
+  var totaleEccesso = gruppi.reduce(function (s, g) { return s + (g.length - 1); }, 0);
+  if (!confirm('Disattivare ' + totaleEccesso + ' copie in eccesso su ' + gruppi.length + ' operazioni duplicate? Rimarrà una sola copia per ognuna.')) return;
+
+  var col = opDefCol();
+  if (!col) { alert('Database non pronto.'); return; }
+  var batch = _db.batch();
+  var titoliCoinvolti = [];
+  gruppi.forEach(function (g) {
+    var ordinati = g.slice().sort(function (a, b) { return (a.creataIl || '').localeCompare(b.creataIl || ''); });
+    titoliCoinvolti.push(ordinati[0].titolo + ' (tenute 1 di ' + ordinati.length + ')');
+    ordinati.slice(1).forEach(function (dup) {
+      batch.update(col.doc(dup.id), { attiva: false });
+    });
+  });
+  batch.commit().then(function () {
+    opLog('Pulizia duplicati completata: ' + titoliCoinvolti.join(' · '), 'ok');
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore pulizia duplicati: ' + (err && err.message || err), 'err');
+    alert('Errore pulizia duplicati: ' + (err && err.message || err));
+  });
+}
+
 function opRenderOggi() {
   var oggi = opOggiStr();
   var attive = opDefCache.filter(function (o) { return o.attiva !== false; });
   var seedBox = document.getElementById('seed-box');
   seedBox.style.display = attive.length === 0 ? 'block' : 'none';
+  opRenderDuplicati();
 
   var daFare = attive.filter(function (o) { return o.prossimaScadenza <= oggi; })
     .sort(function (a, b) {
@@ -936,15 +1045,16 @@ function opAggiornaTimerVisivi() {
 }
 
 function opFineLavoro(id) {
+  if (!opBloccaAzione(id)) return; // salvataggio già in corso per questa riga
   var op = opDefCache.find(function (x) { return x.id === id; });
-  if (!op) { opLog('opFineLavoro: operazione non in cache: ' + id, 'err'); return; }
+  if (!op) { opSbloccaAzione(id); opLog('opFineLavoro: operazione non in cache: ' + id, 'err'); return; }
   var inizioMs = opTimerAttivi[id];
-  if (!inizioMs) { opLog('opFineLavoro: nessun timer attivo per: ' + id, 'err'); return; }
+  if (!inizioMs) { opSbloccaAzione(id); opLog('opFineLavoro: nessun timer attivo per: ' + id, 'err'); return; }
   var durataSecondi = Math.floor((Date.now() - inizioMs) / 1000);
   var note = prompt('Note su questa esecuzione (facoltative):', '') || '';
 
   var col = opLogCol();
-  if (!col) { alert('Database non pronto.'); return; }
+  if (!col) { opSbloccaAzione(id); alert('Database non pronto.'); return; }
   var oggi = opOggiStr();
   var refLog = col.doc();
   var logRecord = {
@@ -961,9 +1071,11 @@ function opFineLavoro(id) {
   }).then(function () {
     delete opTimerAttivi[id];
     opSalvaTimerSuLocalStorage();
+    opSbloccaAzione(id);
     opLog('Completata: ' + op.titolo + ' (' + opFormattaDurata(durataSecondi) + ')', 'ok');
     opRicaricaTutto();
   }).catch(function (err) {
+    opSbloccaAzione(id);
     opLog('Errore registrazione completamento: ' + (err && err.message || err), 'err');
     alert('Errore registrazione: ' + (err && err.message || err) + ' — il timer resta attivo, riprova.');
   });
@@ -971,12 +1083,13 @@ function opFineLavoro(id) {
 
 // ── POSTICIPA / SALTA / RIMUOVI ──
 function opPosticipa(id) {
+  if (!opBloccaAzione(id)) return;
   var op = opDefCache.find(function (x) { return x.id === id; });
-  if (!op) return;
+  if (!op) { opSbloccaAzione(id); return; }
   var giorniStr = prompt('Posticipare di quanti giorni?', '1');
-  if (giorniStr === null) return;
+  if (giorniStr === null) { opSbloccaAzione(id); return; }
   var giorni = parseInt(giorniStr, 10);
-  if (!giorni || giorni < 1) { alert('Numero di giorni non valido.'); return; }
+  if (!giorni || giorni < 1) { opSbloccaAzione(id); alert('Numero di giorni non valido.'); return; }
   var oggi = opOggiStr();
   var nuovaScadenza = opAggiungiGiorni(oggi, giorni);
   var col = opLogCol();
@@ -989,18 +1102,21 @@ function opPosticipa(id) {
   }).then(function () {
     return opDefCol().doc(id).update({ prossimaScadenza: nuovaScadenza });
   }).then(function () {
+    opSbloccaAzione(id);
     opLog('Posticipato: ' + op.titolo + ' a ' + nuovaScadenza, 'ok');
     opRicaricaTutto();
   }).catch(function (err) {
+    opSbloccaAzione(id);
     opLog('Errore posticipo: ' + (err && err.message || err), 'err');
     alert('Errore posticipo: ' + (err && err.message || err));
   });
 }
 
 function opSalta(id) {
+  if (!opBloccaAzione(id)) return;
   var op = opDefCache.find(function (x) { return x.id === id; });
-  if (!op) return;
-  if (!confirm('Saltare questa occorrenza? Verrà registrata come SALTATA e si passa alla prossima scadenza regolare.')) return;
+  if (!op) { opSbloccaAzione(id); return; }
+  if (!confirm('Saltare questa occorrenza? Verrà registrata come SALTATA e si passa alla prossima scadenza regolare.')) { opSbloccaAzione(id); return; }
   var oggi = opOggiStr();
   var nuovaScadenza = opProssimaScadenzaDa(oggi, op.frequenzaGiorni, op.escludiDomenica);
   var col = opLogCol();
@@ -1012,9 +1128,11 @@ function opSalta(id) {
   }).then(function () {
     return opDefCol().doc(id).update({ prossimaScadenza: nuovaScadenza });
   }).then(function () {
+    opSbloccaAzione(id);
     opLog('Saltato: ' + op.titolo, 'ok');
     opRicaricaTutto();
   }).catch(function (err) {
+    opSbloccaAzione(id);
     opLog('Errore salto: ' + (err && err.message || err), 'err');
     alert('Errore salto: ' + (err && err.message || err));
   });
@@ -1025,9 +1143,10 @@ function opSalta(id) {
 // storico usa comunque titoloSnapshot, ma l'operazione stessa resta
 // tracciabile (chi/quando l'ha disattivata) invece di sparire nel nulla.
 function opRimuovi(id) {
+  if (!opBloccaAzione(id)) return;
   var op = opDefCache.find(function (x) { return x.id === id; });
-  if (!op) return;
-  if (!confirm('Rimuovere "' + op.titolo + '" dalle operazioni future? Lo storico passato resta consultabile.')) return;
+  if (!op) { opSbloccaAzione(id); return; }
+  if (!confirm('Rimuovere "' + op.titolo + '" dalle operazioni future? Lo storico passato resta consultabile.')) { opSbloccaAzione(id); return; }
   var motivo = prompt('Motivo (facoltativo) — resta nello storico come annullata:', '') || '';
   var oggi = opOggiStr();
   var refLog = opLogCol().doc();
@@ -1038,10 +1157,12 @@ function opRimuovi(id) {
   }).then(function () {
     return opDefCol().doc(id).update({ attiva: false });
   }).then(function () {
+    opSbloccaAzione(id);
     opStoricoCompletoCache = null;
     opLog('Rimossa dalle future: ' + op.titolo, 'ok');
     opRicaricaTutto();
   }).catch(function (err) {
+    opSbloccaAzione(id);
     opLog('Errore rimozione: ' + (err && err.message || err), 'err');
     alert('Errore rimozione: ' + (err && err.message || err));
   });
@@ -1425,6 +1546,7 @@ function opScaricaReportCsv() {
     var a = document.getElementById('report-a').value;
     var csv = '';
 
+    try {
     if (tipo === 'RIEPILOGO') {
       var dati = opCalcolaRiepilogoPerOperazione(filtrato);
       csv += opCsvRiga(['Operazione', 'Tipo', 'N. esecuzioni', 'Tempo totale (min)', 'Media (min)']);
@@ -1461,6 +1583,10 @@ function opScaricaReportCsv() {
     document.body.removeChild(a2);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
     opLog('Report CSV generato (' + tipo + ', ' + da + ' → ' + a + ')', 'ok');
+    } catch (e) {
+      opLog('Errore generazione CSV: ' + e.message, 'err');
+      alert('Errore nella generazione del CSV: ' + e.message + ' — nessun file scaricato, riprova.');
+    }
   };
 
   if (opStoricoCompletoCache) {
@@ -1483,10 +1609,11 @@ function opScaricaReportPdf() {
     var da = document.getElementById('report-da').value;
     var a = document.getElementById('report-a').value;
 
-    var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-    doc.text('Report operazioni — Palestra via Hermagor', 20, 20);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    try {
+      var doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4' });
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
+      doc.text('Report operazioni — Palestra via Hermagor', 20, 20);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text('Periodo: ' + da + '  →  ' + a, 20, 27);
     doc.setFontSize(8); doc.setTextColor(140);
     doc.text('Generato il ' + opOggiStr(), 20, 32);
@@ -1533,6 +1660,10 @@ function opScaricaReportPdf() {
     opAggiungiNumeriPagina(doc);
     doc.save('report-operazioni_' + da + '_' + a + '.pdf');
     opLog('Report PDF generato (' + tipo + ', ' + da + ' → ' + a + ')', 'ok');
+    } catch (e) {
+      opLog('Errore generazione PDF: ' + e.message, 'err');
+      alert('Errore nella generazione del PDF: ' + e.message + ' — nessun file scaricato, riprova.');
+    }
   };
 
   if (opStoricoCompletoCache) {
