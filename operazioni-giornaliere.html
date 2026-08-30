@@ -1,0 +1,822 @@
+<!-- operazioni-giornaliere.html | v0.1 · 30/08/2026 · BK -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Operazioni giornaliere</title>
+<style>
+  :root{
+    --bg:#0a1628; --bg2:#0e1e35; --bg3:#132844; --border:#22385a;
+    --text:#e8eef7; --muted:#7a8fa8; --gold:#c8a84b; --navy:#1f3864;
+    --ok:#22a85a; --warn:#c8a84b; --err:#e0455a; --blue:#3a7bd5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased;}
+  input,select,textarea,button{font-family:inherit;font-size:15px;}
+  input,select,textarea{width:100%;padding:10px 12px;margin:4px 0 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);}
+  label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  button{cursor:pointer;border:none;border-radius:8px;padding:10px 14px;min-height:40px;font-weight:600;}
+  .btn-gold{background:var(--gold);color:#0a1628;}
+  .btn-gold:active{background:#b3923f;}
+  .btn-blue{background:var(--blue);color:#fff;}
+  .btn-gray{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+  .btn-red{background:transparent;color:var(--err);border:1px solid var(--err);}
+  .btn-green{background:var(--ok);color:#fff;}
+  .btn-sm{padding:6px 10px;font-size:12px;min-height:32px;}
+  .btn-block{width:100%;}
+  /* ── login ── */
+  #login-scr{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:340px;width:100%;}
+  .login-card h1{font-size:18px;margin:0 0 4px;}
+  .login-card p{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  #login-err{color:var(--err);font-size:13px;margin-top:6px;min-height:16px;}
+  /* ── top bar ── */
+  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:16px;font-weight:700;color:var(--gold);}
+  .topbar-sub{font-size:10px;color:var(--muted);}
+  #auth-badge{font-size:11px;color:var(--muted);background:var(--bg3);padding:4px 8px;border-radius:6px;}
+  .nav-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;}
+  .nav-tab{flex:1;text-align:center;padding:12px 8px;font-size:12.5px;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;}
+  .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:700;}
+  .page{display:none;padding:16px;max-width:640px;margin:0 auto;}
+  .page.active{display:block;}
+  /* ── card ── */
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .card-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .card-desc{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  /* ── contatore oggi ── */
+  .contatore{display:flex;align-items:baseline;gap:8px;margin-bottom:14px;}
+  .contatore .num{font-size:32px;font-weight:800;color:var(--gold);}
+  .contatore .lbl{font-size:13px;color:var(--muted);}
+  /* ── riga operazione ── */
+  .op-row{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  .op-row.in-ritardo{border-color:var(--err);}
+  .op-row.attiva{border-color:var(--gold);}
+  .op-title{font-weight:700;font-size:14px;margin-bottom:2px;}
+  .op-meta{font-size:11px;color:var(--muted);margin-bottom:8px;}
+  .op-meta .badge-ritardo{color:var(--err);font-weight:700;}
+  .op-timer{font-size:22px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;margin:6px 0;}
+  .op-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .op-note-input{margin:6px 0 0;}
+  /* ── tabella storico ── */
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);}
+  td{padding:6px 8px;border-bottom:1px solid var(--border);}
+  .stato-FATTO{color:var(--ok);font-weight:700;}
+  .stato-SALTATO{color:var(--err);font-weight:700;}
+  .stato-POSTICIPATO{color:var(--warn);font-weight:700;}
+  .filtri-storico{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .filtri-storico > *{flex:1;min-width:110px;margin:0;}
+  .tabella-scroll{overflow-x:auto;}
+  /* ── statistiche ── */
+  .stat-riga{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+  .stat-riga:last-child{border-bottom:none;}
+  .stat-riga .val{font-weight:700;color:var(--gold);}
+  .bar-bg{background:var(--bg);border-radius:4px;height:6px;overflow:hidden;margin-top:4px;}
+  .bar-fill{background:var(--gold);height:100%;}
+  /* ── log diagnostico (mai un fallimento silenzioso) ── */
+  #diag-toggle{position:fixed;bottom:12px;right:12px;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;font-size:16px;z-index:60;opacity:.6;}
+  #diag-panel{display:none;position:fixed;bottom:56px;right:12px;left:12px;max-height:40vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;z-index:60;}
+  #diag-panel.show{display:block;}
+  .log-line{padding:2px 0;border-bottom:1px solid var(--border);}
+  .log-err{color:var(--err);}
+  .log-ok{color:var(--ok);}
+  .empty-state{text-align:center;color:var(--muted);padding:30px 10px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<!-- ═══════ LOGIN ═══════ -->
+<div id="login-scr">
+  <div class="login-card">
+    <h1>📋 Operazioni giornaliere</h1>
+    <p>Custodia palestra via Hermagor — ASD Basket Campodarsego</p>
+    <label>Email</label>
+    <input type="email" id="login-email" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="login-pass" autocomplete="current-password">
+    <button class="btn-gold btn-block" onclick="doLogin()">Accedi</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<!-- ═══════ APP ═══════ -->
+<div id="main-scr" style="display:none;">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">📋 Operazioni giornaliere</div>
+      <div class="topbar-sub">Build v0.1 · 30/08/2026</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="auth-badge"></span>
+      <button class="btn-gray btn-sm" onclick="doLogout()">Esci</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="opGoTab('oggi')">📅 Oggi</div>
+    <div class="nav-tab" onclick="opGoTab('nuova')">➕ Nuova</div>
+    <div class="nav-tab" onclick="opGoTab('storico')">🕘 Storico</div>
+    <div class="nav-tab" onclick="opGoTab('statistiche')">📊 Statistiche</div>
+  </div>
+
+  <!-- ── PAGINA: OGGI ── -->
+  <div class="page active" id="page-oggi">
+    <div class="card">
+      <div class="contatore">
+        <span class="num" id="oggi-contatore-fatte">0</span>
+        <span class="lbl">/ <span id="oggi-contatore-totali">0</span> completate oggi</span>
+      </div>
+      <button class="btn-gray btn-sm" onclick="opRicaricaTutto()">🔄 Ricarica</button>
+      <div id="seed-box" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <p style="font-size:12px;color:var(--muted);">Nessuna operazione impostata. Carica le 20 operazioni di base (pulizia/custodia) o creane una nuova dalla scheda "➕ Nuova".</p>
+        <button class="btn-gold btn-block" onclick="opCaricaSeed()">Carica le 20 operazioni di base</button>
+      </div>
+    </div>
+    <div id="oggi-lista"></div>
+  </div>
+
+  <!-- ── PAGINA: NUOVA ── -->
+  <div class="page" id="page-nuova">
+    <div class="card">
+      <div class="card-title">➕ Nuova operazione</div>
+      <label>Titolo</label>
+      <input type="text" id="nuova-titolo" placeholder="es. Pulizia canestro esterno">
+      <label>Frequenza</label>
+      <select id="nuova-frequenza" onchange="opToggleFrequenzaPersonalizzata()">
+        <option value="1">Giornaliera (lun-sab)</option>
+        <option value="2">Ogni 2 giorni</option>
+        <option value="7">Settimanale</option>
+        <option value="15">Quindicinale</option>
+        <option value="30">Mensile</option>
+        <option value="0">Personalizzata (giorni)</option>
+      </select>
+      <div id="nuova-frequenza-personalizzata-box" style="display:none;">
+        <label>Ogni quanti giorni</label>
+        <input type="number" id="nuova-frequenza-personalizzata" min="1" value="1">
+      </div>
+      <label>Prima scadenza</label>
+      <input type="date" id="nuova-scadenza">
+      <label>Note <span style="text-transform:none;font-weight:400;">(facoltative)</span></label>
+      <textarea id="nuova-note" rows="2" placeholder="Dettagli, materiali necessari…"></textarea>
+      <button class="btn-gold btn-block" onclick="opCreaNuova()">Crea operazione</button>
+    </div>
+  </div>
+
+  <!-- ── PAGINA: STORICO ── -->
+  <div class="page" id="page-storico">
+    <div class="card">
+      <div class="card-title">🕘 Storico</div>
+      <div class="filtri-storico">
+        <select id="storico-filtro-stato" onchange="opRenderStorico()">
+          <option value="">Tutti gli stati</option>
+          <option value="FATTO">Fatto</option>
+          <option value="SALTATO">Saltato</option>
+          <option value="POSTICIPATO">Posticipato</option>
+        </select>
+        <select id="storico-filtro-operazione" onchange="opRenderStorico()">
+          <option value="">Tutte le operazioni</option>
+        </select>
+        <input type="date" id="storico-filtro-da" onchange="opRenderStorico()">
+        <input type="date" id="storico-filtro-a" onchange="opRenderStorico()">
+      </div>
+      <div class="tabella-scroll">
+        <table>
+          <thead><tr><th>Data</th><th>Operazione</th><th>Stato</th><th>Durata</th><th>Note</th></tr></thead>
+          <tbody id="storico-tbody"></tbody>
+        </table>
+      </div>
+      <div id="storico-vuoto" class="empty-state" style="display:none;">Nessun log per questi filtri.</div>
+    </div>
+  </div>
+
+  <!-- ── PAGINA: STATISTICHE ── -->
+  <div class="page" id="page-statistiche">
+    <div class="card">
+      <div class="card-title">📊 Riepilogo generale</div>
+      <div id="stat-riepilogo"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">⏱️ Tempo medio per operazione</div>
+      <div class="card-desc">Solo esecuzioni concluse con "Fine lavoro" (esclusi salti/rinvii).</div>
+      <div id="stat-medie"></div>
+    </div>
+  </div>
+</div>
+
+<button id="diag-toggle" onclick="opDiagToggle()">🔧</button>
+<div id="diag-panel"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ────────────────────────────────────────────────────────────
+// operazioni-giornaliere.html — ASD Basket Campodarsego
+// v0.1 · 30/08/2026 · BK
+// Tool standalone (non parte del gestionale Basket052441). Stesso
+// progetto Firebase (stesso login email/password), ma collezione
+// Firestore separata (operazioniPersonali/*) — nessun dato si mischia
+// con basket052441/*.
+// ────────────────────────────────────────────────────────────
+
+var _db = null;
+var _fbReady = false;
+
+// ── LOG DIAGNOSTICO (mai un fallimento silenzioso) ──
+function opLog(msg, tipo) {
+  var panel = document.getElementById('diag-panel');
+  var riga = document.createElement('div');
+  riga.className = 'log-line' + (tipo === 'err' ? ' log-err' : tipo === 'ok' ? ' log-ok' : '');
+  var ora = new Date().toTimeString().slice(0, 8);
+  riga.textContent = '[' + ora + '] ' + msg;
+  panel.insertBefore(riga, panel.firstChild);
+  if (tipo === 'err') console.error('[operazioni] ' + msg);
+}
+function opDiagToggle() {
+  document.getElementById('diag-panel').classList.toggle('show');
+}
+window.addEventListener('error', function (e) {
+  opLog('Errore non gestito: ' + (e.error && e.error.message || e.message), 'err');
+});
+window.addEventListener('unhandledrejection', function (e) {
+  opLog('Promise non gestita: ' + (e.reason && e.reason.message || e.reason), 'err');
+});
+
+// ── FIREBASE INIT / AUTH (stesso pattern di basket052441-admin.html) ──
+var _fbConfig = {apiKey:"AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",authDomain:"basket052441.firebaseapp.com",projectId:"basket052441",storageBucket:"basket052441.appspot.com",messagingSenderId:"708269881035",appId:"1:708269881035:web:62a9d32bad5de2c68d0d4e"};
+
+function fbInit() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(_fbConfig);
+    _db = firebase.firestore();
+    _fbReady = true;
+    opLog('Firestore pronto', 'ok');
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
+      opLog('setPersistence fallita: ' + err.message, 'err');
+    });
+    firebase.auth().onAuthStateChanged(function (user) {
+      var loginScr = document.getElementById('login-scr');
+      var mainScr = document.getElementById('main-scr');
+      if (user) {
+        opLog('Autenticato: ' + user.email, 'ok');
+        loginScr.style.display = 'none';
+        mainScr.style.display = 'block';
+        document.getElementById('auth-badge').textContent = user.email;
+        opRicaricaTutto();
+      } else {
+        opLog('Nessun utente — mostra login');
+        loginScr.style.display = '';
+        mainScr.style.display = 'none';
+      }
+    });
+  } catch (e) {
+    opLog('ERRORE fbInit: ' + e.message, 'err');
+    _fbReady = false;
+  }
+}
+
+function doLogin() {
+  var email = document.getElementById('login-email').value.trim();
+  var pass = document.getElementById('login-pass').value;
+  var errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Inserisci email e password.'; return; }
+  firebase.auth().signInWithEmailAndPassword(email, pass).catch(function (err) {
+    errEl.textContent = 'Accesso fallito: ' + err.message;
+    opLog('Login fallito: ' + err.message, 'err');
+  });
+}
+function doLogout() {
+  firebase.auth().signOut().catch(function (err) { opLog('Logout fallito: ' + err.message, 'err'); });
+}
+
+// ── NAVIGAZIONE ──
+function opGoTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(function (t) { t.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+  var idx = { oggi: 0, nuova: 1, storico: 2, statistiche: 3 }[tab];
+  document.querySelectorAll('.nav-tab')[idx].classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'storico') opRenderStorico();
+  if (tab === 'statistiche') opRenderStatistiche();
+}
+
+// ── COSTANTI / SCHEMA ──
+var OP_STATI = { FATTO: 'FATTO', SALTATO: 'SALTATO', POSTICIPATO: 'POSTICIPATO' };
+var OP_FREQ_LABEL = { 1: 'Giornaliera (lun-sab)', 2: 'Ogni 2 giorni', 7: 'Settimanale', 15: 'Quindicinale', 30: 'Mensile' };
+
+function opFreqLabel(giorni, escludiDomenica) {
+  if (OP_FREQ_LABEL[giorni] && !(giorni === 1 && !escludiDomenica)) return OP_FREQ_LABEL[giorni];
+  return 'Ogni ' + giorni + ' giorni';
+}
+
+// ── DATE HELPER (mai usare Date() con parsing implicito di stringhe —
+// sempre YYYY-MM-DD esplicito, stesso principio anti-ambiguità del
+// resto del progetto) ──
+function opOggiStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+function opAggiungiGiorni(dataStr, n) {
+  var d = new Date(dataStr + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function opGiornoSettimana(dataStr) {
+  // 0=domenica..6=sabato, coerente con Date.getDay()
+  return new Date(dataStr + 'T00:00:00').getDay();
+}
+
+// Calcola la prossima scadenza da una data base + frequenza in giorni.
+// Se escludiDomenica e la data cadrebbe di domenica, slitta a lunedì —
+// mai una scadenza silenziosamente sbagliata per un'attività "lun-sab".
+function opProssimaScadenzaDa(dataBase, frequenzaGiorni, escludiDomenica) {
+  var prossima = opAggiungiGiorni(dataBase, frequenzaGiorni);
+  if (escludiDomenica && opGiornoSettimana(prossima) === 0) {
+    prossima = opAggiungiGiorni(prossima, 1);
+  }
+  return prossima;
+}
+
+// ── FIRESTORE: riferimenti collezione ──
+function opDefCol() {
+  if (!_db) { opLog('_db non pronto', 'err'); return null; }
+  return _db.collection('operazioniPersonali').doc('def').collection('registro');
+}
+function opLogCol() {
+  if (!_db) { opLog('_db non pronto', 'err'); return null; }
+  return _db.collection('operazioniPersonali').doc('log').collection('storico');
+}
+
+// ── CACHE LOCALE ──
+var opDefCache = [];
+var opLogCache = [];
+var opTimerAttivi = {}; // { operazioneId: timestampInizioMs } — sopravvive a refresh via localStorage
+var opTimerInterval = null;
+
+function opCaricaTimerDaLocalStorage() {
+  try {
+    var raw = localStorage.getItem('opTimerAttivi');
+    opTimerAttivi = raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    opLog('Timer locali corrotti, azzerati: ' + e.message, 'err');
+    opTimerAttivi = {};
+  }
+}
+function opSalvaTimerSuLocalStorage() {
+  try {
+    localStorage.setItem('opTimerAttivi', JSON.stringify(opTimerAttivi));
+  } catch (e) {
+    opLog('Impossibile salvare i timer locali: ' + e.message, 'err');
+  }
+}
+
+// ── CARICAMENTO ──
+function opRicaricaTutto() {
+  opCaricaTimerDaLocalStorage();
+  var col = opDefCol();
+  if (!col) return;
+  col.get().then(function (snap) {
+    opDefCache = [];
+    snap.forEach(function (doc) { opDefCache.push(doc.data()); });
+    opLog('Operazioni caricate: ' + opDefCache.length, 'ok');
+    return opLogCol().where('data', '>=', opAggiungiGiorni(opOggiStr(), -1)).get().catch(function () {
+      // Fallback se manca l'indice composito per il filtro data — carico
+      // comunque tutto il log di oggi filtrando lato client, mai un
+      // errore silenzioso che lascia il contatore a zero senza spiegare.
+      return opLogCol().get();
+    });
+  }).then(function (snapLog) {
+    var tuttiLog = [];
+    snapLog.forEach(function (doc) { tuttiLog.push(doc.data()); });
+    opLogCache = tuttiLog;
+    opRenderOggi();
+    if (!opTimerInterval) opTimerInterval = setInterval(opAggiornaTimerVisivi, 1000);
+  }).catch(function (err) {
+    opLog('Errore caricamento: ' + (err && err.message || err), 'err');
+  });
+}
+
+// Carico SEMPRE l'intero storico per le statistiche/storico (non solo
+// oggi) — chiamata separata per non appesantire il caricamento di "Oggi".
+function opCaricaStoricoCompleto() {
+  var col = opLogCol();
+  if (!col) return Promise.resolve([]);
+  return col.get().then(function (snap) {
+    var elenco = [];
+    snap.forEach(function (doc) { elenco.push(doc.data()); });
+    elenco.sort(function (a, b) { return (b.data || '').localeCompare(a.data || ''); });
+    return elenco;
+  }).catch(function (err) {
+    opLog('Errore caricamento storico completo: ' + (err && err.message || err), 'err');
+    return [];
+  });
+}
+
+// ── SEED (20 operazioni di base, da Programma_Pulizie_Manutenzioni) ──
+var OP_SEED = [
+  { titolo: 'Svuotamento cestini portarifiuti (sacchi in polietilene)', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Spazzatura, lavaggio e disinfezione pavimenti, sanitari WC, spogliatoi', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Pulizia rubinetti, pareti piastrellate, specchi e accessori spogliatoi/WC', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Riordino e spolveratura arredi (panche, sedie, tavoli, scrivanie)', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Verifica accessi, spogliatoio, servizi igienici, campo gioco, attrezzature', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Controllo accessi (solo tesserati/autorizzati) e calzature idonee', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Interventi rapidi di pulizia/igienizzazione servizi e spogliatoi', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Segnalazione guasti e anomalie nei registri', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Verifica uscite di emergenza, kit primo soccorso, DAE, presidi antincendio', frequenzaGiorni: 1, escludiDomenica: true },
+  { titolo: 'Aspirazione e lavaggio di tutti i pavimenti interni, incluso il campo gioco', frequenzaGiorni: 2, escludiDomenica: false },
+  { titolo: 'Spazzatura percorsi pedonali esterni e aree di accesso', frequenzaGiorni: 7, escludiDomenica: false },
+  { titolo: 'Pulizia del deposito attrezzi di gioco', frequenzaGiorni: 7, escludiDomenica: false },
+  { titolo: 'Pulizia e lavaggio del soppalco e delle scale', frequenzaGiorni: 7, escludiDomenica: false },
+  { titolo: 'Pulizia e disinfezione di tutte le porte (incluse casseporte)', frequenzaGiorni: 15, escludiDomenica: false },
+  { titolo: 'Pulizia aree esterne, taglio erba e/o aiuole', frequenzaGiorni: 15, escludiDomenica: false },
+  { titolo: 'Pulizia superfici vetrate palestra raggiungibili in sicurezza', frequenzaGiorni: 30, escludiDomenica: false },
+  { titolo: 'Pulizia superfici vetrate corridoio palestra', frequenzaGiorni: 30, escludiDomenica: false },
+  { titolo: 'Pulizia superfici vetrate spogliatoi e servizi', frequenzaGiorni: 30, escludiDomenica: false },
+  { titolo: 'Pulizia soffitto e pareti spogliatoi (ragnatele)', frequenzaGiorni: 30, escludiDomenica: false },
+  { titolo: 'Verifica impianti fissi', frequenzaGiorni: 30, escludiDomenica: false, note: 'Periodicità non specificata nel documento originale — impostata mensile per prudenza, da confermare.' }
+];
+
+function opCaricaSeed() {
+  var col = opDefCol();
+  if (!col) return;
+  var oggi = opOggiStr();
+  var batch = _db.batch();
+  OP_SEED.forEach(function (item) {
+    var ref = col.doc();
+    batch.set(ref, {
+      id: ref.id,
+      titolo: item.titolo,
+      frequenzaGiorni: item.frequenzaGiorni,
+      escludiDomenica: !!item.escludiDomenica,
+      prossimaScadenza: oggi,
+      note: item.note || '',
+      attiva: true,
+      origine: 'PRECARICATA',
+      creataIl: oggi
+    });
+  });
+  batch.commit().then(function () {
+    opLog('20 operazioni di base caricate', 'ok');
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore caricamento operazioni di base: ' + (err && err.message || err), 'err');
+    alert('Errore caricamento operazioni di base: ' + (err && err.message || err));
+  });
+}
+
+// ── CREAZIONE NUOVA OPERAZIONE ──
+function opToggleFrequenzaPersonalizzata() {
+  var sel = document.getElementById('nuova-frequenza');
+  document.getElementById('nuova-frequenza-personalizzata-box').style.display = sel.value === '0' ? 'block' : 'none';
+}
+
+function opCreaNuova() {
+  var titolo = document.getElementById('nuova-titolo').value.trim();
+  var freqSel = document.getElementById('nuova-frequenza').value;
+  var freqGiorni = freqSel === '0'
+    ? parseInt(document.getElementById('nuova-frequenza-personalizzata').value, 10)
+    : parseInt(freqSel, 10);
+  var scadenza = document.getElementById('nuova-scadenza').value || opOggiStr();
+  var note = document.getElementById('nuova-note').value.trim();
+
+  if (!titolo) { alert('Il titolo è obbligatorio.'); return; }
+  if (!freqGiorni || freqGiorni < 1) { alert('Frequenza non valida.'); return; }
+
+  var col = opDefCol();
+  if (!col) { alert('Database non pronto.'); return; }
+  var ref = col.doc();
+  var record = {
+    id: ref.id,
+    titolo: titolo,
+    frequenzaGiorni: freqGiorni,
+    escludiDomenica: freqGiorni === 1,
+    prossimaScadenza: scadenza,
+    note: note,
+    attiva: true,
+    origine: 'MANUALE',
+    creataIl: opOggiStr()
+  };
+  ref.set(record).then(function () {
+    opLog('Operazione creata: ' + titolo, 'ok');
+    document.getElementById('nuova-titolo').value = '';
+    document.getElementById('nuova-note').value = '';
+    document.getElementById('nuova-scadenza').value = '';
+    opGoTab('oggi');
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore creazione operazione: ' + (err && err.message || err), 'err');
+    alert('Errore creazione operazione: ' + (err && err.message || err));
+  });
+}
+
+// ── RENDER: OGGI ──
+function opEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+function opFormattaDurata(secondi) {
+  var m = Math.floor(secondi / 60);
+  var s = secondi % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+function opRenderOggi() {
+  var oggi = opOggiStr();
+  var attive = opDefCache.filter(function (o) { return o.attiva !== false; });
+  var seedBox = document.getElementById('seed-box');
+  seedBox.style.display = attive.length === 0 ? 'block' : 'none';
+
+  var daFare = attive.filter(function (o) { return o.prossimaScadenza <= oggi; })
+    .sort(function (a, b) { return (a.prossimaScadenza || '').localeCompare(b.prossimaScadenza || ''); });
+
+  var logOggi = opLogCache.filter(function (l) { return l.data === oggi; });
+  var fatteOggi = logOggi.filter(function (l) { return l.stato === OP_STATI.FATTO; }).length;
+  document.getElementById('oggi-contatore-fatte').textContent = fatteOggi;
+  document.getElementById('oggi-contatore-totali').textContent = daFare.length + fatteOggi;
+
+  var cont = document.getElementById('oggi-lista');
+  if (!daFare.length) {
+    cont.innerHTML = attive.length ? '<div class="empty-state">✅ Nessuna operazione in scadenza. Tutto fatto per oggi.</div>' : '';
+    return;
+  }
+  var html = '';
+  daFare.forEach(function (o) {
+    var inRitardo = o.prossimaScadenza < oggi;
+    var timerAttivo = opTimerAttivi.hasOwnProperty(o.id);
+    html += '<div class="op-row ' + (inRitardo ? 'in-ritardo' : '') + (timerAttivo ? ' attiva' : '') + '" id="op-row-' + o.id + '">';
+    html += '<div class="op-title">' + opEsc(o.titolo) + '</div>';
+    html += '<div class="op-meta">' + opEsc(opFreqLabel(o.frequenzaGiorni, o.escludiDomenica)) +
+      (inRitardo ? ' · <span class="badge-ritardo">in ritardo dal ' + opEsc(o.prossimaScadenza) + '</span>' : '') +
+      (o.note ? ' · ' + opEsc(o.note) : '') + '</div>';
+    if (timerAttivo) {
+      html += '<div class="op-timer" id="op-timer-' + o.id + '">00:00</div>';
+      html += '<div class="op-btns">' +
+        '<button class="btn-green" onclick="opFineLavoro(\'' + o.id + '\')">⏹ Fine lavoro</button>' +
+        '<button class="btn-gray btn-sm" onclick="opAnnullaTimer(\'' + o.id + '\')">✕ Annulla</button>' +
+        '</div>';
+    } else {
+      html += '<div class="op-btns">' +
+        '<button class="btn-gold" onclick="opIniziaLavoro(\'' + o.id + '\')">▶️ Inizia</button>' +
+        '<button class="btn-gray btn-sm" onclick="opPosticipa(\'' + o.id + '\')">⏭ Posticipa</button>' +
+        '<button class="btn-gray btn-sm" onclick="opSalta(\'' + o.id + '\')">⏭⏭ Salta</button>' +
+        '<button class="btn-red btn-sm" onclick="opRimuovi(\'' + o.id + '\')">🗑 Rimuovi</button>' +
+        '</div>';
+    }
+    html += '</div>';
+  });
+  cont.innerHTML = html;
+}
+
+// ── TIMER ──
+function opIniziaLavoro(id) {
+  opTimerAttivi[id] = Date.now();
+  opSalvaTimerSuLocalStorage();
+  if (!opTimerInterval) opTimerInterval = setInterval(opAggiornaTimerVisivi, 1000);
+  opRenderOggi();
+}
+
+function opAnnullaTimer(id) {
+  if (!confirm('Annullare il timer senza registrare nulla?')) return;
+  delete opTimerAttivi[id];
+  opSalvaTimerSuLocalStorage();
+  opRenderOggi();
+}
+
+function opAggiornaTimerVisivi() {
+  Object.keys(opTimerAttivi).forEach(function (id) {
+    var el = document.getElementById('op-timer-' + id);
+    if (!el) return; // riga non più in vista (es. cambiata pagina)
+    var secondi = Math.floor((Date.now() - opTimerAttivi[id]) / 1000);
+    el.textContent = opFormattaDurata(secondi);
+  });
+}
+
+function opFineLavoro(id) {
+  var op = opDefCache.find(function (x) { return x.id === id; });
+  if (!op) { opLog('opFineLavoro: operazione non in cache: ' + id, 'err'); return; }
+  var inizioMs = opTimerAttivi[id];
+  if (!inizioMs) { opLog('opFineLavoro: nessun timer attivo per: ' + id, 'err'); return; }
+  var durataSecondi = Math.floor((Date.now() - inizioMs) / 1000);
+  var note = prompt('Note su questa esecuzione (facoltative):', '') || '';
+
+  var col = opLogCol();
+  if (!col) { alert('Database non pronto.'); return; }
+  var oggi = opOggiStr();
+  var refLog = col.doc();
+  var logRecord = {
+    id: refLog.id, operazioneId: id, titoloSnapshot: op.titolo,
+    data: oggi, stato: OP_STATI.FATTO, durataSecondi: durataSecondi, note: note,
+    registratoIl: new Date().toISOString()
+  };
+  var nuovaScadenza = opProssimaScadenzaDa(oggi, op.frequenzaGiorni, op.escludiDomenica);
+
+  refLog.set(logRecord).then(function () {
+    return opDefCol().doc(id).update({ prossimaScadenza: nuovaScadenza });
+  }).then(function () {
+    delete opTimerAttivi[id];
+    opSalvaTimerSuLocalStorage();
+    opLog('Completata: ' + op.titolo + ' (' + opFormattaDurata(durataSecondi) + ')', 'ok');
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore registrazione completamento: ' + (err && err.message || err), 'err');
+    alert('Errore registrazione: ' + (err && err.message || err) + ' — il timer resta attivo, riprova.');
+  });
+}
+
+// ── POSTICIPA / SALTA / RIMUOVI ──
+function opPosticipa(id) {
+  var op = opDefCache.find(function (x) { return x.id === id; });
+  if (!op) return;
+  var giorniStr = prompt('Posticipare di quanti giorni?', '1');
+  if (giorniStr === null) return;
+  var giorni = parseInt(giorniStr, 10);
+  if (!giorni || giorni < 1) { alert('Numero di giorni non valido.'); return; }
+  var oggi = opOggiStr();
+  var nuovaScadenza = opAggiungiGiorni(oggi, giorni);
+  var col = opLogCol();
+  var refLog = col.doc();
+  refLog.set({
+    id: refLog.id, operazioneId: id, titoloSnapshot: op.titolo,
+    data: oggi, stato: OP_STATI.POSTICIPATO, durataSecondi: 0,
+    note: 'Posticipato di ' + giorni + ' giorni (nuova scadenza: ' + nuovaScadenza + ')',
+    registratoIl: new Date().toISOString()
+  }).then(function () {
+    return opDefCol().doc(id).update({ prossimaScadenza: nuovaScadenza });
+  }).then(function () {
+    opLog('Posticipato: ' + op.titolo + ' a ' + nuovaScadenza, 'ok');
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore posticipo: ' + (err && err.message || err), 'err');
+    alert('Errore posticipo: ' + (err && err.message || err));
+  });
+}
+
+function opSalta(id) {
+  var op = opDefCache.find(function (x) { return x.id === id; });
+  if (!op) return;
+  if (!confirm('Saltare questa occorrenza? Verrà registrata come SALTATA e si passa alla prossima scadenza regolare.')) return;
+  var oggi = opOggiStr();
+  var nuovaScadenza = opProssimaScadenzaDa(oggi, op.frequenzaGiorni, op.escludiDomenica);
+  var col = opLogCol();
+  var refLog = col.doc();
+  refLog.set({
+    id: refLog.id, operazioneId: id, titoloSnapshot: op.titolo,
+    data: oggi, stato: OP_STATI.SALTATO, durataSecondi: 0, note: '',
+    registratoIl: new Date().toISOString()
+  }).then(function () {
+    return opDefCol().doc(id).update({ prossimaScadenza: nuovaScadenza });
+  }).then(function () {
+    opLog('Saltato: ' + op.titolo, 'ok');
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore salto: ' + (err && err.message || err), 'err');
+    alert('Errore salto: ' + (err && err.message || err));
+  });
+}
+
+// Soft delete: mai una cancellazione fisica, altrimenti lo storico
+// collegato (log passati) perderebbe il riferimento al titolo — lo
+// storico usa comunque titoloSnapshot, ma l'operazione stessa resta
+// tracciabile (chi/quando l'ha disattivata) invece di sparire nel nulla.
+function opRimuovi(id) {
+  var op = opDefCache.find(function (x) { return x.id === id; });
+  if (!op) return;
+  if (!confirm('Rimuovere "' + op.titolo + '" dalle operazioni future? Lo storico passato resta consultabile.')) return;
+  opDefCol().doc(id).update({ attiva: false }).then(function () {
+    opLog('Rimossa dalle future: ' + op.titolo, 'ok');
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore rimozione: ' + (err && err.message || err), 'err');
+    alert('Errore rimozione: ' + (err && err.message || err));
+  });
+}
+
+// ── RENDER: STORICO ──
+var opStoricoCompletoCache = null;
+
+function opRenderStorico() {
+  var selOp = document.getElementById('storico-filtro-operazione');
+  if (!selOp.dataset.popolato) {
+    var opts = '<option value="">Tutte le operazioni</option>';
+    opDefCache.forEach(function (o) { opts += '<option value="' + o.id + '">' + opEsc(o.titolo) + '</option>'; });
+    selOp.innerHTML = opts;
+    selOp.dataset.popolato = '1';
+  }
+
+  var render = function (elenco) {
+    var stato = document.getElementById('storico-filtro-stato').value;
+    var opId = document.getElementById('storico-filtro-operazione').value;
+    var da = document.getElementById('storico-filtro-da').value;
+    var a = document.getElementById('storico-filtro-a').value;
+    var filtrati = elenco.filter(function (l) {
+      if (stato && l.stato !== stato) return false;
+      if (opId && l.operazioneId !== opId) return false;
+      if (da && l.data < da) return false;
+      if (a && l.data > a) return false;
+      return true;
+    });
+    var tbody = document.getElementById('storico-tbody');
+    document.getElementById('storico-vuoto').style.display = filtrati.length ? 'none' : 'block';
+    var html = '';
+    filtrati.forEach(function (l) {
+      html += '<tr><td>' + opEsc(l.data) + '</td><td>' + opEsc(l.titoloSnapshot) + '</td>' +
+        '<td class="stato-' + l.stato + '">' + opEsc(l.stato) + '</td>' +
+        '<td>' + (l.stato === OP_STATI.FATTO ? opFormattaDurata(l.durataSecondi || 0) : '—') + '</td>' +
+        '<td>' + opEsc(l.note || '') + '</td></tr>';
+    });
+    tbody.innerHTML = html;
+  };
+
+  if (opStoricoCompletoCache) {
+    render(opStoricoCompletoCache);
+  } else {
+    opCaricaStoricoCompleto().then(function (elenco) {
+      opStoricoCompletoCache = elenco;
+      render(elenco);
+    });
+  }
+}
+
+// ── RENDER: STATISTICHE ──
+function opRenderStatistiche() {
+  var render = function (elenco) {
+    var fatti = elenco.filter(function (l) { return l.stato === OP_STATI.FATTO; });
+    var saltati = elenco.filter(function (l) { return l.stato === OP_STATI.SALTATO; });
+    var posticipati = elenco.filter(function (l) { return l.stato === OP_STATI.POSTICIPATO; });
+    var totaleSecondi = fatti.reduce(function (s, l) { return s + (l.durataSecondi || 0); }, 0);
+    var totaleEsecuzioni = elenco.length;
+    var percFatto = totaleEsecuzioni ? Math.round(fatti.length / totaleEsecuzioni * 100) : 0;
+
+    var riep = document.getElementById('stat-riepilogo');
+    riep.innerHTML =
+      '<div class="stat-riga"><span>Esecuzioni registrate</span><span class="val">' + totaleEsecuzioni + '</span></div>' +
+      '<div class="stat-riga"><span>Completate</span><span class="val">' + fatti.length + '</span></div>' +
+      '<div class="stat-riga"><span>Saltate</span><span class="val">' + saltati.length + '</span></div>' +
+      '<div class="stat-riga"><span>Posticipate</span><span class="val">' + posticipati.length + '</span></div>' +
+      '<div class="stat-riga"><span>Tasso di completamento</span><span class="val">' + percFatto + '%</span></div>' +
+      '<div class="stat-riga"><span>Tempo totale lavorato</span><span class="val">' + Math.round(totaleSecondi / 60) + ' min</span></div>';
+
+    // Medie per operazione — raggruppo per operazioneId sui soli FATTO.
+    var gruppi = {};
+    fatti.forEach(function (l) {
+      if (!gruppi[l.operazioneId]) gruppi[l.operazioneId] = { titolo: l.titoloSnapshot, somma: 0, conteggio: 0 };
+      gruppi[l.operazioneId].somma += (l.durataSecondi || 0);
+      gruppi[l.operazioneId].conteggio += 1;
+    });
+    var righe = Object.keys(gruppi).map(function (k) {
+      var g = gruppi[k];
+      return { titolo: g.titolo, media: g.somma / g.conteggio, conteggio: g.conteggio };
+    }).sort(function (a, b) { return b.media - a.media; });
+
+    var maxMedia = righe.length ? righe[0].media : 1;
+    var medieEl = document.getElementById('stat-medie');
+    if (!righe.length) {
+      medieEl.innerHTML = '<div class="empty-state">Nessuna esecuzione completata ancora.</div>';
+      return;
+    }
+    var html = '';
+    righe.forEach(function (r) {
+      var pct = maxMedia ? Math.round(r.media / maxMedia * 100) : 0;
+      html += '<div class="stat-riga" style="display:block;">' +
+        '<div style="display:flex;justify-content:space-between;"><span>' + opEsc(r.titolo) + ' <span style="color:var(--muted);">(' + r.conteggio + '×)</span></span>' +
+        '<span class="val">' + opFormattaDurata(Math.round(r.media)) + '</span></div>' +
+        '<div class="bar-bg"><div class="bar-fill" style="width:' + pct + '%"></div></div></div>';
+    });
+    medieEl.innerHTML = html;
+  };
+
+  if (opStoricoCompletoCache) {
+    render(opStoricoCompletoCache);
+  } else {
+    opCaricaStoricoCompleto().then(function (elenco) {
+      opStoricoCompletoCache = elenco;
+      render(elenco);
+    });
+  }
+}
+
+// Invalida la cache storico quando si registra un nuovo evento, cosi'
+// Storico/Statistiche non mostrano dati vecchi dopo un'azione in "Oggi".
+var _opLogColOriginale = null;
+(function opInvalidazioneCache() {
+  var originaleFineLavoro = opFineLavoro, originalePosticipa = opPosticipa, originaleSalta = opSalta;
+  // Wrapping leggero: invalido la cache dopo ciascuna delle 3 azioni che
+  // scrivono nuovi log, senza duplicare la logica di scrittura sopra.
+  window.opFineLavoro = function (id) { opStoricoCompletoCache = null; return originaleFineLavoro(id); };
+  window.opPosticipa = function (id) { opStoricoCompletoCache = null; return originalePosticipa(id); };
+  window.opSalta = function (id) { opStoricoCompletoCache = null; return originaleSalta(id); };
+})();
+
+// ── AVVIO ──
+document.getElementById('nuova-scadenza').value = opOggiStr();
+fbInit();
+</script>
+</body>
+</html>
