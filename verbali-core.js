@@ -161,8 +161,7 @@ function vrbCreaBozza(dati, elencoEsistente) {
     assenti: dati.assenti || [],
     ordineDelGiorno: dati.ordineDelGiorno || [],
     annoEsercizioRif: dati.annoEsercizioRif || '',
-    pdfGeneratoUrl: '',
-    pdfFirmatoUrl: '',
+    pdfFirmatoBase64: '',  // valorizzato solo all'upload del firmato (step 3) — il PDF generato non si salva, si rigenera al volo
     dataFirma: '',
     firmatari: [],
     tipoFirmaDichiarato: ''  // FEQ|FEA|autografa — campo dichiarativo richiesto da AR-516 punto 2, valorizzato all'upload (step 3)
@@ -338,43 +337,33 @@ function vrbTransizionaStato(id, nuovoStato, patchExtra) {
 }
 
 // ── Firebase Storage ──
-function vrbStorage() {
-  if (typeof firebase === 'undefined' || !firebase.apps || !firebase.apps.length) {
-    var msg = '[verbali-core] vrbStorage: Firebase non inizializzato';
-    console.error(msg);
-    if (typeof log === 'function') log(msg, 'err');
-    return null;
-  }
-  if (typeof firebase.storage !== 'function') {
-    var msgSdk = '[verbali-core] vrbStorage: firebase-storage-compat.js non caricato (SDK Storage assente)';
-    console.error(msgSdk);
-    if (typeof log === 'function') log(msgSdk, 'err');
-    return null;
-  }
-  return firebase.storage();
-}
+// ────────────────────────────────────────────────────────────
+// v0.3 · 29/08/2026 · BK — rimossa dipendenza da Firebase Storage
+// (richiede piano Blaze anche a costo zero da ottobre 2024, dal
+// 02/02/2026 blocca l'accesso del tutto senza Blaze — riscontrato in
+// produzione: storage/retry-limit-exceeded). Segnalato ad AR
+// (260829_COM_BK_AR_VerbaliStorageSenzaBlaze.yaml), resta dentro
+// Firebase quindi non tocca il vincolo "mai Google Drive" di AR-516.
+//
+// PDF GENERATO (step2): non più salvato da nessuna parte. Si rigenera
+// al volo dai dati del verbale (già bloccati in Firestore non appena
+// esce da BOZZA) ogni volta che serve — stesso principio già in uso
+// per il Bilancio di Economia (funzione pura + dati, mai un artefatto
+// persistito separatamente che potrebbe disallinearsi dai dati).
+//
+// PDF FIRMATO (step3): NON rigenerabile (la firma digitale è legata ai
+// byte esatti del file prodotto dallo strumento di firma esterno).
+// Salvato come base64 in un campo del documento Firestore del verbale
+// stesso — stessa collection, stesse regole di sicurezza già in vigore,
+// nessun bucket esterno. Limite Firestore: 1MB per documento. Soglia di
+// sicurezza esplicita più sotto (VRB_MAX_BASE64_FIRMATO): oltre quella
+// il caricamento è RIFIUTATO con errore chiaro, mai un troncamento
+// silenzioso o un salvataggio parziale.
+// ────────────────────────────────────────────────────────────
 
-function vrbUploadPdf(id, blob, nomeCampo) {
-  var storage = vrbStorage();
-  if (!storage) return Promise.reject(new Error('Firebase Storage non disponibile'));
-  var path = 'verbali/' + id + '/' + nomeCampo + '.pdf';
-  var ref = storage.ref(path);
-  return ref.put(blob, { contentType: 'application/pdf' }).then(function () {
-    return ref.getDownloadURL();
-  }).then(function (url) {
-    if (typeof log === 'function') log('Verbale ' + id + ': PDF caricato su Storage (' + nomeCampo + ')', 'ok');
-    return url;
-  }).catch(function (err) {
-    var msg = '[verbali-core] errore upload PDF ' + id + '/' + nomeCampo + ': ' + (err && err.message || err);
-    console.error(msg, err);
-    if (typeof log === 'function') log(msg, 'err');
-    throw err;
-  });
-}
-
-// ── Generazione PDF (§3.2) — costruisce, non salva/carica: separazione
-// tra "produrre il documento" e "persisterlo", per poter testare/rivedere
-// prima dell'upload che rende tutto irreversibile. ──
+// ── Generazione PDF (§3.2) — costruisce, non salva: il PDF generato
+// (a differenza del firmato) si rigenera sempre dai dati, non serve
+// persisterlo. ──
 function vrbGeneraPdfBlob(record) {
   if (typeof window.jspdf === 'undefined' || typeof window.jspdf.jsPDF !== 'function') {
     var msg = '[verbali-core] vrbGeneraPdfBlob: libreria jsPDF non disponibile';
@@ -456,21 +445,41 @@ function vrbStripHtml(html) {
   return tmp.textContent || tmp.innerText || '';
 }
 
-// Orchestrazione step2 completa: genera PDF, carica su Storage, blocca
-// il verbale in GENERATO. Da qui in poi il contenuto non è più editabile
-// (vrbSalvaBozza rifiuta già scritture su stato diverso da BOZZA).
-function vrbAvanzaAGenerato(id, record) {
+// Apre il PDF generato al volo in una nuova scheda/finestra — nessun
+// salvataggio, il blob esiste solo per la durata di questa chiamata.
+// Se il popup viene bloccato dal browser, l'errore va segnalato
+// esplicitamente (mai un click che "non fa nulla" senza spiegazione).
+function vrbVisualizzaPdfGenerato(record) {
   var blob;
   try {
     blob = vrbGeneraPdfBlob(record);
   } catch (e) {
+    if (typeof log === 'function') log('[verbali-core] errore generazione PDF per visualizzazione: ' + (e && e.message || e), 'err');
+    throw e;
+  }
+  var url = URL.createObjectURL(blob);
+  var win = window.open(url, '_blank');
+  if (!win) {
+    var msg = '[verbali-core] vrbVisualizzaPdfGenerato: popup bloccato dal browser';
+    console.error(msg);
+    if (typeof log === 'function') log(msg, 'err');
+    throw new Error('Il browser ha bloccato l\'apertura del PDF (popup). Consenti i popup per questo sito e riprova.');
+  }
+  // Non revoco l'URL subito: la finestra aperta deve poter ancora
+  // caricare il blob. Il browser lo libera comunque alla chiusura tab.
+}
+
+// Transizione BOZZA -> GENERATO. Genera il PDF una volta solo per
+// VALIDARE che i dati producano un documento senza errori (mai
+// bloccare il contenuto se poi il PDF non si può nemmeno costruire),
+// ma non lo salva da nessuna parte — si rigenera sempre al bisogno.
+function vrbAvanzaAGenerato(id, record) {
+  try {
+    vrbGeneraPdfBlob(record); // solo validazione, risultato scartato di proposito
+  } catch (e) {
     return Promise.reject(e);
   }
-  return vrbUploadPdf(id, blob, 'generato').then(function (url) {
-    return vrbTransizionaStato(id, VRB_STATI.GENERATO, { pdfGeneratoUrl: url }).then(function () {
-      return url;
-    });
-  });
+  return vrbTransizionaStato(id, VRB_STATI.GENERATO, {});
 }
 
 // ── Caricamento PDF firmato (§3.3, step 3) ──
@@ -500,6 +509,14 @@ function vrbVerificaStrutturaPdfFirmato(arrayBuffer) {
   return { valido: true, motivo: '' };
 }
 
+// Soglia di sicurezza per il base64 del PDF firmato dentro il documento
+// Firestore (limite reale del documento: 1MB, ~1'048'576 byte). Tenuta
+// volutamente sotto meta' del limite per lasciare margine agli altri
+// campi del verbale (testi ordine del giorno, ecc.) — non è un limite
+// arbitrario stretto, è per evitare di sforare il limite reale di
+// Firestore in modo silenzioso in casi limite.
+var VRB_MAX_BASE64_FIRMATO = 700000; // ~525KB di file PDF originale
+
 function vrbCaricaFirmato(id, file, metadati) {
   return file.arrayBuffer().then(function (buf) {
     var check = vrbVerificaStrutturaPdfFirmato(buf);
@@ -509,16 +526,59 @@ function vrbCaricaFirmato(id, file, metadati) {
       if (typeof log === 'function') log(msg, 'err');
       return Promise.reject(new Error(check.motivo));
     }
-    return vrbUploadPdf(id, new Blob([buf], { type: 'application/pdf' }), 'firmato');
-  }).then(function (url) {
+    var base64 = vrbArrayBufferToBase64(buf);
+    if (base64.length > VRB_MAX_BASE64_FIRMATO) {
+      var msgSize = '[verbali-core] vrbCaricaFirmato: PDF firmato troppo grande per ' + id +
+        ' (' + Math.round(buf.byteLength / 1024) + 'KB, limite ~' + Math.round(VRB_MAX_BASE64_FIRMATO * 0.75 / 1024) + 'KB) — Firestore ha un limite di 1MB per documento';
+      console.error(msgSize);
+      if (typeof log === 'function') log(msgSize, 'err');
+      return Promise.reject(new Error('Il PDF firmato è troppo grande (' + Math.round(buf.byteLength / 1024) +
+        'KB) per essere salvato in questo modo — limite pratico ~' + Math.round(VRB_MAX_BASE64_FIRMATO * 0.75 / 1024) +
+        'KB. Contatta BK per una soluzione di storage alternativa per questo caso.'));
+    }
+    return base64;
+  }).then(function (base64) {
     var patch = {
-      pdfFirmatoUrl: url,
+      pdfFirmatoBase64: base64,
       dataFirma: new Date().toISOString().slice(0, 10),
       firmatari: (metadati && metadati.firmatari) || [],
       tipoFirmaDichiarato: (metadati && metadati.tipoFirmaDichiarato) || ''
     };
     return vrbTransizionaStato(id, VRB_STATI.FIRMATO, patch);
   });
+}
+
+function vrbArrayBufferToBase64(buf) {
+  var bytes = new Uint8Array(buf);
+  var chunk = 32768; // evita stack overflow su String.fromCharCode.apply con file grandi
+  var binario = '';
+  for (var i = 0; i < bytes.length; i += chunk) {
+    binario += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + chunk, bytes.length)));
+  }
+  return btoa(binario);
+}
+
+// Apre il PDF firmato (decodificato dal base64 salvato in Firestore)
+// in una nuova scheda — stesso pattern di vrbVisualizzaPdfGenerato.
+function vrbVisualizzaPdfFirmato(base64) {
+  if (!base64) {
+    var msg = '[verbali-core] vrbVisualizzaPdfFirmato: nessun base64 fornito';
+    console.error(msg);
+    if (typeof log === 'function') log(msg, 'err');
+    throw new Error('Nessun PDF firmato salvato per questo verbale.');
+  }
+  var binario = atob(base64);
+  var bytes = new Uint8Array(binario.length);
+  for (var i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  var blob = new Blob([bytes], { type: 'application/pdf' });
+  var url = URL.createObjectURL(blob);
+  var win = window.open(url, '_blank');
+  if (!win) {
+    var msgPopup = '[verbali-core] vrbVisualizzaPdfFirmato: popup bloccato dal browser';
+    console.error(msgPopup);
+    if (typeof log === 'function') log(msgPopup, 'err');
+    throw new Error('Il browser ha bloccato l\'apertura del PDF (popup). Consenti i popup per questo sito e riprova.');
+  }
 }
 
 window.addEventListener('error', function (e) {
@@ -531,3 +591,4 @@ window.addEventListener('unhandledrejection', function (e) {
   console.error(msg);
   if (typeof log === 'function') log(msg, 'err');
 });
+

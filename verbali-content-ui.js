@@ -288,7 +288,13 @@ function vrbConfermaGeneraPdf() {
     vrbAdmInit();
     if (typeof closeModal === 'function') closeModal('modal-vrb-dettaglio');
   }).catch(function (err) {
-    alert('Errore generazione PDF: ' + (err && err.message || err));
+    var msg = 'Errore generazione PDF verbale ' + id + ': ' + (err && err.message || err);
+    // Log SEMPRE scritto, indipendentemente dal fatto che l'alert arrivi
+    // a schermo o venga soppresso dal browser (successione confirm+alert
+    // rapida su mobile — comportamento noto, non un bug del codice, ma
+    // un canale di consegna che non va usato come UNICO segnale d'errore).
+    if (typeof log === 'function') log('[verbali-content-ui] ' + msg, 'err');
+    alert(msg);
   });
 }
 
@@ -300,9 +306,11 @@ function vrbAdmMostraReadonly(v) {
   var corpo = '<b>' + vrbAdmEsc(v.id) + '</b> — ' + vrbAdmEsc(VRB_STATO_LABEL[v.stato] || v.stato) + '<br>' +
     vrbAdmEsc(VRB_TIPO_LABEL[v.tipo] || v.tipo) + ' · ' + vrbAdmEsc(VRB_ORGANO_LABEL[v.organo] || v.organo) + '<br>' +
     'Riunione: ' + vrbAdmEsc(v.dataRiunione || '—') + ' · ' + vrbAdmEsc(v.luogo || '—') + '<br><br>';
-  if (v.pdfGeneratoUrl) corpo += '<a href="' + v.pdfGeneratoUrl + '" target="_blank" class="btn btn-blue btn-sm">📄 Apri PDF generato</a><br><br>';
-  if (v.pdfFirmatoUrl) {
-    corpo += '<a href="' + v.pdfFirmatoUrl + '" target="_blank" class="btn btn-green btn-sm">✅ Apri PDF firmato</a><br>';
+  if (v.stato === VRB_STATI.GENERATO || v.stato === VRB_STATI.FIRMATO) {
+    corpo += '<button type="button" class="btn btn-blue btn-sm" onclick="vrbAdmVisualizzaGenerato(\'' + v.id + '\')">📄 Visualizza/stampa PDF</button><br><br>';
+  }
+  if (v.pdfFirmatoBase64) {
+    corpo += '<button type="button" class="btn btn-green btn-sm" onclick="vrbAdmVisualizzaFirmato(\'' + v.id + '\')">✅ Apri PDF firmato</button><br>';
     corpo += '<span style="font-size:11px;color:var(--muted)">Firmato il ' + vrbAdmEsc(v.dataFirma || '—') + '</span>';
   } else if (v.stato === VRB_STATI.GENERATO) {
     corpo += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">' +
@@ -319,6 +327,32 @@ function vrbAdmMostraReadonly(v) {
   bodyEl.innerHTML = corpo;
 }
 
+// Visualizza il PDF rigenerandolo al volo dai dati — mai un URL salvato,
+// mai un artefatto persistito separatamente (§ v0.3 verbali-core.js).
+function vrbAdmVisualizzaGenerato(id) {
+  var v = vrbListaCache.find(function (x) { return x.id === id; });
+  if (!v) { console.error('[verbali-content-ui] vrbAdmVisualizzaGenerato: id non in cache: ' + id); return; }
+  try {
+    vrbVisualizzaPdfGenerato(v);
+  } catch (e) {
+    // Errore mostrato SIA con alert SIA nel log — su mobile un alert
+    // subito dopo un confirm() può essere soppresso dal browser, quindi
+    // l'unico canale davvero affidabile è il log (già scritto dentro
+    // vrbVisualizzaPdfGenerato). Qui l'alert è un aiuto in più, non l'unico.
+    alert('Errore visualizzazione PDF: ' + (e && e.message || e));
+  }
+}
+
+function vrbAdmVisualizzaFirmato(id) {
+  var v = vrbListaCache.find(function (x) { return x.id === id; });
+  if (!v) { console.error('[verbali-content-ui] vrbAdmVisualizzaFirmato: id non in cache: ' + id); return; }
+  try {
+    vrbVisualizzaPdfFirmato(v.pdfFirmatoBase64);
+  } catch (e) {
+    alert('Errore apertura PDF firmato: ' + (e && e.message || e));
+  }
+}
+
 function vrbAdmCaricaFirmato(id) {
   var fileEl = document.getElementById('vrb-upload-firmato');
   var tipoEl = document.getElementById('vrb-upload-tipofirma');
@@ -333,7 +367,9 @@ function vrbAdmCaricaFirmato(id) {
     vrbAdmInit();
     if (typeof closeModal === 'function') closeModal('modal-vrb-dettaglio');
   }).catch(function (err) {
-    alert('Errore caricamento PDF firmato: ' + (err && err.message || err));
+    var msg = 'Errore caricamento PDF firmato verbale ' + id + ': ' + (err && err.message || err);
+    if (typeof log === 'function') log('[verbali-content-ui] ' + msg, 'err');
+    alert(msg);
   });
 }
 
