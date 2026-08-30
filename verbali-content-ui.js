@@ -90,6 +90,10 @@ function vrbAdmApriEditor(id) {
   html += '<label>Nota quorum <span style="font-weight:400;color:var(--muted)">(facoltativa, es. "presenti 5 su 7")</span></label>' +
     '<input type="text" id="vrb-c-quorum" value="' + vrbAdmEsc(v.quorumNota || '') + '" oninput="vrbEditorSegnaModifica()">';
 
+  if (v.retroattivo) {
+    html += vrbEditorBloccoRetroattivo(v);
+  }
+
   if (v.tipo === 'BILANCIO') {
     html += vrbEditorBloccoBilancio(v);
   }
@@ -114,6 +118,43 @@ function vrbAdmApriEditor(id) {
   vrbOdgRenderLista();
 
   if (typeof openModal === 'function') openModal('modal-vrb-dettaglio');
+}
+
+// ── Blocco specifico verbali retroattivi/storici (§3.5) ──
+function vrbEditorBloccoRetroattivo(v) {
+  var html = '<div class="vrb-bilancio-box" style="border-color:#c8a84b99;">';
+  html += '<p style="font-size:11px;color:var(--muted);margin:0 0 8px;">📜 Verbale storico — colma un vuoto reale, non ricostruisce una finzione. Vedi testo suggerito qui sotto.</p>';
+  html += '<label>Data protocollo consegna bilancio al Comune <span style="font-weight:400;color:var(--muted)">(se nota — opzionale)</span></label>' +
+    '<input type="date" id="vrb-c-protocollo" value="' + vrbAdmEsc(v.dataProtocolloComune || '') + '" oninput="vrbEditorSegnaModifica()">';
+  html += '<label>Riferimento al bilancio storico allegato <span style="font-weight:400;color:var(--muted)">(link al PDF già archiviato — non caricato qui)</span></label>' +
+    '<input type="text" id="vrb-c-allegato" placeholder="es. link Drive al bilancio già depositato" value="' + vrbAdmEsc(v.allegatoBilancioUrl || '') + '" oninput="vrbEditorSegnaModifica()">';
+  if (v.tipo === 'BILANCIO') {
+    html += '<button type="button" class="btn btn-gray btn-sm" style="margin-top:4px;" onclick="vrbSuggerisciTestoStorico()">✍️ Suggerisci testo di ricostruzione</button>' +
+      '<p style="font-size:10px;color:var(--muted);margin-top:6px;">Aggiunge un punto all\'ordine del giorno con la formula standard — resta un testo modificabile, non fisso.</p>';
+  }
+  html += '</div>';
+  return html;
+}
+
+function vrbSuggerisciTestoStorico() {
+  var v = vrbListaCache.find(function (x) { return x.id === vrbEditorVerbaleId; });
+  if (!v) return;
+  var annoEl = document.getElementById('vrb-c-anno-esercizio');
+  var protocolloEl = document.getElementById('vrb-c-protocollo');
+  var presentiEl = document.getElementById('vrb-c-presenti');
+  var anno = annoEl ? annoEl.value : (v.annoEsercizioRif || '');
+  if (!anno) { alert('Indica prima l\'esercizio di riferimento (nel blocco Bilancio qui sopra).'); return; }
+  var presenti = presentiEl ? presentiEl.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean) : [];
+  var testo = vrbTestoRicostruzioneStorica(anno, protocolloEl ? protocolloEl.value : '', presenti);
+  vrbOdgSincronizzaDalDom();
+  vrbOdgCache.unshift({
+    testo: 'Esame e approvazione bilancio consuntivo storico esercizio ' + anno,
+    discussione: '',
+    delibera: testo,
+    esitoVoto: { tipo: 'UNANIMITA', favorevoli: 0, contrari: 0, astenuti: 0 }
+  });
+  vrbOdgRenderLista();
+  vrbEditorSegnaModifica();
 }
 
 // ── Blocco specifico modello BILANCIO (§3.4, §4.2) ──
@@ -246,6 +287,10 @@ function vrbEditorRaccogliCampi() {
     ordineDelGiorno: vrbOdgCache.map(function (p) { return Object.assign({}, p); })
   };
   var v = vrbListaCache.find(function (x) { return x.id === vrbEditorVerbaleId; });
+  if (v && v.retroattivo) {
+    campi.dataProtocolloComune = (document.getElementById('vrb-c-protocollo') || {}).value || '';
+    campi.allegatoBilancioUrl = (document.getElementById('vrb-c-allegato') || {}).value || '';
+  }
   if (v && v.tipo === 'BILANCIO') {
     campi.annoEsercizioRif = (document.getElementById('vrb-c-anno-esercizio') || {}).value || '';
     campi.relazioneTesoriere = (document.getElementById('vrb-c-relazione') || {}).innerHTML || '';

@@ -234,6 +234,25 @@ var VRB_ESITO_VOTO = { UNANIMITA: 'UNANIMITA', MAGGIORANZA: 'MAGGIORANZA' };
 // Testo standard di constatazione quorum (§4.1) — parametrico sul fatto
 // che il quorum sia raggiunto o meno, mai un unico testo che nasconde
 // il caso "sotto quorum".
+// ── Modalità storica / retroattiva (§3.5) ──
+// Genera il testo SUGGERITO (non fisso: resta sempre modificabile
+// nell'editor) per la delibera di un verbale retroattivo di tipo
+// BILANCIO — formula esplicita e onesta ("verbale redatto oggi a
+// ricostruzione di una decisione informale passata"), mai una finzione
+// di data. Basata sul caso reale che ha motivato questa sezione: bilanci
+// veri e depositati dal 2009, mai formalmente verbalizzati.
+function vrbTestoRicostruzioneStorica(anno, dataProtocolloComune, presenti) {
+  var elencoSoci = (presenti || []).length ? (presenti || []).join(', ') : '[nomi dei soci presenti]';
+  var riferimentoProtocollo = dataProtocolloComune
+    ? ' al Comune di Campodarsego in data ' + dataProtocolloComune
+    : ' al Comune di Campodarsego';
+  return 'Verbale redatto in data odierna, a ricostruzione della decisione assunta dai soci in forma ' +
+    'informale, antecedente alla presentazione del bilancio dell\'esercizio ' + anno +
+    riferimentoProtocollo + '. Erano presenti i soci: ' + elencoSoci +
+    '. I soci hanno esaminato e approvato all\'unanimità il bilancio consuntivo dell\'esercizio ' +
+    anno + ', di cui si allega copia.';
+}
+
 function vrbTestoQuorum(numPresenti, numTotaleAventiDiritto, quorumRaggiunto) {
   if (quorumRaggiunto) {
     return 'Constatata la presenza di ' + numPresenti + ' su ' + numTotaleAventiDiritto +
@@ -397,6 +416,8 @@ function vrbGeneraPdfBlob(record) {
 
   if (record.retroattivo) {
     riga('VERBALE STORICO / RETROATTIVO', { size: 10, stile: 'bold' });
+    if (record.dataProtocolloComune) riga('Bilancio depositato al Comune in data: ' + record.dataProtocolloComune, { size: 10 });
+    if (record.allegatoBilancioUrl) riga('Allegato: copia del bilancio consuntivo storico (' + record.allegatoBilancioUrl + ')', { size: 10 });
   }
 
   riga('Data redazione: ' + record.dataRedazione + '    Data riunione: ' + (record.dataRiunione || '—'));
