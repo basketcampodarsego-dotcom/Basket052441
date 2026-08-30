@@ -1,4 +1,4 @@
-<!-- operazioni-giornaliere.html | v0.3 · 30/08/2026 · BK -->
+<!-- operazioni-giornaliere.html | v0.6 · 30/08/2026 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -67,6 +67,7 @@
   .stato-FATTO{color:var(--ok);font-weight:700;}
   .stato-SALTATO{color:var(--err);font-weight:700;}
   .stato-POSTICIPATO{color:var(--warn);font-weight:700;}
+  .stato-ANNULLATO{color:var(--muted);font-weight:700;text-decoration:line-through;}
   .filtri-storico{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
   .filtri-storico > *{flex:1;min-width:110px;margin:0;}
   .tabella-scroll{overflow-x:auto;}
@@ -107,7 +108,7 @@
   <div class="topbar">
     <div>
       <div class="topbar-title">📋 Operazioni giornaliere</div>
-      <div class="topbar-sub">Build v0.3 · 30/08/2026</div>
+      <div class="topbar-sub">Build v0.6 · 30/08/2026</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="auth-badge"></span>
@@ -117,6 +118,7 @@
 
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="opGoTab('oggi')">📅 Oggi</div>
+    <div class="nav-tab" onclick="opGoTab('settimana')">🗓 Settimana</div>
     <div class="nav-tab" onclick="opGoTab('nuova')">➕ Nuova</div>
     <div class="nav-tab" onclick="opGoTab('storico')">🕘 Storico</div>
     <div class="nav-tab" onclick="opGoTab('statistiche')">📊 Statistiche</div>
@@ -138,10 +140,24 @@
     <div id="oggi-lista"></div>
   </div>
 
+  <!-- ── PAGINA: SETTIMANA ── -->
+  <div class="page" id="page-settimana">
+    <div class="card" id="settimana-occasionali-box" style="display:none;">
+      <div class="card-title">🔧 Occasionali in sospeso</div>
+      <div class="card-desc">Senza una scadenza fissa — restano finché non le esegui, posticipi o rimuovi dalla scheda "Oggi".</div>
+      <div id="settimana-occasionali-lista"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🗓 Prossimi 7 giorni</div>
+      <div class="card-desc">Solo pianificazione — per agire usa la scheda "Oggi" il giorno stesso.</div>
+      <div id="settimana-giorni"></div>
+    </div>
+  </div>
+
   <!-- ── PAGINA: NUOVA ── -->
   <div class="page" id="page-nuova">
     <div class="card">
-      <div class="card-title">➕ Nuova operazione</div>
+      <div class="card-title" id="nuova-titolo-pagina">➕ Nuova operazione</div>
       <label>Tipo</label>
       <select id="nuova-tipo" onchange="opToggleTipoOperazione()">
         <option value="RICORRENTE">Ricorrente (si ripropone a intervalli)</option>
@@ -171,22 +187,31 @@
 
       <!-- Blocco OCCASIONALE -->
       <div id="nuova-blocco-occasionale" style="display:none;">
-        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;">
-          <input type="checkbox" id="nuova-gia-fatto" style="width:auto;margin:0;" onchange="opToggleGiaFatto()">
-          Ho già finito — registra solo il tempo, non serve il cronometro
-        </label>
-        <div id="nuova-gia-fatto-box" style="display:none;">
-          <label>Data intervento</label>
-          <input type="date" id="nuova-gia-fatto-data">
-          <label>Durata (minuti)</label>
-          <input type="number" id="nuova-gia-fatto-minuti" min="1" placeholder="es. 25">
-        </div>
+        <label>Categoria</label>
+        <select id="nuova-categoria">
+          <option value="MANUTENZIONE">Manutenzione / riparazione</option>
+          <option value="AMMINISTRATIVO">Amministrativo (Comune, pratiche, associazioni)</option>
+          <option value="ALTRO">Altro</option>
+        </select>
+        <div id="nuova-giafatto-parte">
+          <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-weight:400;">
+            <input type="checkbox" id="nuova-gia-fatto" style="width:auto;margin:0;" onchange="opToggleGiaFatto()">
+            Ho già finito — registra solo il tempo, non serve il cronometro
+          </label>
+          <div id="nuova-gia-fatto-box" style="display:none;">
+            <label>Data intervento</label>
+            <input type="date" id="nuova-gia-fatto-data">
+            <label>Durata (minuti)</label>
+            <input type="number" id="nuova-gia-fatto-minuti" min="1" placeholder="es. 25">
+          </div>
         <p style="font-size:11px;color:var(--muted);margin:2px 0 10px;">Se lasci deselezionato, l'intervento compare in "Oggi" così puoi usare Inizia/Fine lavoro dal vivo.</p>
+        </div>
       </div>
 
       <label>Note <span style="text-transform:none;font-weight:400;">(facoltative)</span></label>
       <textarea id="nuova-note" rows="2" placeholder="Dettagli, materiali necessari…"></textarea>
-      <button class="btn-gold btn-block" onclick="opCreaNuova()">Crea operazione</button>
+      <button class="btn-gold btn-block" id="nuova-btn-salva" onclick="opCreaNuova()">Crea operazione</button>
+      <button class="btn-gray btn-block" id="nuova-btn-annulla-modifica" style="display:none;margin-top:6px;" onclick="opAnnullaModifica()">Annulla modifica</button>
     </div>
   </div>
 
@@ -200,6 +225,7 @@
           <option value="FATTO">Fatto</option>
           <option value="SALTATO">Saltato</option>
           <option value="POSTICIPATO">Posticipato</option>
+          <option value="ANNULLATO">Annullato</option>
         </select>
         <select id="storico-filtro-operazione" onchange="opRenderStorico()">
           <option value="">Tutte le operazioni</option>
@@ -222,6 +248,12 @@
     <div class="card">
       <div class="card-title">📊 Riepilogo generale</div>
       <div id="stat-riepilogo"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Andamento mensile</div>
+      <div class="card-desc">Minuti lavorati per mese (ultimi 12 mesi con dati) — per capire se il carico sale, scende o è stabile.</div>
+      <canvas id="stat-grafico-mensile" height="180"></canvas>
+      <div id="stat-grafico-vuoto" class="empty-state" style="display:none;">Non ci sono ancora abbastanza dati per un grafico.</div>
     </div>
     <div class="card">
       <div class="card-title">⚖️ Manutenzione vs imprevisti</div>
@@ -247,7 +279,8 @@
       </select>
       <div style="display:flex;gap:8px;margin-top:6px;">
         <button class="btn-gray" style="flex:1;" onclick="opAnteprimaReport()">👁 Anteprima</button>
-        <button class="btn-gold" style="flex:1;" onclick="opScaricaReportPdf()">📄 Scarica PDF</button>
+        <button class="btn-gold" style="flex:1;" onclick="opScaricaReportPdf()">📄 PDF</button>
+        <button class="btn-blue" style="flex:1;" onclick="opScaricaReportCsv()">⬇️ CSV</button>
       </div>
       <div id="report-anteprima" style="margin-top:12px;"></div>
     </div>
@@ -262,11 +295,12 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
 
 <script>
 // ────────────────────────────────────────────────────────────
 // operazioni-giornaliere.html — ASD Basket Campodarsego
-// v0.3 · 30/08/2026 · BK
+// v0.6 · 30/08/2026 · BK
 // Tool standalone (non parte del gestionale Basket052441). Stesso
 // progetto Firebase (stesso login email/password), ma collezione
 // Firestore separata (operazioniPersonali/*) — nessun dato si mischia
@@ -348,15 +382,16 @@ function doLogout() {
 function opGoTab(tab) {
   document.querySelectorAll('.nav-tab').forEach(function (t) { t.classList.remove('active'); });
   document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
-  var idx = { oggi: 0, nuova: 1, storico: 2, statistiche: 3 }[tab];
+  var idx = { oggi: 0, settimana: 1, nuova: 2, storico: 3, statistiche: 4 }[tab];
   document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'settimana') opRenderSettimana();
   if (tab === 'storico') opRenderStorico();
   if (tab === 'statistiche') opRenderStatistiche();
 }
 
 // ── COSTANTI / SCHEMA ──
-var OP_STATI = { FATTO: 'FATTO', SALTATO: 'SALTATO', POSTICIPATO: 'POSTICIPATO' };
+var OP_STATI = { FATTO: 'FATTO', SALTATO: 'SALTATO', POSTICIPATO: 'POSTICIPATO', ANNULLATO: 'ANNULLATO' };
 var OP_FREQ_LABEL = { 1: 'Giornaliera (lun-sab)', 2: 'Ogni 2 giorni', 7: 'Settimanale', 15: 'Quindicinale', 30: 'Mensile' };
 
 function opFreqLabel(giorni, escludiDomenica) {
@@ -539,17 +574,111 @@ function opToggleGiaFatto() {
   }
 }
 
+var opEditingId = null;
+
 function opCreaNuova() {
   var tipo = document.getElementById('nuova-tipo').value;
   var titolo = document.getElementById('nuova-titolo').value.trim();
   var note = document.getElementById('nuova-note').value.trim();
   if (!titolo) { alert('Il titolo è obbligatorio.'); return; }
 
+  if (opEditingId) { opSalvaModifiche(titolo, note); return; }
+
   if (tipo === 'OCCASIONALE') {
     opCreaOccasionale(titolo, note);
   } else {
     opCreaRicorrente(titolo, note);
   }
+}
+
+// ── MODIFICA OPERAZIONE ESISTENTE ──
+// Riusa il form "Nuova" invece di duplicarlo: precompila i campi,
+// blocca il selettore Tipo (non ha senso trasformare una ricorrente in
+// occasionale a metà vita) e nasconde i controlli specifici della sola
+// creazione (checkbox "già fatto").
+function opApriModifica(id) {
+  var op = opDefCache.find(function (x) { return x.id === id; });
+  if (!op) { opLog('opApriModifica: operazione non in cache: ' + id, 'err'); return; }
+  opEditingId = id;
+
+  document.getElementById('nuova-titolo-pagina').textContent = '✏️ Modifica operazione';
+  document.getElementById('nuova-btn-salva').textContent = '💾 Salva modifiche';
+  document.getElementById('nuova-btn-annulla-modifica').style.display = 'block';
+
+  var tipoSel = document.getElementById('nuova-tipo');
+  tipoSel.value = op.tipo;
+  tipoSel.disabled = true;
+  opToggleTipoOperazione();
+  // In modifica il blocco "già fatto" non si applica mai (è un'azione
+  // valida solo alla creazione) — nascondo solo quella parte, la
+  // categoria resta modificabile per le occasionali.
+  document.getElementById('nuova-giafatto-parte').style.display = 'none';
+  if (op.tipo === 'OCCASIONALE') {
+    document.getElementById('nuova-categoria').value = op.categoria || 'ALTRO';
+  }
+
+  document.getElementById('nuova-titolo').value = op.titolo;
+  document.getElementById('nuova-note').value = op.note || '';
+
+  if (op.tipo === 'RICORRENTE') {
+    var presetTrovato = [1, 2, 7, 15, 30].indexOf(op.frequenzaGiorni) > -1 &&
+      !(op.frequenzaGiorni === 1 && !op.escludiDomenica); // 1 senza esclusione domenica è comunque "personalizzata" concettualmente, ma raro: trattato come preset 1 per semplicità
+    var freqSel = document.getElementById('nuova-frequenza');
+    if (presetTrovato) {
+      freqSel.value = String(op.frequenzaGiorni);
+      opToggleFrequenzaPersonalizzata();
+    } else {
+      freqSel.value = '0';
+      opToggleFrequenzaPersonalizzata();
+      document.getElementById('nuova-frequenza-personalizzata').value = op.frequenzaGiorni;
+    }
+    document.getElementById('nuova-scadenza').value = op.prossimaScadenza || opOggiStr();
+  }
+
+  opGoTab('nuova');
+}
+
+function opAnnullaModifica() {
+  opEditingId = null;
+  document.getElementById('nuova-titolo-pagina').textContent = '➕ Nuova operazione';
+  document.getElementById('nuova-btn-salva').textContent = 'Crea operazione';
+  document.getElementById('nuova-btn-annulla-modifica').style.display = 'none';
+  document.getElementById('nuova-tipo').disabled = false;
+  document.getElementById('nuova-giafatto-parte').style.display = 'block';
+  opPuliciFormNuova();
+  opGoTab('oggi');
+}
+
+function opSalvaModifiche(titolo, note) {
+  var id = opEditingId;
+  var op = opDefCache.find(function (x) { return x.id === id; });
+  if (!op) { opLog('opSalvaModifiche: operazione non in cache: ' + id, 'err'); return; }
+  var patch = { titolo: titolo, note: note };
+
+  if (op.tipo === 'OCCASIONALE') {
+    patch.categoria = document.getElementById('nuova-categoria').value;
+  }
+
+  if (op.tipo === 'RICORRENTE') {
+    var freqSel = document.getElementById('nuova-frequenza');
+    var freqGiorni = freqSel.value === '0'
+      ? parseInt(document.getElementById('nuova-frequenza-personalizzata').value, 10)
+      : parseInt(freqSel.value, 10);
+    if (!freqGiorni || freqGiorni < 1) { alert('Frequenza non valida.'); return; }
+    patch.frequenzaGiorni = freqGiorni;
+    patch.escludiDomenica = freqGiorni === 1;
+    var nuovaScadenza = document.getElementById('nuova-scadenza').value;
+    if (nuovaScadenza) patch.prossimaScadenza = nuovaScadenza;
+  }
+
+  opDefCol().doc(id).update(patch).then(function () {
+    opLog('Operazione modificata: ' + titolo, 'ok');
+    opAnnullaModifica();
+    opRicaricaTutto();
+  }).catch(function (err) {
+    opLog('Errore salvataggio modifiche: ' + (err && err.message || err), 'err');
+    alert('Errore salvataggio: ' + (err && err.message || err));
+  });
 }
 
 function opCreaRicorrente(titolo, note) {
@@ -590,6 +719,7 @@ function opCreaRicorrente(titolo, note) {
 //     frequenza (dopo "Fine lavoro" si disattiva da sola, non si ripete).
 function opCreaOccasionale(titolo, note) {
   var giaFatto = document.getElementById('nuova-gia-fatto').checked;
+  var categoria = document.getElementById('nuova-categoria').value;
   var col = opDefCol();
   if (!col) { alert('Database non pronto.'); return; }
   var ref = col.doc();
@@ -599,7 +729,7 @@ function opCreaOccasionale(titolo, note) {
     var minuti = parseInt(document.getElementById('nuova-gia-fatto-minuti').value, 10);
     if (!minuti || minuti < 1) { alert('Indica la durata in minuti (almeno 1).'); return; }
     var record = {
-      id: ref.id, tipo: 'OCCASIONALE', titolo: titolo,
+      id: ref.id, tipo: 'OCCASIONALE', categoria: categoria, titolo: titolo,
       frequenzaGiorni: null, escludiDomenica: false,
       prossimaScadenza: null, note: note, attiva: false,
       origine: 'MANUALE', creataIl: opOggiStr()
@@ -623,7 +753,7 @@ function opCreaOccasionale(titolo, note) {
     });
   } else {
     var record2 = {
-      id: ref.id, tipo: 'OCCASIONALE', titolo: titolo,
+      id: ref.id, tipo: 'OCCASIONALE', categoria: categoria, titolo: titolo,
       frequenzaGiorni: null, escludiDomenica: false,
       prossimaScadenza: opOggiStr(), note: note, attiva: true,
       origine: 'MANUALE', creataIl: opOggiStr()
@@ -646,7 +776,72 @@ function opPuliciFormNuova() {
   document.getElementById('nuova-scadenza').value = '';
   document.getElementById('nuova-gia-fatto').checked = false;
   document.getElementById('nuova-gia-fatto-minuti').value = '';
+  document.getElementById('nuova-categoria').value = 'MANUTENZIONE';
   opToggleGiaFatto();
+}
+
+// ── PIANO SETTIMANALE ──
+// Proietta le occorrenze di un'operazione ricorrente nei prossimi N
+// giorni, applicando ripetutamente la stessa opProssimaScadenzaDa già
+// usata per calcolare la scadenza reale — mai una logica di proiezione
+// diversa da quella che poi genera davvero le scadenze, altrimenti il
+// piano mostrerebbe date che poi non si materializzano.
+// Se l'operazione è già in ritardo (prossimaScadenza < oggi), la prima
+// occorrenza mostrata collassa su oggi stesso (è comunque dovuta ora).
+function opOccorrenzeNelPeriodo(op, dataInizio, dataFine) {
+  var occorrenze = [];
+  var cursore = op.prossimaScadenza < dataInizio ? dataInizio : op.prossimaScadenza;
+  var guardia = 0; // mai un ciclo potenzialmente infinito senza un limite esplicito
+  while (cursore <= dataFine && guardia < 60) {
+    occorrenze.push(cursore);
+    cursore = opProssimaScadenzaDa(cursore, op.frequenzaGiorni, op.escludiDomenica);
+    guardia++;
+  }
+  if (guardia >= 60) opLog('opOccorrenzeNelPeriodo: guardia raggiunta per ' + op.titolo + ' — controllare frequenzaGiorni', 'err');
+  return occorrenze;
+}
+
+function opRenderSettimana() {
+  var oggi = opOggiStr();
+  var fine = opAggiungiGiorni(oggi, 6);
+  var attive = opDefCache.filter(function (o) { return o.attiva !== false; });
+
+  var occasionaliPendenti = attive.filter(function (o) { return o.tipo === 'OCCASIONALE'; });
+  var occBox = document.getElementById('settimana-occasionali-box');
+  if (occasionaliPendenti.length) {
+    occBox.style.display = 'block';
+    document.getElementById('settimana-occasionali-lista').innerHTML = occasionaliPendenti.map(function (o) {
+      return '<div class="op-meta" style="margin-bottom:4px;">🔧 ' + opEsc(o.titolo) + (o.note ? ' · ' + opEsc(o.note) : '') + '</div>';
+    }).join('');
+  } else {
+    occBox.style.display = 'none';
+  }
+
+  var ricorrenti = attive.filter(function (o) { return o.tipo !== 'OCCASIONALE'; });
+  var perGiorno = {};
+  for (var i = 0; i <= 6; i++) perGiorno[opAggiungiGiorni(oggi, i)] = [];
+  ricorrenti.forEach(function (o) {
+    opOccorrenzeNelPeriodo(o, oggi, fine).forEach(function (data) {
+      if (perGiorno[data]) perGiorno[data].push(o);
+    });
+  });
+
+  var giorniLbl = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+  var html = '';
+  for (var d = 0; d <= 6; d++) {
+    var data = opAggiungiGiorni(oggi, d);
+    var lbl = giorniLbl[opGiornoSettimana(data)];
+    var voci = perGiorno[data].sort(function (a, b) { return a.frequenzaGiorni - b.frequenzaGiorni; });
+    html += '<div class="op-row" style="' + (d === 0 ? 'border-color:var(--gold);' : '') + '">';
+    html += '<div class="op-title">' + (d === 0 ? 'Oggi — ' : '') + opEsc(lbl) + ' ' + opEsc(data.slice(8, 10) + '/' + data.slice(5, 7)) + '</div>';
+    if (!voci.length) {
+      html += '<div class="op-meta">Nessuna operazione ricorrente in scadenza.</div>';
+    } else {
+      html += '<div class="op-meta">' + voci.map(function (o) { return opEsc(o.titolo); }).join(' · ') + '</div>';
+    }
+    html += '</div>';
+  }
+  document.getElementById('settimana-giorni').innerHTML = html;
 }
 
 // ── RENDER: OGGI ──
@@ -669,7 +864,13 @@ function opRenderOggi() {
   seedBox.style.display = attive.length === 0 ? 'block' : 'none';
 
   var daFare = attive.filter(function (o) { return o.prossimaScadenza <= oggi; })
-    .sort(function (a, b) { return (a.prossimaScadenza || '').localeCompare(b.prossimaScadenza || ''); });
+    .sort(function (a, b) {
+      var aOcc = a.tipo === 'OCCASIONALE', bOcc = b.tipo === 'OCCASIONALE';
+      if (aOcc !== bOcc) return aOcc ? -1 : 1; // occasionali sempre in testa
+      if (aOcc && bOcc) return (a.prossimaScadenza || '').localeCompare(b.prossimaScadenza || ''); // tra occasionali: per scadenza
+      if (a.frequenzaGiorni !== b.frequenzaGiorni) return a.frequenzaGiorni - b.frequenzaGiorni; // ricorrenti: frequenza crescente
+      return (a.prossimaScadenza || '').localeCompare(b.prossimaScadenza || ''); // a parità di frequenza: per scadenza
+    });
 
   var logOggi = opLogCache.filter(function (l) { return l.data === oggi; });
   var fatteOggi = logOggi.filter(function (l) { return l.stato === OP_STATI.FATTO; }).length;
@@ -701,6 +902,7 @@ function opRenderOggi() {
         '<button class="btn-gold" onclick="opIniziaLavoro(\'' + o.id + '\')">▶️ Inizia</button>' +
         '<button class="btn-gray btn-sm" onclick="opPosticipa(\'' + o.id + '\')">⏭ Posticipa</button>' +
         (o.tipo === 'OCCASIONALE' ? '' : '<button class="btn-gray btn-sm" onclick="opSalta(\'' + o.id + '\')">⏭⏭ Salta</button>') +
+        '<button class="btn-gray btn-sm" onclick="opApriModifica(\'' + o.id + '\')">✏️ Modifica</button>' +
         '<button class="btn-red btn-sm" onclick="opRimuovi(\'' + o.id + '\')">🗑 Rimuovi</button>' +
         '</div>';
     }
@@ -826,7 +1028,17 @@ function opRimuovi(id) {
   var op = opDefCache.find(function (x) { return x.id === id; });
   if (!op) return;
   if (!confirm('Rimuovere "' + op.titolo + '" dalle operazioni future? Lo storico passato resta consultabile.')) return;
-  opDefCol().doc(id).update({ attiva: false }).then(function () {
+  var motivo = prompt('Motivo (facoltativo) — resta nello storico come annullata:', '') || '';
+  var oggi = opOggiStr();
+  var refLog = opLogCol().doc();
+  refLog.set({
+    id: refLog.id, operazioneId: id, titoloSnapshot: op.titolo,
+    data: oggi, stato: OP_STATI.ANNULLATO, durataSecondi: 0, note: motivo,
+    registratoIl: new Date().toISOString()
+  }).then(function () {
+    return opDefCol().doc(id).update({ attiva: false });
+  }).then(function () {
+    opStoricoCompletoCache = null;
     opLog('Rimossa dalle future: ' + op.titolo, 'ok');
     opRicaricaTutto();
   }).catch(function (err) {
@@ -882,14 +1094,77 @@ function opRenderStorico() {
 }
 
 // ── RENDER: STATISTICHE ──
+// ── GRAFICO TREND MENSILE ──
+// Un'unica istanza Chart.js riusata (distrutta e ricreata a ogni
+// render) — mai accumulare canvas/istanze multiple sullo stesso
+// elemento, altrimenti dopo qualche visita alla scheda il grafico
+// smette di rispondere o duplica i dataset.
+var opGraficoMensileIstanza = null;
+
+function opRenderGraficoMensile(fatti) {
+  var canvas = document.getElementById('stat-grafico-mensile');
+  var vuotoEl = document.getElementById('stat-grafico-vuoto');
+  if (!canvas) return; // pagina non ancora nel DOM in questo momento
+
+  var perMese = {};
+  fatti.forEach(function (l) {
+    var mese = (l.data || '').slice(0, 7); // YYYY-MM
+    if (!mese) return;
+    perMese[mese] = (perMese[mese] || 0) + (l.durataSecondi || 0);
+  });
+  var mesiOrdinati = Object.keys(perMese).sort().slice(-12); // ultimi 12 mesi con dati
+
+  if (opGraficoMensileIstanza) {
+    opGraficoMensileIstanza.destroy();
+    opGraficoMensileIstanza = null;
+  }
+
+  if (!mesiOrdinati.length || typeof Chart === 'undefined') {
+    canvas.style.display = 'none';
+    vuotoEl.style.display = 'block';
+    if (typeof Chart === 'undefined' && mesiOrdinati.length) {
+      opLog('Chart.js non disponibile — grafico mensile non mostrato (dati comunque presenti)', 'err');
+    }
+    return;
+  }
+  canvas.style.display = 'block';
+  vuotoEl.style.display = 'none';
+
+  var etichette = mesiOrdinati.map(function (m) {
+    var parti = m.split('-');
+    var mesiNomi = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+    return mesiNomi[parseInt(parti[1], 10) - 1] + ' ' + parti[0].slice(2);
+  });
+  var valori = mesiOrdinati.map(function (m) { return Math.round(perMese[m] / 60); });
+
+  try {
+    opGraficoMensileIstanza = new Chart(canvas.getContext('2d'), {
+      type: 'bar',
+      data: { labels: etichette, datasets: [{ label: 'Minuti lavorati', data: valori, backgroundColor: '#c8a84b' }] },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { color: '#7a8fa8' } }, x: { ticks: { color: '#7a8fa8' } } }
+      }
+    });
+  } catch (e) {
+    opLog('Errore rendering grafico mensile: ' + e.message, 'err');
+    canvas.style.display = 'none';
+    vuotoEl.style.display = 'block';
+  }
+}
+
 function opRenderStatistiche() {
   var render = function (elenco) {
     var fatti = elenco.filter(function (l) { return l.stato === OP_STATI.FATTO; });
     var saltati = elenco.filter(function (l) { return l.stato === OP_STATI.SALTATO; });
     var posticipati = elenco.filter(function (l) { return l.stato === OP_STATI.POSTICIPATO; });
+    var annullati = elenco.filter(function (l) { return l.stato === OP_STATI.ANNULLATO; });
     var totaleSecondi = fatti.reduce(function (s, l) { return s + (l.durataSecondi || 0); }, 0);
     var totaleEsecuzioni = elenco.length;
     var percFatto = totaleEsecuzioni ? Math.round(fatti.length / totaleEsecuzioni * 100) : 0;
+
+    opRenderGraficoMensile(fatti);
 
     var riep = document.getElementById('stat-riepilogo');
     riep.innerHTML =
@@ -897,6 +1172,7 @@ function opRenderStatistiche() {
       '<div class="stat-riga"><span>Completate</span><span class="val">' + fatti.length + '</span></div>' +
       '<div class="stat-riga"><span>Saltate</span><span class="val">' + saltati.length + '</span></div>' +
       '<div class="stat-riga"><span>Posticipate</span><span class="val">' + posticipati.length + '</span></div>' +
+      '<div class="stat-riga"><span>Annullate</span><span class="val">' + annullati.length + '</span></div>' +
       '<div class="stat-riga"><span>Tasso di completamento</span><span class="val">' + percFatto + '%</span></div>' +
       '<div class="stat-riga"><span>Tempo totale lavorato</span><span class="val">' + Math.round(totaleSecondi / 60) + ' min</span></div>';
 
@@ -908,6 +1184,8 @@ function opRenderStatistiche() {
     // esplicitamente invece di darlo per scontato in un bucket a caso).
     var secondiPerTipo = { RICORRENTE: 0, OCCASIONALE: 0 };
     var contPerTipo = { RICORRENTE: 0, OCCASIONALE: 0 };
+    var secondiPerCategoria = { MANUTENZIONE: 0, AMMINISTRATIVO: 0, ALTRO: 0 };
+    var contPerCategoria = { MANUTENZIONE: 0, AMMINISTRATIVO: 0, ALTRO: 0 };
     var sconosciuti = 0;
     fatti.forEach(function (l) {
       var def = opDefCache.find(function (d) { return d.id === l.operazioneId; });
@@ -915,6 +1193,11 @@ function opRenderStatistiche() {
       if (t === 'RICORRENTE' || t === 'OCCASIONALE') {
         secondiPerTipo[t] += (l.durataSecondi || 0);
         contPerTipo[t] += 1;
+        if (t === 'OCCASIONALE') {
+          var cat = (def.categoria && secondiPerCategoria.hasOwnProperty(def.categoria)) ? def.categoria : 'ALTRO';
+          secondiPerCategoria[cat] += (l.durataSecondi || 0);
+          contPerCategoria[cat] += 1;
+        }
       } else {
         sconosciuti++;
       }
@@ -928,6 +1211,15 @@ function opRenderStatistiche() {
         '<div class="stat-riga"><span>Interventi occasionali</span><span class="val">' + Math.round(secondiPerTipo.OCCASIONALE / 60) + ' min (' + contPerTipo.OCCASIONALE + ')</span></div>' +
         '<div class="bar-bg" style="margin:8px 0;"><div class="bar-fill" style="width:' + percOccasionale + '%;background:var(--blue);"></div></div>' +
         '<div style="font-size:11px;color:var(--muted);">' + percOccasionale + '% del tempo registrato è andato in interventi occasionali, non pianificati.</div>';
+      if (contPerTipo.OCCASIONALE) {
+        var etichetteCat = { MANUTENZIONE: 'Manutenzione/riparazione', AMMINISTRATIVO: 'Amministrativo', ALTRO: 'Altro' };
+        htmlRip += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">Occasionali per categoria</div>';
+        Object.keys(etichetteCat).forEach(function (cat) {
+          if (contPerCategoria[cat]) {
+            htmlRip += '<div class="stat-riga" style="padding:4px 0;"><span>' + etichetteCat[cat] + '</span><span class="val">' + Math.round(secondiPerCategoria[cat] / 60) + ' min (' + contPerCategoria[cat] + ')</span></div>';
+          }
+        });
+      }
       if (sconosciuti) {
         htmlRip += '<div style="font-size:11px;color:var(--err);margin-top:6px;">⚠️ ' + sconosciuti + ' esecuzioni fanno riferimento a un\'operazione non trovata nel registro — dato escluso da questa ripartizione, ma incluso nel tempo totale sopra.</div>';
         opLog('Statistiche: ' + sconosciuti + ' log con operazioneId sconosciuto', 'err');
@@ -1017,7 +1309,8 @@ function opCalcolaRiepilogoPerOperazione(elencoFiltrato) {
   var totOccasionale = righe.filter(function (r) { return r.tipo === 'OCCASIONALE'; }).reduce(function (s, r) { return s + r.secondi; }, 0);
   var saltati = elencoFiltrato.filter(function (l) { return l.stato === OP_STATI.SALTATO; }).length;
   var posticipati = elencoFiltrato.filter(function (l) { return l.stato === OP_STATI.POSTICIPATO; }).length;
-  return { righe: righe, totSecondi: totSecondi, totRicorrente: totRicorrente, totOccasionale: totOccasionale, saltati: saltati, posticipati: posticipati, totEsecuzioni: fatti.length };
+  var annullati = elencoFiltrato.filter(function (l) { return l.stato === OP_STATI.ANNULLATO; }).length;
+  return { righe: righe, totSecondi: totSecondi, totRicorrente: totRicorrente, totOccasionale: totOccasionale, saltati: saltati, posticipati: posticipati, annullati: annullati, totEsecuzioni: fatti.length };
 }
 
 function opCalcolaCronologico(elencoFiltrato) {
@@ -1051,7 +1344,7 @@ function opAnteprimaReport() {
     html += '<div class="stat-riga" style="margin-top:8px;"><span>Totale ricorrente</span><span class="val">' + Math.round(dati.totRicorrente / 60) + ' min</span></div>';
     html += '<div class="stat-riga"><span>Totale occasionale</span><span class="val">' + Math.round(dati.totOccasionale / 60) + ' min</span></div>';
     html += '<div class="stat-riga"><span>TOTALE PERIODO</span><span class="val">' + Math.round(dati.totSecondi / 60) + ' min (' + dati.totEsecuzioni + ' esecuzioni)</span></div>';
-    html += '<div class="stat-riga"><span>Saltate / Posticipate nel periodo</span><span class="val">' + dati.saltati + ' / ' + dati.posticipati + '</span></div>';
+    html += '<div class="stat-riga"><span>Saltate / Posticipate / Annullate</span><span class="val">' + dati.saltati + ' / ' + dati.posticipati + ' / ' + dati.annullati + '</span></div>';
     cont.innerHTML = html;
   } else {
     var datiC = opCalcolaCronologico(filtrato);
@@ -1110,6 +1403,73 @@ function opAggiungiNumeriPagina(doc) {
   }
 }
 
+// ── CSV ──
+// Escape minimale RFC4180: raddoppio le virgolette, avvolgo in
+// virgolette ogni campo che contiene virgola/virgoletta/a-capo — mai un
+// CSV che si rompe silenziosamente su una nota con una virgola dentro.
+function opCsvCampo(v) {
+  var s = String(v == null ? '' : v);
+  if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function opCsvRiga(campi) {
+  return campi.map(opCsvCampo).join(',') + '\r\n';
+}
+
+function opScaricaReportCsv() {
+  var genera = function () {
+    var filtrato = opFiltraStoricoPerPeriodo(opStoricoCompletoCache);
+    if (!filtrato.length) { alert('Nessun dato nel periodo selezionato — niente da esportare.'); return; }
+    var tipo = document.getElementById('report-tipo').value;
+    var da = document.getElementById('report-da').value;
+    var a = document.getElementById('report-a').value;
+    var csv = '';
+
+    if (tipo === 'RIEPILOGO') {
+      var dati = opCalcolaRiepilogoPerOperazione(filtrato);
+      csv += opCsvRiga(['Operazione', 'Tipo', 'N. esecuzioni', 'Tempo totale (min)', 'Media (min)']);
+      dati.righe.forEach(function (r) {
+        csv += opCsvRiga([r.titolo, r.tipo, r.conteggio, (r.secondi / 60).toFixed(1), (r.secondi / r.conteggio / 60).toFixed(1)]);
+      });
+      csv += opCsvRiga([]);
+      csv += opCsvRiga(['TOTALE RICORRENTE (min)', (dati.totRicorrente / 60).toFixed(1)]);
+      csv += opCsvRiga(['TOTALE OCCASIONALE (min)', (dati.totOccasionale / 60).toFixed(1)]);
+      csv += opCsvRiga(['TOTALE PERIODO (min)', (dati.totSecondi / 60).toFixed(1)]);
+      csv += opCsvRiga(['Saltate', dati.saltati]);
+      csv += opCsvRiga(['Posticipate', dati.posticipati]);
+      csv += opCsvRiga(['Annullate', dati.annullati]);
+    } else {
+      var datiC = opCalcolaCronologico(filtrato);
+      csv += opCsvRiga(['Data', 'Operazione', 'Stato', 'Durata (min)', 'Note']);
+      datiC.righe.forEach(function (l) {
+        csv += opCsvRiga([l.data, l.titoloSnapshot, l.stato, l.stato === OP_STATI.FATTO ? (l.durataSecondi / 60).toFixed(1) : '', l.note || '']);
+      });
+      csv += opCsvRiga([]);
+      csv += opCsvRiga(['TOTALE TEMPO LAVORATO (min)', (datiC.totSecondi / 60).toFixed(1)]);
+    }
+
+    // BOM UTF-8 esplicito: senza, Excel su Windows interpreta male gli
+    // accenti (è, à, ì...) di cui questo file è pieno — un problema
+    // silenzioso e frustrante se non lo si mette apposta.
+    var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a2 = document.createElement('a');
+    a2.href = url;
+    a2.download = 'report-operazioni_' + da + '_' + a + '.csv';
+    document.body.appendChild(a2);
+    a2.click();
+    document.body.removeChild(a2);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    opLog('Report CSV generato (' + tipo + ', ' + da + ' → ' + a + ')', 'ok');
+  };
+
+  if (opStoricoCompletoCache) {
+    genera();
+  } else {
+    opCaricaStoricoCompleto().then(function (elenco) { opStoricoCompletoCache = elenco; genera(); });
+  }
+}
+
 function opScaricaReportPdf() {
   if (typeof window.jspdf === 'undefined') {
     opLog('jsPDF non disponibile — impossibile generare il report', 'err');
@@ -1152,7 +1512,7 @@ function opScaricaReportPdf() {
       doc.setFontSize(11);
       doc.text('TOTALE PERIODO: ' + opFormattaDurata(dati.totSecondi) + '  (' + dati.totEsecuzioni + ' esecuzioni)', 20, yFine); yFine += 7;
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      doc.text('Operazioni saltate nel periodo: ' + dati.saltati + '   ·   Posticipate: ' + dati.posticipati, 20, yFine);
+      doc.text('Saltate: ' + dati.saltati + '   ·   Posticipate: ' + dati.posticipati + '   ·   Annullate: ' + dati.annullati, 20, yFine);
     } else {
       var datiC = opCalcolaCronologico(filtrato);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
