@@ -1,4 +1,4 @@
-<!-- operazioni-giornaliere.html | v0.9 · 30/08/2026 · BK -->
+<!-- operazioni-giornaliere.html | v0.10 · 31/08/2026 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -108,7 +108,7 @@
   <div class="topbar">
     <div>
       <div class="topbar-title">📋 Operazioni giornaliere</div>
-      <div class="topbar-sub">Build v0.9 · 30/08/2026</div>
+      <div class="topbar-sub">Build v0.10 · 31/08/2026</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="auth-badge"></span>
@@ -306,7 +306,7 @@
 <script>
 // ────────────────────────────────────────────────────────────
 // operazioni-giornaliere.html — ASD Basket Campodarsego
-// v0.9 · 30/08/2026 · BK
+// v0.10 · 31/08/2026 · BK
 // Tool standalone (non parte del gestionale Basket052441). Stesso
 // progetto Firebase (stesso login email/password), ma collezione
 // Firestore separata (operazioniPersonali/*) — nessun dato si mischia
@@ -427,6 +427,12 @@ function opGiornoSettimana(dataStr) {
 // Se escludiDomenica e la data cadrebbe di domenica, slitta a lunedì —
 // mai una scadenza silenziosamente sbagliata per un'attività "lun-sab".
 function opProssimaScadenzaDa(dataBase, frequenzaGiorni, escludiDomenica) {
+  if (typeof frequenzaGiorni !== 'number' || isNaN(frequenzaGiorni) || frequenzaGiorni < 1) {
+    opLog('opProssimaScadenzaDa: frequenzaGiorni non valida (' + JSON.stringify(frequenzaGiorni) +
+      ', tipo=' + typeof frequenzaGiorni + ') per data base ' + dataBase +
+      ' — uso +1 giorno come fallback di sicurezza per non bloccare la scadenza, ma questa operazione va corretta con "✏️ Modifica"', 'err');
+    frequenzaGiorni = 1;
+  }
   var prossima = opAggiungiGiorni(dataBase, frequenzaGiorni);
   if (escludiDomenica && opGiornoSettimana(prossima) === 0) {
     prossima = opAggiungiGiorni(prossima, 1);
@@ -835,6 +841,18 @@ function opPuliciFormNuova() {
 // occorrenza mostrata collassa su oggi stesso (è comunque dovuta ora).
 function opOccorrenzeNelPeriodo(op, dataInizio, dataFine) {
   var occorrenze = [];
+  // Guardia PRIMA di entrare nel ciclo: se frequenzaGiorni non è un
+  // numero valido >=1, opAggiungiGiorni non farebbe avanzare (o farebbe
+  // avanzare in modo scorretto) la data, e il ciclo girerebbe a vuoto
+  // fino al limite di sicurezza — meglio fermarsi subito con un log che
+  // dica ESATTAMENTE cosa c'è di sbagliato, invece di scoprirlo solo
+  // dopo 60 iterazioni sprecate.
+  if (typeof op.frequenzaGiorni !== 'number' || isNaN(op.frequenzaGiorni) || op.frequenzaGiorni < 1) {
+    opLog('opOccorrenzeNelPeriodo: frequenzaGiorni non valida per "' + op.titolo + '" (id=' + op.id +
+      '): valore=' + JSON.stringify(op.frequenzaGiorni) + ', tipo=' + typeof op.frequenzaGiorni +
+      ' — operazione esclusa dal piano settimanale finché non corretta (usa "✏️ Modifica")', 'err');
+    return occorrenze;
+  }
   var cursore = op.prossimaScadenza < dataInizio ? dataInizio : op.prossimaScadenza;
   var guardia = 0; // mai un ciclo potenzialmente infinito senza un limite esplicito
   while (cursore <= dataFine && guardia < 60) {
@@ -842,7 +860,8 @@ function opOccorrenzeNelPeriodo(op, dataInizio, dataFine) {
     cursore = opProssimaScadenzaDa(cursore, op.frequenzaGiorni, op.escludiDomenica);
     guardia++;
   }
-  if (guardia >= 60) opLog('opOccorrenzeNelPeriodo: guardia raggiunta per ' + op.titolo + ' — controllare frequenzaGiorni', 'err');
+  if (guardia >= 60) opLog('opOccorrenzeNelPeriodo: guardia raggiunta per "' + op.titolo + '" (id=' + op.id +
+    ', frequenzaGiorni=' + op.frequenzaGiorni + ', escludiDomenica=' + op.escludiDomenica + ') — la data non avanzava', 'err');
   return occorrenze;
 }
 
