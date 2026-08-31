@@ -1,4 +1,4 @@
-<!-- operazioni-giornaliere.html | v0.8 · 30/08/2026 · BK -->
+<!-- operazioni-giornaliere.html | v0.9 · 30/08/2026 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -108,7 +108,7 @@
   <div class="topbar">
     <div>
       <div class="topbar-title">📋 Operazioni giornaliere</div>
-      <div class="topbar-sub">Build v0.8 · 30/08/2026</div>
+      <div class="topbar-sub">Build v0.9 · 30/08/2026</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="auth-badge"></span>
@@ -306,7 +306,7 @@
 <script>
 // ────────────────────────────────────────────────────────────
 // operazioni-giornaliere.html — ASD Basket Campodarsego
-// v0.8 · 30/08/2026 · BK
+// v0.9 · 30/08/2026 · BK
 // Tool standalone (non parte del gestionale Basket052441). Stesso
 // progetto Firebase (stesso login email/password), ma collezione
 // Firestore separata (operazioniPersonali/*) — nessun dato si mischia
@@ -391,6 +391,7 @@ function opGoTab(tab) {
   var idx = { oggi: 0, settimana: 1, nuova: 2, storico: 3, statistiche: 4 }[tab];
   document.querySelectorAll('.nav-tab')[idx].classList.add('active');
   document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'oggi') opRenderOggi();
   if (tab === 'nuova' && !opEditingId) opRiabilitaBottoneSalva();
   if (tab === 'settimana') opRenderSettimana();
   if (tab === 'storico') opRenderStorico();
@@ -925,9 +926,15 @@ function opRilevaDuplicati() {
 function opRenderDuplicati() {
   var gruppi = opRilevaDuplicati();
   var box = document.getElementById('duplicati-box');
-  if (!gruppi.length) { box.style.display = 'none'; return; }
+  if (!gruppi.length) {
+    box.style.display = 'none';
+    opLog('Controllo duplicati: nessun gruppo trovato (' + opDefCache.filter(function(o){return o.attiva!==false;}).length + ' operazioni attive esaminate)');
+    return;
+  }
   box.style.display = 'block';
   var totaleEccesso = gruppi.reduce(function (s, g) { return s + (g.length - 1); }, 0);
+  opLog('Controllo duplicati: ' + gruppi.length + ' gruppi trovati, ' + totaleEccesso + ' copie in eccesso — ' +
+    gruppi.map(function(g){ return '"' + g[0].titolo + '" x' + g.length + ' [tipo=' + g[0].tipo + ',freq=' + g[0].frequenzaGiorni + ']'; }).join(' · '), 'err');
   document.getElementById('duplicati-lista').innerHTML = gruppi.map(function (g) {
     return opEsc(g[0].titolo) + ' — ' + g.length + ' copie';
   }).join('<br>') + '<br><b>Totale copie in eccesso: ' + totaleEccesso + '</b>';
