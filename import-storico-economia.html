@@ -1,4 +1,4 @@
-<!-- import-storico-economia.html | v1.0 · 01/09/2026 · BK -->
+<!-- import-storico-economia.html | v1.1 · 01/09/2026 · BK -->
 <!-- Tool one-shot: importa i movimenti storici (FOGLIO_CASSA_2025-2026.xlsm,
      foglio Movimenti, 2017-2025) nella collezione Economia/movimenti.
      Da eseguire UNA VOLTA da Alberto autenticato — nessuna scrittura avviene
@@ -74,14 +74,14 @@
 <div id="main-scr" style="display:none;">
   <div class="topbar">
     <div class="topbar-title">📥 Import storico Economia</div>
-    <div class="topbar-sub">v1.0 · 01/09/2026 · <span id="auth-badge"></span></div>
+    <div class="topbar-sub">v1.1 · 01/09/2026 · <span id="auth-badge"></span></div>
   </div>
 
   <div class="page">
 
     <div class="card">
       <div class="card-title"><span class="step-num">1</span>Categorie mancanti</div>
-      <div class="card-desc">7 categorie nuove servono prima di poter importare i movimenti che le usano: CONDIVPALESTRA, EVENTI, GIROCONTO, TASSE, FORMAZ, SPESE_BANCARIE, CAUZ.</div>
+      <div class="card-desc">Verifica live contro la produzione: qualunque categoria tra le 22 usate dal dataset storico che risulti mancante viene creata con un click (mai un elenco presunto a priori).</div>
       <div id="cat-status">Caricamento configurazione...</div>
       <button class="btn-gold" id="btn-crea-categorie" style="display:none;margin-top:8px;" onclick="creaCategorieMancanti()">Crea categorie mancanti</button>
     </div>
@@ -123,7 +123,7 @@
 <script>
 // ────────────────────────────────────────────────────────────
 // import-storico-economia.html — ASD Basket Campodarsego
-// v1.0 · 01/09/2026 · BK
+// v1.1 · 01/09/2026 · BK
 // Tool one-shot: legge IMPORT_MOVIMENTI_STORICI (movimenti-import-data.js,
 // 2835 record) e li scrive in basket052441/economia/movimenti dopo
 // validazione e conferma esplicita. Stesso progetto Firebase del
@@ -185,15 +185,36 @@ function doLogin() {
   });
 }
 
-// ── CATEGORIE NUOVE NECESSARIE (proposte 21/08, confermate con la mappatura FOGLIO_CASSA) ──
-var CATEGORIE_NUOVE = [
-  { codice: 'CONDIVPALESTRA', descrizione: 'Condivisione costi/affitto uso palestra con altre società', tipo: 'ENTRATA' },
-  { codice: 'EVENTI_CAT',      descrizione: 'Pranzi, cene, pizze, bar sociali',                            tipo: 'USCITA' },
-  { codice: 'GIROCONTO',       descrizione: 'Spostamenti tra conti propri (banca/cassa/tasca)',            tipo: null },
-  { codice: 'TASSE',           descrizione: 'Imposte, IVA, INPS, tasse gara/campionato',                   tipo: 'USCITA' },
-  { codice: 'FORMAZ',          descrizione: 'Formazione e corsi istruttori',                                tipo: 'USCITA' },
-  { codice: 'SPESE_BANCARIE',  descrizione: 'Commissioni e spese bancarie/postali',                        tipo: 'USCITA' },
-  { codice: 'CAUZ',            descrizione: 'Depositi cauzionali',                                          tipo: 'USCITA' }
+// ── CATALOGO COMPLETO delle categorie richieste dal dataset storico ──
+// (15 categorie "base" del seed economia-core-DRAFT.js + 7 nuove proposte
+// 21/08 sull'estratto BCC). FIX v1.1: la produzione non aveva TUTTE le 15
+// base gia' caricate (mancavano almeno TRASF/ASSSPORT/ARBITRI, scoperto
+// dall'anteprima reale con 569 righe bloccate) -- lo step 1 ora confronta
+// con questo catalogo intero, non solo con le 7 "nuove", e crea qualunque
+// codice manchi davvero in produzione, mai un elenco presunto a priori.
+var CATALOGO_CATEGORIE = [
+  { codice: 'TESS',            descrizione: 'Tesseramenti e affiliazioni',                                  tipo: 'USCITA' },
+  { codice: 'ARBITRI',         descrizione: 'Arbitri e campionati',                                         tipo: 'USCITA' },
+  { codice: 'MATSPORT',        descrizione: 'Materiale, divise, palloni',                                   tipo: 'USCITA' },
+  { codice: 'TRASF',           descrizione: 'Trasferte e tornei',                                           tipo: 'USCITA' },
+  { codice: 'ASSSPORT',        descrizione: 'Assicurazioni sportive',                                       tipo: 'USCITA' },
+  { codice: 'UTENZE',          descrizione: 'Utenze palestra (luce/gas/acqua)',                              tipo: 'USCITA' },
+  { codice: 'PUL',             descrizione: 'Pulizia palestra',                                             tipo: 'USCITA' },
+  { codice: 'MANUT',           descrizione: 'Manutenzione palestra',                                        tipo: 'USCITA' },
+  { codice: 'AMMSPESE',        descrizione: 'Commercialista, consulenze, software',                         tipo: 'USCITA' },
+  { codice: 'COMPENSI',        descrizione: 'Compensi sportivi e collaboratori',                             tipo: 'USCITA' },
+  { codice: 'QUOTE',           descrizione: 'Quote associative e sportive',                                 tipo: 'ENTRATA' },
+  { codice: 'CONTRIB',         descrizione: 'Contributi comunali/pubblici',                                 tipo: 'ENTRATA' },
+  { codice: 'SPONSOR',         descrizione: 'Sponsorizzazioni',                                              tipo: 'ENTRATA' },
+  { codice: 'DONAZ',           descrizione: 'Donazioni ed erogazioni liberali',                              tipo: 'ENTRATA' },
+  { codice: 'ALTRO',           descrizione: 'Altre entrate/uscite',                                          tipo: null },
+  { codice: 'CONDIVPALESTRA',  descrizione: 'Condivisione costi/affitto uso palestra con altre società',    tipo: 'ENTRATA' },
+  { codice: 'EVENTI_CAT',      descrizione: 'Pranzi, cene, pizze, bar sociali',                              tipo: 'USCITA' },
+  { codice: 'GIROCONTO',       descrizione: 'Spostamenti tra conti propri (banca/cassa/tasca)',             tipo: null },
+  { codice: 'TASSE',           descrizione: 'Imposte, IVA, INPS, tasse gara/campionato',                    tipo: 'USCITA' },
+  { codice: 'FORMAZ',          descrizione: 'Formazione e corsi istruttori',                                 tipo: 'USCITA' },
+  { codice: 'SPESE_BANCARIE',  descrizione: 'Commissioni e spese bancarie/postali',                          tipo: 'USCITA' },
+  { codice: 'CAUZ',            descrizione: 'Depositi cauzionali',                                           tipo: 'USCITA' }
 ];
 
 var _economiaConfig = null;   // { categorie, sottocategorie, centriCosto }
@@ -226,13 +247,13 @@ function avviaCaricamento() {
 // ── STEP 1: categorie mancanti ──
 function renderStepCategorie() {
   var esistenti = _economiaConfig.categorie.map(function (c) { return c.codice; });
-  var mancanti = CATEGORIE_NUOVE.filter(function (c) { return esistenti.indexOf(c.codice) === -1; });
+  var mancanti = CATALOGO_CATEGORIE.filter(function (c) { return esistenti.indexOf(c.codice) === -1; });
   var el = document.getElementById('cat-status');
   if (!mancanti.length) {
-    el.innerHTML = '<span class="ok">✅ Tutte le 7 categorie sono già presenti.</span>';
+    el.innerHTML = '<span class="ok">✅ Tutte le ' + CATALOGO_CATEGORIE.length + ' categorie necessarie sono già presenti.</span>';
     document.getElementById('btn-crea-categorie').style.display = 'none';
   } else {
-    el.innerHTML = '<span class="warn">⚠️ Mancano ' + mancanti.length + ' categorie:</span><br>' +
+    el.innerHTML = '<span class="warn">⚠️ Mancano ' + mancanti.length + ' categorie su ' + CATALOGO_CATEGORIE.length + ' necessarie:</span><br>' +
       mancanti.map(function (c) { return '<code>' + c.codice + '</code> — ' + c.descrizione; }).join('<br>');
     document.getElementById('btn-crea-categorie').style.display = 'block';
   }
@@ -241,7 +262,7 @@ function renderStepCategorie() {
 
 function creaCategorieMancanti() {
   var esistenti = _economiaConfig.categorie.map(function (c) { return c.codice; });
-  var mancanti = CATEGORIE_NUOVE.filter(function (c) { return esistenti.indexOf(c.codice) === -1; });
+  var mancanti = CATALOGO_CATEGORIE.filter(function (c) { return esistenti.indexOf(c.codice) === -1; });
   if (!mancanti.length) return;
   var btn = document.getElementById('btn-crea-categorie');
   btn.disabled = true;
