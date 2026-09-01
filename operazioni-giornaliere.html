@@ -1,4 +1,4 @@
-<!-- operazioni-giornaliere.html | v0.10 · 31/08/2026 · BK -->
+<!-- operazioni-giornaliere.html | v0.11 · 01/09/2026 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -108,7 +108,7 @@
   <div class="topbar">
     <div>
       <div class="topbar-title">📋 Operazioni giornaliere</div>
-      <div class="topbar-sub">Build v0.10 · 31/08/2026</div>
+      <div class="topbar-sub">Build v0.11 · 01/09/2026</div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="auth-badge"></span>
@@ -306,7 +306,7 @@
 <script>
 // ────────────────────────────────────────────────────────────
 // operazioni-giornaliere.html — ASD Basket Campodarsego
-// v0.10 · 31/08/2026 · BK
+// v0.11 · 01/09/2026 · BK
 // Tool standalone (non parte del gestionale Basket052441). Stesso
 // progetto Firebase (stesso login email/password), ma collezione
 // Firestore separata (operazioniPersonali/*) — nessun dato si mischia
@@ -413,10 +413,23 @@ function opFreqLabel(giorni, escludiDomenica) {
 function opOggiStr() {
   return new Date().toISOString().slice(0, 10);
 }
+// FIX v0.11: opAggiungiGiorni usava toISOString() che serializza in UTC,
+// mentre la data è costruita come mezzanotte LOCALE ('T00:00:00' senza
+// 'Z'). Con fuso orario avanti su UTC (Italia, CET/CEST) questo taglia
+// sempre un giorno: il risultato era data+n-1 invece di data+n. Per
+// frequenzaGiorni=1 questo diventava +1+(-1)=+0: la funzione restituiva
+// la STESSA data in ingresso, bloccando in modo permanente le operazioni
+// giornaliere (guardia delle 60 iterazioni raggiunta, operazioni che
+// riapparivano in "Oggi" anche dopo "fine lavoro"). Fix: costruisco la
+// stringa data dai getter LOCALI (getFullYear/getMonth/getDate), coerenti
+// con come la data è stata costruita, senza passare per UTC.
 function opAggiungiGiorni(dataStr, n) {
   var d = new Date(dataStr + 'T00:00:00');
   d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  var y = d.getFullYear();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var gg = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + gg;
 }
 function opGiornoSettimana(dataStr) {
   // 0=domenica..6=sabato, coerente con Date.getDay()
@@ -665,7 +678,7 @@ function opApriModifica(id) {
 
   if (op.tipo === 'RICORRENTE') {
     var presetTrovato = [1, 2, 7, 15, 30].indexOf(op.frequenzaGiorni) > -1 &&
-      !(op.frequenzaGiorni === 1 && !op.escludiDomenica); // 1 senza esclusione domenica è comunque "personalizzata" concettualmente, ma raro: trattato come preset 1 per semplicità
+      !(op.frequenzaGiorni === 1 && !op.escludiDomenica); // 1 senza esclusione domenica ꀔ.join // preset fallback
     var freqSel = document.getElementById('nuova-frequenza');
     if (presetTrovato) {
       freqSel.value = String(op.frequenzaGiorni);
@@ -683,7 +696,7 @@ function opApriModifica(id) {
 
 function opAnnullaModifica() {
   opEditingId = null;
-  document.getElementById('nuova-titolo-pagina').textContent = '➕ Nuova operazione';
+  document.getElementById('nuova-titolo-pagina').textContent = '⚕ Nuova operazione';
   document.getElementById('nuova-btn-salva').textContent = 'Crea operazione';
   document.getElementById('nuova-btn-annulla-modifica').style.display = 'none';
   document.getElementById('nuova-tipo').disabled = false;
@@ -711,7 +724,11 @@ function opSalvaModifiche(titolo, note) {
     patch.frequenzaGiorni = freqGiorni;
     patch.escludiDomenica = freqGiorni === 1;
     var nuovaScadenza = document.getElementById('nuova-scadenza').value;
-    if (nuovaScadenza) patch.prossimaScadenza = nuovaScadenza;
+    if (nuovaScadenza) {
+      patch.prossimaScadenza = (patch.escludiDomenica && opGiornoSettimana(nuovaScadenza) === 0)
+        ? opAggiungiGiorni(nuovaScadenza, 1)
+        : nuovaScadenza;
+    }
   }
 
   opDefCol().doc(id).update(patch).then(function () {
@@ -731,7 +748,9 @@ function opCreaRicorrente(titolo, note) {
   var freqGiorni = freqSel === '0'
     ? parseInt(document.getElementById('nuova-frequenza-personalizzata').value, 10)
     : parseInt(freqSel, 10);
+  var escludiDomenica = freqGiorni === 1;
   var scadenza = document.getElementById('nuova-scadenza').value || opOggiStr();
+  if (escludiDomenica && opGiornoSettimana(scadenza) === 0) scadenza = opAggiungiGiorni(scadenza, 1);
   if (!freqGiorni || freqGiorni < 1) { opRiabilitaBottoneSalva(); alert('Frequenza non valida.'); return; }
 
   var col = opDefCol();
@@ -739,7 +758,7 @@ function opCreaRicorrente(titolo, note) {
   var ref = col.doc();
   var record = {
     id: ref.id, tipo: 'RICORRENTE', titolo: titolo,
-    frequenzaGiorni: freqGiorni, escludiDomenica: freqGiorni === 1,
+    frequenzaGiorni: freqGiorni, escludiDomenica: escludiDomenica,
     prossimaScadenza: scadenza, note: note, attiva: true,
     origine: 'MANUALE', creataIl: opOggiStr()
   };
