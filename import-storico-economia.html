@@ -1,0 +1,468 @@
+<!-- import-storico-economia.html | v1.0 · 01/09/2026 · BK -->
+<!-- Tool one-shot: importa i movimenti storici (FOGLIO_CASSA_2025-2026.xlsm,
+     foglio Movimenti, 2017-2025) nella collezione Economia/movimenti.
+     Da eseguire UNA VOLTA da Alberto autenticato — nessuna scrittura avviene
+     finche' non premi tu il pulsante finale, dopo aver rivisto l'anteprima. -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Import storico Economia</title>
+<style>
+  :root{
+    --bg:#0a1628; --bg2:#0e1e35; --bg3:#132844; --border:#22385a;
+    --text:#e8eef7; --muted:#7a8fa8; --gold:#c8a84b;
+    --ok:#22a85a; --warn:#c8a84b; --err:#e0455a; --blue:#3a7bd5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;}
+  input,select,button{font-family:inherit;font-size:15px;}
+  input,select{width:100%;padding:10px 12px;margin:4px 0 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);}
+  button{cursor:pointer;border:none;border-radius:8px;padding:10px 14px;min-height:40px;font-weight:600;}
+  .btn-gold{background:var(--gold);color:#0a1628;}
+  .btn-gray{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+  .btn-red{background:transparent;color:var(--err);border:1px solid var(--err);}
+  .btn-block{width:100%;}
+  .btn-sm{padding:6px 10px;font-size:12px;min-height:32px;}
+  #login-scr{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:340px;width:100%;}
+  .login-card h1{font-size:17px;margin:0 0 4px;}
+  .login-card p{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  #login-err{color:var(--err);font-size:13px;margin-top:6px;min-height:16px;}
+  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 16px;position:sticky;top:0;}
+  .topbar-title{font-size:16px;font-weight:700;color:var(--gold);}
+  .topbar-sub{font-size:10px;color:var(--muted);}
+  .page{padding:16px;max-width:760px;margin:0 auto;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .card-title{font-size:15px;font-weight:700;margin-bottom:8px;}
+  .card-desc{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .step-num{display:inline-block;width:22px;height:22px;border-radius:50%;background:var(--gold);color:#0a1628;text-align:center;line-height:22px;font-weight:800;font-size:12px;margin-right:6px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:var(--muted);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--border);}
+  td{padding:5px 8px;border-bottom:1px solid var(--border);}
+  .val{font-weight:700;color:var(--gold);}
+  .ok{color:var(--ok);font-weight:700;}
+  .err{color:var(--err);font-weight:700;}
+  .warn{color:var(--warn);font-weight:700;}
+  #diag-toggle{position:fixed;bottom:12px;right:12px;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;font-size:16px;opacity:.6;}
+  #diag-panel{display:none;position:fixed;bottom:56px;right:12px;left:12px;max-height:40vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;}
+  #diag-panel.show{display:block;}
+  .log-line{padding:2px 0;border-bottom:1px solid var(--border);}
+  .log-err{color:var(--err);}
+  .log-ok{color:var(--ok);}
+  #progress-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;margin:8px 0;}
+  #progress-fill{height:100%;background:var(--gold);width:0%;transition:width .2s;}
+  .empty-state{text-align:center;color:var(--muted);padding:20px 10px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<div id="login-scr">
+  <div class="login-card">
+    <h1>📥 Import storico Economia</h1>
+    <p>ASD Basket Campodarsego — tool one-shot, stesso account Firebase del gestionale.</p>
+    <label>Email</label>
+    <input type="email" id="login-email" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="login-pass" autocomplete="current-password">
+    <button class="btn-gold btn-block" onclick="doLogin()">Accedi</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<div id="main-scr" style="display:none;">
+  <div class="topbar">
+    <div class="topbar-title">📥 Import storico Economia</div>
+    <div class="topbar-sub">v1.0 · 01/09/2026 · <span id="auth-badge"></span></div>
+  </div>
+
+  <div class="page">
+
+    <div class="card">
+      <div class="card-title"><span class="step-num">1</span>Categorie mancanti</div>
+      <div class="card-desc">7 categorie nuove servono prima di poter importare i movimenti che le usano: CONDIVPALESTRA, EVENTI, GIROCONTO, TASSE, FORMAZ, SPESE_BANCARIE, CAUZ.</div>
+      <div id="cat-status">Caricamento configurazione...</div>
+      <button class="btn-gold" id="btn-crea-categorie" style="display:none;margin-top:8px;" onclick="creaCategorieMancanti()">Crea categorie mancanti</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="step-num">2</span>Conti finanziari (BANCA / CASSA / TASCA)</div>
+      <div class="card-desc">Ogni movimento storico indica su quale conto è avvenuto (colonna TIPO del foglio originale). Associa ogni tipo al conto reale già configurato in Economia.</div>
+      <div id="conti-mapping">Caricamento conti...</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="step-num">3</span>Anteprima import</div>
+      <div class="card-desc">2835 movimenti dal foglio storico (2017-2025). Nessuna scrittura avviene in questo passo.</div>
+      <div id="anteprima">In attesa dei passi 1 e 2...</div>
+    </div>
+
+    <div class="card" id="card-esegui" style="display:none;">
+      <div class="card-title"><span class="step-num">4</span>Esecuzione</div>
+      <div class="card-desc" style="color:var(--err);">Operazione irreversibile senza pulizia manuale. Scrive <b id="tot-da-scrivere">-</b> documenti in Economia/movimenti. Verrà chiesta una conferma testuale prima di procedere.</div>
+      <div id="progress-bar" style="display:none;"><div id="progress-fill"></div></div>
+      <div id="progress-txt" style="font-size:12px;color:var(--muted);"></div>
+      <button class="btn-red btn-block" id="btn-esegui-import" onclick="eseguiImport()">Importa i movimenti</button>
+    </div>
+
+  </div>
+</div>
+
+<button id="diag-toggle" onclick="document.getElementById('diag-panel').classList.toggle('show')">🔧</button>
+<div id="diag-panel"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<!-- Dataset storico (generato da BK) -->
+<script src="movimenti-import-data.js"></script>
+
+<script>
+// ────────────────────────────────────────────────────────────
+// import-storico-economia.html — ASD Basket Campodarsego
+// v1.0 · 01/09/2026 · BK
+// Tool one-shot: legge IMPORT_MOVIMENTI_STORICI (movimenti-import-data.js,
+// 2835 record) e li scrive in basket052441/economia/movimenti dopo
+// validazione e conferma esplicita. Stesso progetto Firebase del
+// gestionale, nessuna scrittura fuori da Economia/*.
+// ────────────────────────────────────────────────────────────
+
+var _db = null;
+
+// ── LOG DIAGNOSTICO (mai un fallimento silenzioso) ──
+function diag(msg, tipo) {
+  var panel = document.getElementById('diag-panel');
+  var riga = document.createElement('div');
+  riga.className = 'log-line' + (tipo === 'err' ? ' log-err' : tipo === 'ok' ? ' log-ok' : '');
+  var ora = new Date().toTimeString().slice(0, 8);
+  riga.textContent = '[' + ora + '] ' + msg;
+  panel.insertBefore(riga, panel.firstChild);
+  if (tipo === 'err') console.error('[import-storico] ' + msg);
+}
+window.addEventListener('error', function (e) {
+  diag('Errore non gestito: ' + (e.error && e.error.message || e.message), 'err');
+});
+window.addEventListener('unhandledrejection', function (e) {
+  diag('Promise non gestita: ' + (e.reason && e.reason.message || e.reason), 'err');
+});
+
+// ── FIREBASE INIT / AUTH ──
+var _fbConfig = {apiKey:"AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",authDomain:"basket052441.firebaseapp.com",projectId:"basket052441",storageBucket:"basket052441.appspot.com",messagingSenderId:"708269881035",appId:"1:708269881035:web:62a9d32bad5de2c68d0d4e"};
+
+function fbInit() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(_fbConfig);
+    _db = firebase.firestore();
+    diag('Firestore pronto', 'ok');
+    firebase.auth().onAuthStateChanged(function (user) {
+      if (user) {
+        diag('Autenticato: ' + user.email, 'ok');
+        document.getElementById('login-scr').style.display = 'none';
+        document.getElementById('main-scr').style.display = 'block';
+        document.getElementById('auth-badge').textContent = user.email;
+        avviaCaricamento();
+      } else {
+        document.getElementById('login-scr').style.display = '';
+        document.getElementById('main-scr').style.display = 'none';
+      }
+    });
+  } catch (e) {
+    diag('ERRORE fbInit: ' + e.message, 'err');
+  }
+}
+function doLogin() {
+  var email = document.getElementById('login-email').value.trim();
+  var pass = document.getElementById('login-pass').value;
+  var errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Inserisci email e password.'; return; }
+  firebase.auth().signInWithEmailAndPassword(email, pass).catch(function (err) {
+    errEl.textContent = 'Accesso fallito: ' + err.message;
+    diag('Login fallito: ' + err.message, 'err');
+  });
+}
+
+// ── CATEGORIE NUOVE NECESSARIE (proposte 21/08, confermate con la mappatura FOGLIO_CASSA) ──
+var CATEGORIE_NUOVE = [
+  { codice: 'CONDIVPALESTRA', descrizione: 'Condivisione costi/affitto uso palestra con altre società', tipo: 'ENTRATA' },
+  { codice: 'EVENTI_CAT',      descrizione: 'Pranzi, cene, pizze, bar sociali',                            tipo: 'USCITA' },
+  { codice: 'GIROCONTO',       descrizione: 'Spostamenti tra conti propri (banca/cassa/tasca)',            tipo: null },
+  { codice: 'TASSE',           descrizione: 'Imposte, IVA, INPS, tasse gara/campionato',                   tipo: 'USCITA' },
+  { codice: 'FORMAZ',          descrizione: 'Formazione e corsi istruttori',                                tipo: 'USCITA' },
+  { codice: 'SPESE_BANCARIE',  descrizione: 'Commissioni e spese bancarie/postali',                        tipo: 'USCITA' },
+  { codice: 'CAUZ',            descrizione: 'Depositi cauzionali',                                          tipo: 'USCITA' }
+];
+
+var _economiaConfig = null;   // { categorie, sottocategorie, centriCosto }
+var _economiaConti = null;    // [ { id, nome, tipo, ... } ]
+var _mappaContoScelto = { BANCA: null, CASSA: null, TASCA: null };
+
+function colEconomia() { return _db.collection('basket052441'); }
+
+function avviaCaricamento() {
+  Promise.all([
+    colEconomia().doc('economiaConfig').get(),
+    colEconomia().doc('economiaConti').get()
+  ]).then(function (res) {
+    try {
+      _economiaConfig = (res[0].exists && res[0].data().v) ? JSON.parse(res[0].data().v) : { categorie: [], sottocategorie: [], centriCosto: [] };
+      _economiaConti = (res[1].exists && res[1].data().v) ? JSON.parse(res[1].data().v) : [];
+      diag('Config Economia caricata: ' + _economiaConfig.categorie.length + ' categorie, ' + _economiaConfig.centriCosto.length + ' centri costo, ' + _economiaConti.length + ' conti', 'ok');
+    } catch (ex) {
+      diag('Errore parsing config Economia: ' + ex.message, 'err');
+      alert('economiaConfig o economiaConti corrotto: ' + ex.message + ' — impossibile procedere.');
+      return;
+    }
+    renderStepCategorie();
+    renderStepConti();
+  }).catch(function (err) {
+    diag('Errore caricamento config: ' + (err && err.message || err), 'err');
+  });
+}
+
+// ── STEP 1: categorie mancanti ──
+function renderStepCategorie() {
+  var esistenti = _economiaConfig.categorie.map(function (c) { return c.codice; });
+  var mancanti = CATEGORIE_NUOVE.filter(function (c) { return esistenti.indexOf(c.codice) === -1; });
+  var el = document.getElementById('cat-status');
+  if (!mancanti.length) {
+    el.innerHTML = '<span class="ok">✅ Tutte le 7 categorie sono già presenti.</span>';
+    document.getElementById('btn-crea-categorie').style.display = 'none';
+  } else {
+    el.innerHTML = '<span class="warn">⚠️ Mancano ' + mancanti.length + ' categorie:</span><br>' +
+      mancanti.map(function (c) { return '<code>' + c.codice + '</code> — ' + c.descrizione; }).join('<br>');
+    document.getElementById('btn-crea-categorie').style.display = 'block';
+  }
+  renderAnteprimaSeCompleto();
+}
+
+function creaCategorieMancanti() {
+  var esistenti = _economiaConfig.categorie.map(function (c) { return c.codice; });
+  var mancanti = CATEGORIE_NUOVE.filter(function (c) { return esistenti.indexOf(c.codice) === -1; });
+  if (!mancanti.length) return;
+  var btn = document.getElementById('btn-crea-categorie');
+  btn.disabled = true;
+  mancanti.forEach(function (c, i) {
+    _economiaConfig.categorie.push({
+      codice: c.codice, descrizione: c.descrizione, tipo: c.tipo,
+      attivo: true, ordine: _economiaConfig.categorie.length + i
+    });
+  });
+  colEconomia().doc('economiaConfig').set({ v: JSON.stringify(_economiaConfig) }).then(function () {
+    diag('Create ' + mancanti.length + ' categorie: ' + mancanti.map(function(c){return c.codice;}).join(', '), 'ok');
+    btn.disabled = false;
+    renderStepCategorie();
+  }).catch(function (err) {
+    diag('Errore creazione categorie: ' + (err && err.message || err), 'err');
+    alert('Errore salvataggio categorie: ' + (err && err.message || err));
+    btn.disabled = false;
+  });
+}
+
+// ── STEP 2: mapping conti ──
+function renderStepConti() {
+  var el = document.getElementById('conti-mapping');
+  if (!_economiaConti.length) {
+    el.innerHTML = '<span class="err">⚠️ Nessun conto configurato in Economia. Crealo prima dal pannello admin (tab Conti) — servono almeno un conto BANCA e uno CASSA.</span>';
+    return;
+  }
+  var righeTipo = { BANCA: 'BANCA', CASSA: 'CASSA', TASCA: 'CARTA' }; // TASCA storico -> tipo conto "CARTA" nel modello attuale
+  var html = '';
+  ['BANCA', 'CASSA', 'TASCA'].forEach(function (tipoStorico) {
+    var tipoConto = righeTipo[tipoStorico];
+    var candidati = _economiaConti.filter(function (c) { return c.tipo === tipoConto && c.attivo !== false; });
+    html += '<label>' + tipoStorico + ' (storico) → conto reale</label>';
+    html += '<select id="sel-conto-' + tipoStorico + '" onchange="aggiornaMappaConto(\'' + tipoStorico + '\')">';
+    html += '<option value="">(nessuno — righe ' + tipoStorico + ' verranno bloccate)</option>';
+    _economiaConti.forEach(function (c) {
+      var sel = (candidati.length === 1 && candidati[0].id === c.id) ? ' selected' : '';
+      html += '<option value="' + c.id + '"' + sel + '>' + c.nome + ' (' + c.tipo + ')</option>';
+    });
+    html += '</select>';
+    if (candidati.length === 1) _mappaContoScelto[tipoStorico] = candidati[0].id;
+    if (candidati.length === 0) html += '<div style="font-size:11px;color:var(--warn);">Nessun conto di tipo ' + tipoConto + ' trovato — scegli manualmente o crealo prima.</div>';
+    if (candidati.length > 1) html += '<div style="font-size:11px;color:var(--warn);">Più conti ' + tipoConto + ' trovati — scegli quello giusto.</div>';
+  });
+  el.innerHTML = html;
+  renderAnteprimaSeCompleto();
+}
+function aggiornaMappaConto(tipoStorico) {
+  _mappaContoScelto[tipoStorico] = document.getElementById('sel-conto-' + tipoStorico).value || null;
+  renderAnteprimaSeCompleto();
+}
+
+// ── STEP 3: anteprima / validazione locale ──
+var _movimentiValidati = [];
+
+function renderAnteprimaSeCompleto() {
+  if (!_economiaConfig || !_economiaConti) return;
+  var esistentiCat = _economiaConfig.categorie.map(function (c) { return c.codice; });
+  var esistentiCentro = _economiaConfig.centriCosto.map(function (c) { return c.codice; });
+
+  var pronti = [], bloccati = [];
+  (window.IMPORT_MOVIMENTI_STORICI || []).forEach(function (m) {
+    var problemi = [];
+    if (esistentiCat.indexOf(m.categoriaCodice) === -1) problemi.push('categoria "' + m.categoriaCodice + '" non esiste (crea le categorie mancanti allo step 1)');
+    if (esistentiCentro.indexOf(m.centroCostoCodice) === -1) problemi.push('centro di costo "' + m.centroCostoCodice + '" non esiste');
+    var contoId = _mappaContoScelto[m.tipoConto];
+    if (!contoId) problemi.push('conto "' + m.tipoConto + '" non mappato (step 2)');
+    if (problemi.length) bloccati.push({ m: m, problemi: problemi });
+    else pronti.push(m);
+  });
+
+  _movimentiValidati = pronti;
+
+  var el = document.getElementById('anteprima');
+  var perAnno = {};
+  pronti.forEach(function (m) { perAnno[m.annoEsercizio] = (perAnno[m.annoEsercizio] || 0) + 1; });
+  var righeAnno = Object.keys(perAnno).sort().map(function (a) {
+    return '<tr><td>' + a + '</td><td>' + perAnno[a] + '</td></tr>';
+  }).join('');
+
+  var html = '<div class="stat"><span>Pronti per import: </span><span class="val">' + pronti.length + '</span></div>';
+  html += '<div class="stat"><span>Bloccati: </span><span class="' + (bloccati.length ? 'err' : 'ok') + '">' + bloccati.length + '</span></div>';
+  html += '<table style="margin-top:8px;"><tr><th>Anno</th><th>N. movimenti</th></tr>' + righeAnno + '</table>';
+  if (bloccati.length) {
+    html += '<div style="margin-top:10px;color:var(--err);font-size:12px;">Motivi blocco (prime 5):</div>';
+    html += '<ul style="font-size:11px;color:var(--muted);">' + bloccati.slice(0, 5).map(function (b) {
+      return '<li>riga ' + b.m.riga_origine + ': ' + b.problemi.join('; ') + '</li>';
+    }).join('') + '</ul>';
+  }
+  el.innerHTML = html;
+
+  document.getElementById('tot-da-scrivere').textContent = pronti.length;
+  document.getElementById('card-esegui').style.display = pronti.length > 0 ? 'block' : 'none';
+}
+
+// ── STEP 4: esecuzione import ──
+var ECO_METODO_PAGAMENTO_MAP = [
+  { match: /BONIFIC/i, val: 'bonifico' },
+  { match: /ASSEGN/i, val: 'assegno' },
+  { match: /CONTANT|SCONTRIN/i, val: 'contanti' },
+  { match: /SEPA|RID/i, val: 'bonifico' }
+];
+function mappaMetodo(originale) {
+  if (!originale) return 'altro';
+  for (var i = 0; i < ECO_METODO_PAGAMENTO_MAP.length; i++) {
+    if (ECO_METODO_PAGAMENTO_MAP[i].match.test(originale)) return ECO_METODO_PAGAMENTO_MAP[i].val;
+  }
+  return 'altro';
+}
+function ecoNewIdLocale(prefix) {
+  return prefix + '-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+
+function eseguiImport() {
+  if (!_movimentiValidati.length) return;
+  var conferma = prompt('Stai per scrivere ' + _movimentiValidati.length + ' movimenti in produzione. Digita ESATTAMENTE "IMPORTA" per confermare:');
+  if (conferma !== 'IMPORTA') { diag('Import annullato (conferma non corrispondente)'); return; }
+
+  var btn = document.getElementById('btn-esegui-import');
+  btn.disabled = true;
+  document.getElementById('progress-bar').style.display = 'block';
+
+  var user = firebase.auth().currentUser;
+  var creatoDa = user ? user.email : '';
+  var oraIso = new Date().toISOString();
+
+  // Numerazione progressiva per anno: parto dal massimo esistente + 1 (nessuna
+  // collisione con movimenti gia' presenti in quell'anno, es. movimenti 2025
+  // gia' inseriti manualmente da Alberto durante lo sviluppo del modulo).
+  var maxPerAnno = {};
+
+  var colMov = colEconomia().doc('economia').collection('movimenti');
+
+  colEconomia().doc('economia').collection('movimenti').get().then(function (snap) {
+    snap.forEach(function (doc) {
+      var d = doc.data();
+      var match = /^MOV-(\d{4})-(\d+)$/.exec(d.numeroMovimento || '');
+      if (match) {
+        var anno = match[1], n = parseInt(match[2], 10);
+        if (!maxPerAnno[anno] || n > maxPerAnno[anno]) maxPerAnno[anno] = n;
+      }
+    });
+    diag('Numerazione esistente letta per ' + Object.keys(maxPerAnno).length + ' anni', 'ok');
+
+    // ordino per data per assegnare numeri progressivi leggibili
+    var ordinati = _movimentiValidati.slice().sort(function (a, b) {
+      return (a.dataDocumento || '').localeCompare(b.dataDocumento || '');
+    });
+
+    var docs = ordinati.map(function (m) {
+      var anno = String(m.annoEsercizio);
+      maxPerAnno[anno] = (maxPerAnno[anno] || 0) + 1;
+      var numeroMovimento = 'MOV-' + anno + '-' + String(maxPerAnno[anno]).padStart(6, '0');
+      var contoId = _mappaContoScelto[m.tipoConto];
+      var pagato = m.stato === 'PAGATO';
+      return {
+        id: ecoNewIdLocale('MOV'),
+        numeroMovimento: numeroMovimento,
+        dataRegistrazione: oraIso,
+        createdAt: oraIso,
+        createdBy: creatoDa,
+        updatedAt: oraIso,
+        updatedBy: creatoDa,
+        tipoMovimento: m.tipoMovimento,
+        importoEur: m.importoEur,
+        categoriaCodice: m.categoriaCodice,
+        sottocategoriaCodice: null,
+        centroCostoCodice: m.centroCostoCodice,
+        contoFinanziarioId: contoId,
+        dataDocumento: m.dataDocumento,
+        dataScadenza: null,
+        annoEsercizio: m.annoEsercizio,
+        numeroDocumento: m.numeroDocumento,
+        note: m.descrizioneOriginale + (m.noteImport ? ' [' + m.noteImport + ']' : ''),
+        stato: m.stato,
+        dataPagamento: pagato ? m.dataDocumento : null,
+        metodoPagamento: pagato ? mappaMetodo(m.metodoPagamentoOriginale) : null,
+        origineImport: 'STORICO_FOGLIO_CASSA_20260901',
+        rigaOrigineImport: m.riga_origine
+      };
+    });
+
+    diag('Preparati ' + docs.length + ' documenti, inizio scrittura a batch...', 'ok');
+
+    var CHUNK = 400; // sotto il limite 500 operazioni/batch di Firestore
+    var chunks = [];
+    for (var i = 0; i < docs.length; i += CHUNK) chunks.push(docs.slice(i, i + CHUNK));
+
+    var scritti = 0;
+    function scriviChunk(idx) {
+      if (idx >= chunks.length) {
+        diag('Import completato: ' + scritti + ' movimenti scritti', 'ok');
+        document.getElementById('progress-txt').textContent = 'Completato: ' + scritti + ' / ' + docs.length;
+        alert('Import completato: ' + scritti + ' movimenti scritti in Economia/movimenti.');
+        btn.disabled = false;
+        return;
+      }
+      var batch = _db.batch();
+      chunks[idx].forEach(function (d) { batch.set(colMov.doc(d.id), d); });
+      batch.commit().then(function () {
+        scritti += chunks[idx].length;
+        var pct = Math.round(scritti / docs.length * 100);
+        document.getElementById('progress-fill').style.width = pct + '%';
+        document.getElementById('progress-txt').textContent = scritti + ' / ' + docs.length;
+        diag('Batch ' + (idx + 1) + '/' + chunks.length + ' scritto (' + chunks[idx].length + ' documenti)', 'ok');
+        scriviChunk(idx + 1);
+      }).catch(function (err) {
+        diag('ERRORE batch ' + (idx + 1) + ': ' + (err && err.message || err), 'err');
+        alert('Errore durante la scrittura del batch ' + (idx + 1) + ': ' + (err && err.message || err) + ' — import INTERROTTO, ' + scritti + ' movimenti gia\' scritti prima dell\'errore.');
+        btn.disabled = false;
+      });
+    }
+    scriviChunk(0);
+  }).catch(function (err) {
+    diag('Errore lettura numerazione esistente: ' + (err && err.message || err), 'err');
+    alert('Errore preliminare: ' + (err && err.message || err));
+    btn.disabled = false;
+  });
+}
+
+fbInit();
+</script>
+</body>
+</html>
