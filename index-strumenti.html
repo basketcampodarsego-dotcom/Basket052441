@@ -1,0 +1,84 @@
+<!-- index-strumenti.html | v0.1 · 02/09/2026 · BK -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>ASD Basket Campodarsego — Strumenti</title>
+<style>
+  :root{
+    --bg:#0a1628; --bg2:#0e1e35; --bg3:#132844; --border:#22385a;
+    --text:#e8eef7; --muted:#7a8fa8; --gold:#c8a84b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:520px;margin:0 auto;padding:24px 16px 40px;}
+  .header{text-align:center;margin-bottom:28px;}
+  .header .logo{font-size:34px;margin-bottom:6px;}
+  .header h1{font-size:19px;font-weight:700;color:var(--gold);margin:0 0 4px;}
+  .header .sub{font-size:12px;color:var(--muted);}
+  .sezione{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:24px 0 8px 4px;}
+  a.card{
+    display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--text);
+    background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+    padding:16px;margin-bottom:10px;transition:border-color .15s;
+  }
+  a.card:active{border-color:var(--gold);}
+  .card .icon{font-size:28px;flex-shrink:0;width:40px;text-align:center;}
+  .card .info{flex:1;}
+  .card .titolo{font-size:15px;font-weight:700;margin-bottom:2px;}
+  .card .desc{font-size:12px;color:var(--muted);}
+  .card .freccia{color:var(--muted);font-size:18px;flex-shrink:0;}
+  .footer{text-align:center;font-size:10px;color:var(--muted);margin-top:30px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="logo">🏀</div>
+    <h1>ASD Basket Campodarsego</h1>
+    <div class="sub">Indice strumenti gestionali</div>
+  </div>
+
+  <div class="sezione">Gestionale principale</div>
+  <a class="card" href="basket052441.html">
+    <div class="icon">🏀</div>
+    <div class="info">
+      <div class="titolo">Basket052441</div>
+      <div class="desc">Anagrafica, pagamenti, presenze, ricevute</div>
+    </div>
+    <div class="freccia">›</div>
+  </a>
+  <a class="card" href="basket052441-admin.html">
+    <div class="icon">⚙️</div>
+    <div class="info">
+      <div class="titolo">Pannello Admin</div>
+      <div class="desc">Import, report, Economia, Verbali, log</div>
+    </div>
+    <div class="freccia">›</div>
+  </a>
+
+  <div class="sezione">Palestra via Hermagor</div>
+  <a class="card" href="operazioni-giornaliere.html">
+    <div class="icon">📋</div>
+    <div class="info">
+      <div class="titolo">Operazioni giornaliere</div>
+      <div class="desc">Custodia, pulizia, manutenzione ricorrente</div>
+    </div>
+    <div class="freccia">›</div>
+  </a>
+  <a class="card" href="registro-manutenzione.html">
+    <div class="icon">🧰</div>
+    <div class="info">
+      <div class="titolo">Registro manutenzioni</div>
+      <div class="desc">Manutenzioni e segnalazioni, con foto</div>
+    </div>
+    <div class="freccia">›</div>
+  </a>
+
+  <div class="footer">Stesso account per tutti gli strumenti · basketcampodarsego@gmail.com</div>
+
+</div>
+</body>
+</html>

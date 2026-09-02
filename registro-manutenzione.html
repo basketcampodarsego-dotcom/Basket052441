@@ -1,0 +1,680 @@
+<!-- registro-manutenzione.html | v0.2 · 02/09/2026 · BK -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Registro manutenzioni e segnalazioni</title>
+<style>
+  :root{
+    --bg:#0a1628; --bg2:#0e1e35; --bg3:#132844; --border:#22385a;
+    --text:#e8eef7; --muted:#7a8fa8; --gold:#c8a84b;
+    --ok:#22a85a; --warn:#c8a84b; --err:#e0455a; --blue:#3a7bd5;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased;}
+  input,select,textarea,button{font-family:inherit;font-size:15px;}
+  input,select,textarea{width:100%;padding:10px 12px;margin:4px 0 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);}
+  input:disabled,select:disabled{color:var(--text);opacity:.85;}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);}
+  label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  button{cursor:pointer;border:none;border-radius:8px;padding:10px 14px;min-height:40px;font-weight:600;}
+  .btn-gold{background:var(--gold);color:#0a1628;}
+  .btn-gold:active{background:#b3923f;}
+  .btn-blue{background:var(--blue);color:#fff;}
+  .btn-gray{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+  .btn-red{background:transparent;color:var(--err);border:1px solid var(--err);}
+  .btn-green{background:var(--ok);color:#fff;}
+  .btn-sm{padding:6px 10px;font-size:12px;min-height:32px;}
+  .btn-block{width:100%;}
+  button:disabled{opacity:.5;cursor:default;}
+  #login-scr{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:340px;width:100%;}
+  .login-card h1{font-size:18px;margin:0 0 4px;}
+  .login-card p{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  #login-err{color:var(--err);font-size:13px;margin-top:6px;min-height:16px;}
+  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;}
+  .topbar-title{font-size:16px;font-weight:700;color:var(--gold);}
+  .topbar-sub{font-size:10px;color:var(--muted);}
+  #auth-badge{font-size:11px;color:var(--muted);background:var(--bg3);padding:4px 8px;border-radius:6px;}
+  .nav-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;}
+  .nav-tab{flex:1;text-align:center;padding:12px 8px;font-size:12.5px;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;}
+  .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:700;}
+  .page{display:none;padding:16px;max-width:640px;margin:0 auto;}
+  .page.active{display:block;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;}
+  .card-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .card-desc{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .voce-row{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+  .voce-row.aperto{border-color:var(--err);}
+  .voce-row.in-corso{border-color:var(--warn);}
+  .voce-row.risolto{border-color:var(--ok);}
+  .voce-title{font-weight:700;font-size:14px;margin-bottom:2px;}
+  .voce-meta{font-size:11px;color:var(--muted);margin-bottom:6px;}
+  .voce-desc{font-size:13px;margin-bottom:8px;white-space:pre-wrap;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;vertical-align:middle;}
+  .badge-tipo-manutenzione{background:rgba(58,123,213,.2);color:var(--blue);border:1px solid var(--blue);}
+  .badge-tipo-segnalazione{background:rgba(224,69,90,.15);color:var(--err);border:1px solid var(--err);}
+  .badge-stato-aperto{background:rgba(224,69,90,.15);color:var(--err);}
+  .badge-stato-in_corso{background:rgba(200,168,75,.15);color:var(--warn);}
+  .badge-stato-risolto{background:rgba(34,168,90,.15);color:var(--ok);}
+  .foto-thumb{width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid var(--border);margin-right:6px;cursor:pointer;}
+  .foto-thumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;margin-bottom:8px;}
+  .foto-preview-box{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 10px;}
+  .foto-preview-item{position:relative;width:76px;height:76px;}
+  .foto-preview-item img{width:100%;height:100%;object-fit:cover;border-radius:6px;border:1px solid var(--border);}
+  .foto-preview-item .rimuovi{position:absolute;top:-6px;right:-6px;background:var(--err);color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;line-height:20px;text-align:center;cursor:pointer;}
+  .op-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  .filtri{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .filtri > *{flex:1;min-width:110px;margin:0;}
+  .empty-state{text-align:center;color:var(--muted);padding:24px 10px;font-size:13px;}
+  #diag-toggle{position:fixed;bottom:12px;right:12px;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;font-size:16px;z-index:60;opacity:.6;}
+  #diag-panel{display:none;position:fixed;bottom:56px;right:12px;left:12px;max-height:40vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;z-index:60;}
+  #diag-panel.show{display:block;}
+  .log-line{padding:2px 0;border-bottom:1px solid var(--border);}
+  .log-err{color:var(--err);}
+  .log-ok{color:var(--ok);}
+  #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:100;align-items:center;justify-content:center;padding:20px;}
+  #lightbox.show{display:flex;}
+  #lightbox img{max-width:100%;max-height:100%;border-radius:6px;}
+  #lightbox-chiudi{position:fixed;top:16px;right:16px;background:var(--bg3);border-radius:50%;width:38px;height:38px;font-size:16px;z-index:101;}
+</style>
+</head>
+<body>
+
+<div id="login-scr">
+  <div class="login-card">
+    <h1>🧰 Registro manutenzioni e segnalazioni</h1>
+    <p>ASD Basket Campodarsego</p>
+    <label>Email</label>
+    <input type="email" id="login-email" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="login-pass" autocomplete="current-password">
+    <button class="btn-gold btn-block" onclick="doLogin()">Accedi</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<div id="main-scr" style="display:none;">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">🧰 Registro manutenzioni</div>
+      <div class="topbar-sub">Build v0.2 · 02/09/2026</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span id="auth-badge"></span>
+      <button class="btn-gray btn-sm" onclick="doLogout()">Esci</button>
+    </div>
+  </div>
+
+  <div class="nav-tabs">
+    <div class="nav-tab active" onclick="regGoTab('nuova')">➕ Nuova</div>
+    <div class="nav-tab" onclick="regGoTab('elenco')">📋 Elenco</div>
+  </div>
+
+  <!-- ── PAGINA: NUOVA ── -->
+  <div class="page active" id="page-nuova">
+    <div class="card">
+      <div class="card-title" id="nuova-titolo-pagina">➕ Nuova voce</div>
+
+      <label>Tipo</label>
+      <select id="reg-tipo">
+        <option value="MANUTENZIONE">🔧 Manutenzione</option>
+        <option value="SEGNALAZIONE">⚠️ Segnalazione</option>
+      </select>
+
+      <label>Titolo</label>
+      <input type="text" id="reg-titolo" placeholder="es. Cavo elettrico non autorizzato in corridoio">
+
+      <label>Data evento</label>
+      <input type="date" id="reg-data">
+
+      <label>Luogo</label>
+      <input type="text" id="reg-luogo" placeholder="es. Corridoio spogliatoi, muro esterno lato campo">
+
+      <label>Descrizione</label>
+      <textarea id="reg-descrizione" rows="5" placeholder="Cosa è successo, chi era coinvolto, dettagli utili..."></textarea>
+
+      <label>Stato</label>
+      <select id="reg-stato">
+        <option value="APERTO">Aperto</option>
+        <option value="IN_CORSO">In corso</option>
+        <option value="RISOLTO">Risolto</option>
+      </select>
+
+      <label>Foto <span style="text-transform:none;font-weight:400;">(facoltative, max 3, compresse automaticamente)</span></label>
+      <input type="file" id="reg-foto-input" accept="image/*" multiple onchange="regGestisciSelezioneFoto(event)">
+      <div id="reg-foto-preview" class="foto-preview-box"></div>
+      <div id="reg-foto-stato" style="font-size:11px;color:var(--muted);margin-bottom:8px;"></div>
+
+      <button class="btn-gold btn-block" id="reg-btn-salva" onclick="regSalva()">Salva voce</button>
+      <button class="btn-gray btn-block" id="reg-btn-annulla-modifica" style="display:none;margin-top:6px;" onclick="regAnnullaModifica()">Annulla modifica</button>
+    </div>
+  </div>
+
+  <!-- ── PAGINA: ELENCO ── -->
+  <div class="page" id="page-elenco">
+    <div class="card">
+      <div class="card-title">📋 Elenco voci</div>
+      <div class="filtri">
+        <select id="filtro-tipo" onchange="regRender()">
+          <option value="">Tutti i tipi</option>
+          <option value="MANUTENZIONE">🔧 Manutenzione</option>
+          <option value="SEGNALAZIONE">⚠️ Segnalazione</option>
+        </select>
+        <select id="filtro-stato" onchange="regRender()">
+          <option value="">Tutti gli stati</option>
+          <option value="APERTO">Aperto</option>
+          <option value="IN_CORSO">In corso</option>
+          <option value="RISOLTO">Risolto</option>
+        </select>
+      </div>
+      <button class="btn-blue btn-block" id="btn-stampa-elenco" style="margin-bottom:12px;" onclick="regStampaElenco()">🖨️ Stampa elenco (con foto)</button>
+      <div id="elenco-lista"></div>
+      <div id="elenco-vuoto" class="empty-state" style="display:none;">Nessuna voce per questi filtri.</div>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox" onclick="regChiudiLightbox()">
+  <button id="lightbox-chiudi" onclick="regChiudiLightbox()">✕</button>
+  <img id="lightbox-img" src="">
+</div>
+
+<button id="diag-toggle" onclick="document.getElementById('diag-panel').classList.toggle('show')">🔧</button>
+<div id="diag-panel"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<script>
+// ────────────────────────────────────────────────────────────
+// registro-manutenzione.html — ASD Basket Campodarsego
+// v0.2 · 02/09/2026 · BK
+// Registro manutenzioni e segnalazioni con foto opzionali (max 3),
+// compresse client-side per restare sotto il limite Firestore di 1MB
+// per documento -- Firebase Storage NON disponibile (piano gratuito).
+// Stesso progetto Firebase del gestionale, collezione dedicata
+// registroManutenzioni/eventi/voci -- nessun dato si mischia con
+// basket052441/* o operazioniPersonali/*.
+// ────────────────────────────────────────────────────────────
+
+var _db = null;
+var regVociCache = [];
+var regFotoSelezionate = []; // [{ base64, dimensioneKb }]
+var regEditingId = null;
+
+// ── LOG DIAGNOSTICO (mai un fallimento silenzioso) ──
+function log(msg, tipo) {
+  var panel = document.getElementById('diag-panel');
+  var riga = document.createElement('div');
+  riga.className = 'log-line' + (tipo === 'err' ? ' log-err' : tipo === 'ok' ? ' log-ok' : '');
+  var ora = new Date().toTimeString().slice(0, 8);
+  riga.textContent = '[' + ora + '] ' + msg;
+  panel.insertBefore(riga, panel.firstChild);
+  if (tipo === 'err') console.error('[registro-manutenzione] ' + msg);
+}
+window.addEventListener('error', function (e) {
+  log('Errore non gestito: ' + (e.error && e.error.message || e.message), 'err');
+});
+window.addEventListener('unhandledrejection', function (e) {
+  log('Promise non gestita: ' + (e.reason && e.reason.message || e.reason), 'err');
+});
+
+// ── FIREBASE INIT / AUTH (stesso pattern degli altri tool standalone) ──
+var _fbConfig = {apiKey:"AIzaSyAFnQMyoIYei-9naUbY_GSLNvYNXFJBkZY",authDomain:"basket052441.firebaseapp.com",projectId:"basket052441",storageBucket:"basket052441.appspot.com",messagingSenderId:"708269881035",appId:"1:708269881035:web:62a9d32bad5de2c68d0d4e"};
+
+function fbInit() {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(_fbConfig);
+    _db = firebase.firestore();
+    log('Firestore pronto', 'ok');
+    firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function (err) {
+      log('setPersistence fallita: ' + err.message, 'err');
+    });
+    firebase.auth().onAuthStateChanged(function (user) {
+      var loginScr = document.getElementById('login-scr');
+      var mainScr = document.getElementById('main-scr');
+      if (user) {
+        log('Autenticato: ' + user.email, 'ok');
+        loginScr.style.display = 'none';
+        mainScr.style.display = 'block';
+        document.getElementById('auth-badge').textContent = user.email;
+        document.getElementById('reg-data').value = regOggiStr();
+        regCarica();
+      } else {
+        log('Nessun utente — mostra login');
+        loginScr.style.display = '';
+        mainScr.style.display = 'none';
+      }
+    });
+  } catch (e) {
+    log('ERRORE fbInit: ' + e.message, 'err');
+  }
+}
+function doLogin() {
+  var email = document.getElementById('login-email').value.trim();
+  var pass = document.getElementById('login-pass').value;
+  var errEl = document.getElementById('login-err');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Inserisci email e password.'; return; }
+  firebase.auth().signInWithEmailAndPassword(email, pass).catch(function (err) {
+    errEl.textContent = 'Accesso fallito: ' + err.message;
+    log('Login fallito: ' + err.message, 'err');
+  });
+}
+function doLogout() {
+  firebase.auth().signOut().catch(function (err) { log('Logout fallito: ' + err.message, 'err'); });
+}
+
+// ── DATE HELPER (getter locali, mai toISOString per date -- vedi
+// bug storico corretto in operazioni-giornaliere.html v0.11) ──
+function regOggiStr() {
+  var d = new Date();
+  var m = String(d.getMonth() + 1).padStart(2, '0');
+  var gg = String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + m + '-' + gg;
+}
+
+// ── NAVIGAZIONE ──
+function regGoTab(tab) {
+  document.querySelectorAll('.nav-tab').forEach(function (t) { t.classList.remove('active'); });
+  document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+  var idx = { nuova: 0, elenco: 1 }[tab];
+  document.querySelectorAll('.nav-tab')[idx].classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'elenco') regRender();
+}
+
+// ── FIRESTORE: riferimento collezione ──
+function regCol() {
+  if (!_db) { log('_db non pronto', 'err'); return null; }
+  return _db.collection('registroManutenzioni').doc('eventi').collection('voci');
+}
+
+// ── CARICAMENTO ──
+function regCarica() {
+  var col = regCol();
+  if (!col) return;
+  col.get().then(function (snap) {
+    regVociCache = [];
+    snap.forEach(function (doc) { regVociCache.push(doc.data()); });
+    regVociCache.sort(function (a, b) { return (b.data || '').localeCompare(a.data || ''); });
+    log('Voci caricate: ' + regVociCache.length, 'ok');
+    regRender();
+  }).catch(function (err) {
+    log('Errore caricamento: ' + (err && err.message || err), 'err');
+  });
+}
+
+// ── COMPRESSIONE FOTO (client-side, canvas) ──
+// Target: restare BEN sotto il limite Firestore di 1 documento (1MB),
+// lasciando margine per testo/altre foto -- max ~150KB per singola foto
+// in base64 (quindi ~110KB di dati binari reali, il base64 aggiunge
+// circa il 33% di overhead). Ridimensiona (lato lungo max 1280px) e poi
+// riduce iterativamente la qualità JPEG finché non si scende sotto la
+// soglia o si esauriscono i tentativi -- in quel caso NON si salva a
+// meta'/rotta: si scarta la foto e si avvisa esplicitamente l'utente
+// (mai un'uscita silenziosa su un dato che poi risulterebbe incompleto).
+var REG_FOTO_MAX_KB = 150;
+var REG_FOTO_MAX_LATO = 1280;
+var REG_FOTO_MAX_PER_VOCE = 3;
+
+function regComprimiFoto(file) {
+  return new Promise(function (resolve, reject) {
+    if (!file.type || file.type.indexOf('image/') !== 0) {
+      reject(new Error('"' + file.name + '" non è un\'immagine'));
+      return;
+    }
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var w = img.width, h = img.height;
+      if (w > h && w > REG_FOTO_MAX_LATO) { h = Math.round(h * REG_FOTO_MAX_LATO / w); w = REG_FOTO_MAX_LATO; }
+      else if (h >= w && h > REG_FOTO_MAX_LATO) { w = Math.round(w * REG_FOTO_MAX_LATO / h); h = REG_FOTO_MAX_LATO; }
+
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+
+      var qualita = 0.82;
+      var tentativi = 0;
+      var maxTentativi = 8;
+
+      function provaCompressione() {
+        tentativi++;
+        var dataUrl = canvas.toDataURL('image/jpeg', qualita);
+        var base64 = dataUrl.split(',')[1];
+        var kb = Math.round(base64.length * 3 / 4 / 1024);
+        if (kb <= REG_FOTO_MAX_KB || tentativi >= maxTentativi) {
+          if (kb > REG_FOTO_MAX_KB) {
+            reject(new Error('"' + file.name + '" resta troppo pesante anche dopo ' + tentativi + ' tentativi di compressione (' + kb + 'KB, limite ' + REG_FOTO_MAX_KB + 'KB) — scartata'));
+            return;
+          }
+          resolve({ base64: base64, dimensioneKb: kb, nomeOriginale: file.name });
+          return;
+        }
+        qualita = qualita * 0.75;
+        setTimeout(provaCompressione, 0);
+      }
+      provaCompressione();
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      reject(new Error('"' + file.name + '" non è leggibile come immagine'));
+    };
+    img.src = url;
+  });
+}
+
+function regGestisciSelezioneFoto(event) {
+  var files = Array.prototype.slice.call(event.target.files || []);
+  event.target.value = ''; // permette di riselezionare lo stesso file dopo un errore
+  if (!files.length) return;
+
+  var postoDisponibile = REG_FOTO_MAX_PER_VOCE - regFotoSelezionate.length;
+  if (postoDisponibile <= 0) {
+    alert('Massimo ' + REG_FOTO_MAX_PER_VOCE + ' foto per voce — rimuovi una foto prima di aggiungerne un\'altra.');
+    return;
+  }
+  if (files.length > postoDisponibile) {
+    log('Selezionate ' + files.length + ' foto ma solo ' + postoDisponibile + ' posti liberi — le eccedenti vengono ignorate', 'err');
+    files = files.slice(0, postoDisponibile);
+  }
+
+  var statoEl = document.getElementById('reg-foto-stato');
+  statoEl.textContent = 'Compressione in corso...';
+
+  Promise.allSettled
+    ? Promise.allSettled(files.map(regComprimiFoto)).then(function (risultati) {
+        var erroriTesto = [];
+        risultati.forEach(function (r) {
+          if (r.status === 'fulfilled') {
+            regFotoSelezionate.push(r.value);
+            log('Foto compressa: ' + r.value.nomeOriginale + ' → ' + r.value.dimensioneKb + 'KB', 'ok');
+          } else {
+            erroriTesto.push(r.reason.message);
+            log('Foto scartata: ' + r.reason.message, 'err');
+          }
+        });
+        if (erroriTesto.length) alert(erroriTesto.join('\n'));
+        regRenderPreviewFoto();
+      })
+    // Fallback per browser senza Promise.allSettled (raro, ma niente uscite silenziose)
+    : Promise.all(files.map(function (f) {
+        return regComprimiFoto(f).then(
+          function (v) { return { status: 'fulfilled', value: v }; },
+          function (e) { return { status: 'rejected', reason: e }; }
+        );
+      })).then(function (risultati) {
+        var erroriTesto = [];
+        risultati.forEach(function (r) {
+          if (r.status === 'fulfilled') {
+            regFotoSelezionate.push(r.value);
+            log('Foto compressa: ' + r.value.nomeOriginale + ' → ' + r.value.dimensioneKb + 'KB', 'ok');
+          } else {
+            erroriTesto.push(r.reason.message);
+            log('Foto scartata: ' + r.reason.message, 'err');
+          }
+        });
+        if (erroriTesto.length) alert(erroriTesto.join('\n'));
+        regRenderPreviewFoto();
+      });
+}
+
+function regRenderPreviewFoto() {
+  var box = document.getElementById('reg-foto-preview');
+  box.innerHTML = regFotoSelezionate.map(function (f, i) {
+    return '<div class="foto-preview-item"><img src="data:image/jpeg;base64,' + f.base64 + '">' +
+      '<div class="rimuovi" onclick="regRimuoviFotoSelezionata(' + i + ')">✕</div></div>';
+  }).join('');
+  var statoEl = document.getElementById('reg-foto-stato');
+  var totKb = regFotoSelezionate.reduce(function (s, f) { return s + f.dimensioneKb; }, 0);
+  statoEl.textContent = regFotoSelezionate.length
+    ? regFotoSelezionate.length + '/' + REG_FOTO_MAX_PER_VOCE + ' foto — ' + totKb + 'KB totali'
+    : '';
+}
+function regRimuoviFotoSelezionata(i) {
+  regFotoSelezionate.splice(i, 1);
+  regRenderPreviewFoto();
+}
+
+// ── SALVATAGGIO ──
+var regSalvataggioInCorso = false;
+
+function regSalva() {
+  if (regSalvataggioInCorso) return; // ignora tocchi ripetuti durante il salvataggio
+  var titolo = document.getElementById('reg-titolo').value.trim();
+  if (!titolo) { alert('Il titolo è obbligatorio.'); return; }
+  var data = document.getElementById('reg-data').value || regOggiStr();
+  var tipo = document.getElementById('reg-tipo').value;
+  var luogo = document.getElementById('reg-luogo').value.trim();
+  var descrizione = document.getElementById('reg-descrizione').value.trim();
+  var stato = document.getElementById('reg-stato').value;
+
+  var col = regCol();
+  if (!col) { alert('Database non pronto.'); return; }
+
+  var btn = document.getElementById('reg-btn-salva');
+  regSalvataggioInCorso = true;
+  btn.disabled = true;
+
+  var ref = regEditingId ? col.doc(regEditingId) : col.doc();
+  var user = firebase.auth().currentUser;
+  var record = {
+    id: ref.id,
+    tipo: tipo,
+    titolo: titolo,
+    data: data,
+    luogo: luogo,
+    descrizione: descrizione,
+    stato: stato,
+    foto: regFotoSelezionate.map(function (f) { return f.base64; }),
+    aggiornatoIl: new Date().toISOString(),
+    aggiornatoDa: user ? user.email : ''
+  };
+  if (!regEditingId) {
+    record.creatoIl = record.aggiornatoIl;
+    record.creatoDa = record.aggiornatoDa;
+  }
+
+  ref.set(record, { merge: !!regEditingId }).then(function () {
+    log((regEditingId ? 'Voce modificata: ' : 'Voce creata: ') + titolo, 'ok');
+    regSalvataggioInCorso = false;
+    btn.disabled = false;
+    regAnnullaModifica();
+    regCarica();
+    regGoTab('elenco');
+  }).catch(function (err) {
+    regSalvataggioInCorso = false;
+    btn.disabled = false;
+    log('Errore salvataggio: ' + (err && err.message || err), 'err');
+    alert('Errore salvataggio: ' + (err && err.message || err));
+  });
+}
+
+function regPuliciForm() {
+  document.getElementById('reg-tipo').value = 'MANUTENZIONE';
+  document.getElementById('reg-titolo').value = '';
+  document.getElementById('reg-data').value = regOggiStr();
+  document.getElementById('reg-luogo').value = '';
+  document.getElementById('reg-descrizione').value = '';
+  document.getElementById('reg-stato').value = 'APERTO';
+  regFotoSelezionate = [];
+  regRenderPreviewFoto();
+}
+
+// ── MODIFICA VOCE ESISTENTE ──
+function regApriModifica(id) {
+  var v = regVociCache.find(function (x) { return x.id === id; });
+  if (!v) { log('regApriModifica: voce non in cache: ' + id, 'err'); return; }
+  regEditingId = id;
+  document.getElementById('nuova-titolo-pagina').textContent = '✏️ Modifica voce';
+  document.getElementById('reg-btn-salva').textContent = '💾 Salva modifiche';
+  document.getElementById('reg-btn-annulla-modifica').style.display = 'block';
+
+  document.getElementById('reg-tipo').value = v.tipo;
+  document.getElementById('reg-titolo').value = v.titolo;
+  document.getElementById('reg-data').value = v.data || regOggiStr();
+  document.getElementById('reg-luogo').value = v.luogo || '';
+  document.getElementById('reg-descrizione').value = v.descrizione || '';
+  document.getElementById('reg-stato').value = v.stato;
+
+  regFotoSelezionate = (v.foto || []).map(function (b64) { return { base64: b64, dimensioneKb: Math.round(b64.length * 3 / 4 / 1024), nomeOriginale: '(esistente)' }; });
+  regRenderPreviewFoto();
+
+  regGoTab('nuova');
+}
+
+function regAnnullaModifica() {
+  regEditingId = null;
+  document.getElementById('nuova-titolo-pagina').textContent = '➕ Nuova voce';
+  document.getElementById('reg-btn-salva').textContent = 'Salva voce';
+  document.getElementById('reg-btn-annulla-modifica').style.display = 'none';
+  regPuliciForm();
+}
+
+// ── RIMOZIONE (soft: mantieni traccia, stesso principio degli altri tool) ──
+function regRimuovi(id) {
+  var v = regVociCache.find(function (x) { return x.id === id; });
+  if (!v) { log('regRimuovi: voce non in cache: ' + id, 'err'); return; }
+  if (!confirm('Eliminare definitivamente "' + v.titolo + '"? Non è recuperabile.')) return;
+  regCol().doc(id).delete().then(function () {
+    log('Voce eliminata: ' + v.titolo, 'ok');
+    regCarica();
+  }).catch(function (err) {
+    log('Errore eliminazione: ' + (err && err.message || err), 'err');
+    alert('Errore eliminazione: ' + (err && err.message || err));
+  });
+}
+
+// ── RENDER ELENCO ──
+function regEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+var STATO_LABEL = { APERTO: 'Aperto', IN_CORSO: 'In corso', RISOLTO: 'Risolto' };
+var STATO_CLASSE = { APERTO: 'aperto', IN_CORSO: 'in-corso', RISOLTO: 'risolto' };
+
+function regRender() {
+  var tipoF = document.getElementById('filtro-tipo').value;
+  var statoF = document.getElementById('filtro-stato').value;
+  var filtrate = regVociCache.filter(function (v) {
+    if (tipoF && v.tipo !== tipoF) return false;
+    if (statoF && v.stato !== statoF) return false;
+    return true;
+  });
+
+  var cont = document.getElementById('elenco-lista');
+  document.getElementById('elenco-vuoto').style.display = filtrate.length ? 'none' : 'block';
+  var html = '';
+  filtrate.forEach(function (v) {
+    var badgeTipo = v.tipo === 'MANUTENZIONE'
+      ? '<span class="badge badge-tipo-manutenzione">🔧 Manutenzione</span>'
+      : '<span class="badge badge-tipo-segnalazione">⚠️ Segnalazione</span>';
+    var badgeStato = '<span class="badge badge-stato-' + v.stato.toLowerCase() + '">' + regEsc(STATO_LABEL[v.stato] || v.stato) + '</span>';
+    html += '<div class="voce-row ' + (STATO_CLASSE[v.stato] || '') + '">';
+    html += '<div class="voce-title">' + regEsc(v.titolo) + '</div>';
+    html += '<div class="voce-meta">' + badgeTipo + ' ' + badgeStato + ' · ' + regEsc(v.data) + (v.luogo ? ' · ' + regEsc(v.luogo) : '') + '</div>';
+    if (v.descrizione) html += '<div class="voce-desc">' + regEsc(v.descrizione) + '</div>';
+    if (v.foto && v.foto.length) {
+      html += '<div class="foto-thumbs">' + v.foto.map(function (b64) {
+        return '<img class="foto-thumb" src="data:image/jpeg;base64,' + b64 + '" onclick="regApriLightbox(this.src)">';
+      }).join('') + '</div>';
+    }
+    html += '<div class="op-btns">' +
+      '<button class="btn-gray btn-sm" onclick="regApriModifica(\'' + v.id + '\')">✏️ Modifica</button>' +
+      '<button class="btn-red btn-sm" onclick="regRimuovi(\'' + v.id + '\')">🗑 Elimina</button>' +
+      '</div>';
+    html += '</div>';
+  });
+  cont.innerHTML = html;
+}
+
+function regApriLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').classList.add('show');
+}
+function regChiudiLightbox() {
+  document.getElementById('lightbox').classList.remove('show');
+}
+
+// ── STAMPA ELENCO ──
+// Nessuna dipendenza da _apriStampa (basket-core.js) -- questo tool e'
+// standalone come operazioni-giornaliere.html, quindi apro una finestra
+// nuova con HTML autosufficiente e chiamo print() nativo del browser.
+// Rispetta i filtri attivi (tipo/stato): stampa esattamente cio' che si
+// vede a schermo, mai un contenuto diverso da quello filtrato.
+function regStampaElenco() {
+  var tipoF = document.getElementById('filtro-tipo').value;
+  var statoF = document.getElementById('filtro-stato').value;
+  var filtrate = regVociCache.filter(function (v) {
+    if (tipoF && v.tipo !== tipoF) return false;
+    if (statoF && v.stato !== statoF) return false;
+    return true;
+  });
+  if (!filtrate.length) { alert('Nessuna voce da stampare con i filtri correnti.'); return; }
+
+  var CSS = '<style>' +
+    'body{font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#1a1a1a;background:#fff;padding:20px;max-width:800px;margin:0 auto;}' +
+    'h1{font-family:Georgia,"Times New Roman",serif;font-size:18px;color:#1a2a4a;text-align:center;margin:0 0 2px;}' +
+    '.sub{text-align:center;font-size:12px;color:#444;margin-bottom:4px;}' +
+    '.meta{text-align:center;font-size:10px;color:#888;margin-bottom:16px;}' +
+    'hr{border:none;border-top:2px solid #1a2a4a;margin:0 0 16px;}' +
+    '.voce{border:1px solid #ccc;border-radius:4px;padding:12px 14px;margin-bottom:14px;page-break-inside:avoid;}' +
+    '.voce-titolo{font-weight:bold;font-size:14px;margin-bottom:3px;}' +
+    '.voce-meta{font-size:10.5px;color:#555;margin-bottom:6px;}' +
+    '.badge{display:inline-block;font-size:9px;font-weight:bold;padding:1px 6px;border-radius:3px;border:1px solid #999;margin-right:4px;}' +
+    '.voce-desc{font-size:11.5px;white-space:pre-wrap;margin-bottom:8px;}' +
+    '.foto-riga{display:flex;gap:8px;flex-wrap:wrap;}' +
+    '.foto-riga img{width:150px;height:150px;object-fit:cover;border:1px solid #ccc;border-radius:3px;}' +
+    '@media print{body{padding:0;}}' +
+    '</style>';
+
+  var html = CSS + '<h1>ASD Basket Campodarsego</h1>';
+  html += '<div class="sub">Registro manutenzioni e segnalazioni</div>';
+  html += '<div class="meta">Generato il ' + new Date().toLocaleDateString('it-IT') + ' — ' + filtrate.length + ' voci' +
+    (tipoF ? ' · filtro tipo: ' + tipoF : '') + (statoF ? ' · filtro stato: ' + statoF : '') + '</div>';
+  html += '<hr>';
+
+  filtrate.forEach(function (v) {
+    html += '<div class="voce">';
+    html += '<div class="voce-titolo">' + regEsc(v.titolo) + '</div>';
+    html += '<div class="voce-meta">' +
+      '<span class="badge">' + (v.tipo === 'MANUTENZIONE' ? '🔧 Manutenzione' : '⚠️ Segnalazione') + '</span>' +
+      '<span class="badge">' + regEsc(STATO_LABEL[v.stato] || v.stato) + '</span>' +
+      regEsc(v.data) + (v.luogo ? ' · ' + regEsc(v.luogo) : '') + '</div>';
+    if (v.descrizione) html += '<div class="voce-desc">' + regEsc(v.descrizione) + '</div>';
+    if (v.foto && v.foto.length) {
+      html += '<div class="foto-riga">' + v.foto.map(function (b64) {
+        return '<img src="data:image/jpeg;base64,' + b64 + '">';
+      }).join('') + '</div>';
+    }
+    html += '</div>';
+  });
+
+  var fullHtml = '<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">' +
+    '<title>Registro manutenzioni</title></head><body>' + html + '</body></html>';
+
+  var w = window.open('', '_blank');
+  if (!w) {
+    log('window.open bloccato dal browser (popup blocker)', 'err');
+    alert('Il browser ha bloccato l\'apertura della finestra di stampa — controlla il blocco popup e riprova.');
+    return;
+  }
+  w.document.write(fullHtml);
+  w.document.close();
+  log('Stampa elenco aperta: ' + filtrate.length + ' voci', 'ok');
+  // piccolo ritardo per lasciare che le immagini base64 si rendano prima del print()
+  setTimeout(function () { w.print(); }, 400);
+}
+
+fbInit();
+</script>
+</body>
+</html>
