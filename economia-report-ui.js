@@ -1,6 +1,13 @@
 // ════════════════════════════════════════════════════════
 // FILE: economia-report-ui.js — ASD Basket Campodarsego
-// VERSIONE: v1.2 · 23/08/2026 · BK
+// VERSIONE: v1.3 · 02/09/2026 · BK
+// v1.3: aggiunta sezione "Liquidità conti" al Bilancio (ecoRepCalcolaLiquidita
+//   + blockLiquidita in ecoRepBuildHtml) — richiesta Alberto: "un bilancio
+//   che si rispetti ti dice quanti soldi hai all'inizio, quanto sono
+//   entrate/uscite, quanto ti resta alla fine". Saldo di apertura per conto
+//   = c.saldoInizialeEsercizio[anno] se dichiarato esplicitamente, altrimenti
+//   calcolato sommando lo storico di tutti gli anni precedenti (nessun
+//   inserimento manuale necessario per gli anni storici importati).
 // v1.2: aggiunta ecoMovEsportaCSV() + bottone "Esporta CSV" nel Registro
 //   Movimenti (richiesta Alberto: liste costi/ricavi per centro di costo
 //   utilizzabili fuori dall'app, es. offerte amministrative). Esporta
@@ -86,7 +93,10 @@ function ecoRepGenera() {
     // salvato come stringa "2026" invece di numero 2026 sparirebbe dai
     // risultati senza errori. Si carica tutto e si filtra lato client con
     // confronto tollerante al tipo (23/08/2026, bug reale riscontrato).
-    col.doc('economia').collection('movimenti').get()
+    col.doc('economia').collection('movimenti').get(),
+    // v1.3: serve anche economiaConti per la sezione Liquidità — letto qui
+    // anche se ecoRepCalcola() non lo usa, per non duplicare la query.
+    col.doc('economiaConti').get()
   ]).then(function (res) {
     var config = { categorie: [], sottocategorie: [], centriCosto: [] };
     if (res[0].exists && res[0].data().v) {
@@ -108,6 +118,26 @@ function ecoRepGenera() {
       return parseInt(m.annoEsercizio, 10) === ecoRepAnno;
     });
     var dati = ecoRepCalcola(movimenti, config);
+
+    // v1.3: Liquidità conti — usa tuttiMovimenti (non filtrati per anno,
+    // servono anche gli anni precedenti per calcolare il saldo di apertura)
+    // + economiaConti, appena letto sopra.
+    var conti = [];
+    if (res[2] && res[2].exists && res[2].data().v) {
+      try {
+        var parsedConti = JSON.parse(res[2].data().v);
+        if (Array.isArray(parsedConti)) conti = parsedConti;
+      } catch (exC) {
+        console.error('[economia-report] errore parsing economiaConti', exC);
+        if (typeof log === 'function') log('[economia-report] errore parsing economiaConti: ' + exC.message, 'err');
+        alert('ATTENZIONE: economiaConti non leggibile (' + exC.message + '). Sezione Liquidità conti NON mostrata nel Bilancio.');
+      }
+    }
+    dati.liquidita = ecoRepCalcolaLiquidita(tuttiMovimenti, conti, ecoRepAnno);
+    if (!conti.length && typeof log === 'function') {
+      log('Bilancio ' + ecoRepAnno + ': nessun conto configurato in economiaConti — sezione Liquidità conti vuota', 'err');
+    }
+
     ecoRepRender(dati, ecoRepAnno);
     if (typeof log === 'function') log('Bilancio ' + ecoRepAnno + ': ' + movimenti.length + '/' + tuttiMovimenti.length + ' movimenti (esercizio/totale)', 'ok');
   }).catch(function (err) {
@@ -238,6 +268,66 @@ function ecoRepCalcola(movimenti, config) {
   };
 }
 
+// ── LIQUIDITÀ CONTI (v1.3 · 02/09/2026, BK) ──
+// Domanda di Alberto: "un bilancio che si rispetti ti dice quanti soldi
+// hai all'inizio, quanto sono entrate/uscite, quanto ti resta alla fine".
+// Mancava del tutto: ecoRepCalcola sopra calcola solo flussi (entrate-uscite),
+// mai la liquidità reale per conto (banca/cassa/tasca).
+//
+// Saldo inizio anno per conto:
+//   - se Alberto ha dichiarato esplicitamente c.saldoInizialeEsercizio[anno]
+//     per quell'anno specifico, vince quello (è una dichiarazione esplicita).
+//   - altrimenti si calcola in autonomia sommando TUTTI i movimenti
+//     PAGATO/PARZIALE di quel conto negli anni PRECEDENTI a quello selezionato
+//     (robusto anche senza che Alberto debba inserire a mano un saldo
+//     iniziale per ognuno degli anni storici appena importati dal foglio Cassa).
+// Mai una scelta silenziosa: ogni riga dichiara la sua fonte ("dichiarato"
+// vs "calcolato dallo storico").
+function ecoRepCalcolaLiquidita(tuttiMovimenti, conti, anno) {
+  tuttiMovimenti = tuttiMovimenti || [];
+  conti = conti || [];
+  if (!conti.length) return [];
+
+  function flussoNetto(movimentiFiltrati) {
+    var s = 0;
+    movimentiFiltrati.forEach(function (m) {
+      if (m.stato !== 'PAGATO' && m.stato !== 'PARZIALE') return;
+      var segno = m.tipoMovimento === 'ENTRATA' ? 1 : -1;
+      s += segno * (Number(m.importoEur) || 0);
+    });
+    return Math.round(s * 100) / 100;
+  }
+
+  return conti.map(function (c) {
+    var movConto = tuttiMovimenti.filter(function (m) { return m.contoFinanziarioId === c.id; });
+
+    var saldoDichiarato = (c.saldoInizialeEsercizio && c.saldoInizialeEsercizio[anno] != null)
+      ? c.saldoInizialeEsercizio[anno] : null;
+
+    var movPrecedenti = movConto.filter(function (m) { return parseInt(m.annoEsercizio, 10) < anno; });
+    var saldoCalcolato = flussoNetto(movPrecedenti);
+
+    var saldoInizio = saldoDichiarato != null ? saldoDichiarato : saldoCalcolato;
+    var fonte = saldoDichiarato != null ? 'dichiarato' : 'calcolato dallo storico';
+
+    var movAnno = movConto.filter(function (m) { return parseInt(m.annoEsercizio, 10) === anno; });
+    var entrateAnno = flussoNetto(movAnno.filter(function (m) { return m.tipoMovimento === 'ENTRATA'; }));
+    var usciteAnno = -flussoNetto(movAnno.filter(function (m) { return m.tipoMovimento === 'USCITA'; }));
+    var saldoFine = Math.round((saldoInizio + entrateAnno - usciteAnno) * 100) / 100;
+
+    return {
+      id: c.id,
+      nome: c.nome,
+      tipo: c.tipo,
+      saldoInizio: saldoInizio,
+      fonte: fonte,
+      entrateAnno: entrateAnno,
+      usciteAnno: usciteAnno,
+      saldoFine: saldoFine
+    };
+  });
+}
+
 // ── Render vista a schermo (stessa struttura HTML usata per la stampa) ──
 function ecoRepRender(dati, anno) {
   var html = ecoRepBuildHtml(dati, anno);
@@ -281,6 +371,17 @@ function ecoRepBuildHtml(dati, anno) {
     '.rpt .riepilogo td.val{text-align:right;font-variant-numeric:tabular-nums;}' +
     '.rpt .riepilogo tr.saldo{background:#1a2a4a;}' +
     '.rpt .riepilogo tr.saldo td{color:#fff;font-weight:bold;font-size:13.5px;}' +
+    // Liquidità conti (v1.3)
+    '.rpt .liquidita{border:1px solid #1a2a4a;border-radius:2px;margin-bottom:24px;overflow:hidden;}' +
+    '.rpt .liquidita-head{background:#1a2a4a;color:#fff;padding:8px 14px;' +
+      'font-family:Georgia,"Times New Roman",serif;font-size:14.5px;font-weight:bold;}' +
+    '.rpt table.liquidita-tab{width:100%;border-collapse:collapse;}' +
+    '.rpt table.liquidita-tab th{background:#f4f4f4;padding:6px 10px;font-size:11px;text-align:left;border-bottom:1px solid #ccc;}' +
+    '.rpt table.liquidita-tab th.num{text-align:right;}' +
+    '.rpt table.liquidita-tab td{padding:7px 10px;font-size:12.5px;border-bottom:1px solid #eee;}' +
+    '.rpt table.liquidita-tab td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}' +
+    '.rpt table.liquidita-tab td.fonte{font-size:9px;color:#999;}' +
+    '.rpt table.liquidita-tab tr.tot-liquidita td{font-weight:bold;border-top:2px solid #1a2a4a;border-bottom:none;background:#f4f4f4;}' +
     // Blocco Centro di Costo
     '.rpt .centro{margin-bottom:26px;page-break-inside:avoid;}' +
     '.rpt .centro-head{background:#1a2a4a;color:#fff;padding:8px 14px;' +
@@ -341,6 +442,37 @@ function ecoRepBuildHtml(dati, anno) {
     return html;
   }
 
+  function blockLiquidita() {
+    var liq = dati.liquidita;
+    if (!liq || !liq.length) return '';
+    var h = '<div class="liquidita">';
+    h += '<div class="liquidita-head">Liquidità conti</div>';
+    h += '<table class="liquidita-tab"><thead><tr>' +
+      '<th>Conto</th><th class="num">Saldo inizio ' + anno + '</th>' +
+      '<th class="num">Entrate</th><th class="num">Uscite</th>' +
+      '<th class="num">Saldo fine ' + anno + '</th></tr></thead><tbody>';
+    var totInizio = 0, totEntrate = 0, totUscite = 0, totFine = 0;
+    liq.forEach(function (c) {
+      totInizio += c.saldoInizio; totEntrate += c.entrateAnno; totUscite += c.usciteAnno; totFine += c.saldoFine;
+      h += '<tr><td>' + ecoRepEsc(c.nome) + ' <span class="fonte">(' + c.fonte + ')</span></td>' +
+        '<td class="num">' + ecoRepEuro(c.saldoInizio) + '</td>' +
+        '<td class="num">' + ecoRepEuro(c.entrateAnno) + '</td>' +
+        '<td class="num">' + ecoRepEuro(c.usciteAnno) + '</td>' +
+        '<td class="num"><b>' + ecoRepEuro(c.saldoFine) + '</b></td></tr>';
+    });
+    h += '<tr class="tot-liquidita"><td>TOTALE LIQUIDITÀ</td>' +
+      '<td class="num">' + ecoRepEuro(totInizio) + '</td>' +
+      '<td class="num">' + ecoRepEuro(totEntrate) + '</td>' +
+      '<td class="num">' + ecoRepEuro(totUscite) + '</td>' +
+      '<td class="num">' + ecoRepEuro(totFine) + '</td></tr>';
+    h += '</tbody></table>';
+    h += '<div style="font-size:9px;color:#999;padding:6px 14px;">' +
+      '"dichiarato" = inserito manualmente in Economia \u2192 Conti per questo esercizio. ' +
+      '"calcolato dallo storico" = somma di tutti i movimenti degli anni precedenti registrati in Economia.</div>';
+    h += '</div>';
+    return h;
+  }
+
   var html = CSS + '<div class="rpt">';
   html += '<div class="logo-wrap">';
   if (typeof _LOGO_B64 !== 'undefined' && _LOGO_B64) {
@@ -358,6 +490,11 @@ function ecoRepBuildHtml(dati, anno) {
   html += '<tr><td class="lbl">Totale Uscite</td><td class="val">' + ecoRepEuro(dati.totUscite) + '</td></tr>';
   html += '<tr class="saldo"><td>Saldo esercizio</td><td class="val">' + ecoRepEuro(dati.saldoEsercizio) + '</td></tr>';
   html += '</tbody></table></div>';
+
+  // Liquidità conti (v1.3) -- subito dopo il riepilogo generale, prima del
+  // dettaglio per centro di costo: risponde alla domanda "oggi quanto ho
+  // realmente in cassa/banca", prima di scendere nel dettaglio per attività.
+  html += blockLiquidita();
 
   // Dettaglio per centro di costo — stesso trattamento per ognuno, nessuna semplificazione
   if (!dati.perCentroCosto.length) {
@@ -563,7 +700,7 @@ function ecoMovToggleOrdine() {
 // ── Filtro con traccia diagnostica passo-passo. Ogni filtro viene applicato
 // separatamente e si conta quanti movimenti sopravvivono DOPO ciascuno —
 // così si vede esattamente quale filtro sta scartando più del previsto,
-// invece di un'unica catena opaca. Richiesta esplicita di Alberto 23/08:
+// invece di un'anica catena opaca. Richiesta esplicita di Alberto 23/08:
 // "ad ogni errore/filtraggio venga fuori un messaggio", coerente con R2
 // (nessuna uscita silenziosa). ──
 function ecoMovApplicaFiltri() {
