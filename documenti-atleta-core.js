@@ -1,58 +1,54 @@
 // ────────────────────────────────────────────────────────────
 // FILE: documenti-atleta-core.js — ASD Basket Campodarsego
-// VERSIONE: v0.1 · 04/09/2026 · BK
+// VERSIONE: v0.2 · 04/09/2026 · BK
 // v0.1: creazione — CRUD Firestore per gli allegati documentali atleta
 //   (certificato medico, modulo iscrizione, altri atti), approvato da AR
 //   il 04/09/2026 (260904_COM_AR_BK_ApprovazioneDocumentiAtleta.yaml,
-//   rif. DEC-BK-DOC-ATLETA-FOTO-SCANSIONI).
+//   rif. DEC-BK-DOC-ATLETA-FOTO-SCANSIONI). Path v0.1 basato su un
+//   ref-getter configurabile, per non assumere la struttura di "atleti".
+// v0.2: corretto il path (vedi sotto) dopo aver verificato che DB.atleti
+//   e' un blob JSON unico, non un documento per atleta — il ref-getter
+//   configurabile non serve piu', il path e' ora fisso e autosufficiente.
 //
-// Sottocollection: basket052441/atleti/{atletaId}/documenti/{docId}
-// (stesso pattern gia' in produzione per i Verbali — collection dedicata,
-// non un campo binario sul documento atleta principale, per non
-// avvicinarsi al limite 1MB/documento di Firestore).
+// Sottocollection: basket052441/documentiAtleti/{atletaId}/documenti/{docId}
+// CORRETTO il 04/09/2026 (v0.2) — path originale v0.1
+// (basket052441/atleti/{atletaId}/documenti/{docId}) presupponeva un
+// documento Firestore per singolo atleta CHE NON ESISTE: DB.atleti e' un
+// unico array JSON salvato in un solo documento basket052441/atleti
+// (campo v), stesso pattern di basket052441/pagamenti,
+// basket052441/allenamenti ecc. Vedi
+// VIO-BK-PROPOSTA-ARCH-NON-VERIFICATA-DOCATLETA-20260904.
+// Path nuovo: documento contenitore DEDICATO "documentiAtleti" (stesso
+// pattern di "economiaConfig"), con una sottocollection per atleta
+// (nome = atletaId) sotto quel documento — completamente separato dal
+// blob JSON esistente di basket052441/atleti, nessuna interferenza con
+// la sincronizzazione localStorage<->Firebase gia' in uso su quella
+// sezione. I principi approvati da AR (sottocollection dedicata,
+// base64+soglia esplicita, niente Firebase Storage) restano tutti
+// applicati — cambia solo l'ancoraggio del path.
+// Procede su ordine esplicito di Alberto (04/09/2026) senza attendere la
+// ri-conferma di AR sul path corretto (richiesta in
+// 260904_COM_BK_AR_CorrezioneStrutturaDocAtleta.yaml) — vedi nota in
+// DEC-BK-DOC-ATLETA-FOTO-SCANSIONI.
 //
 // Dipende da: basket-core.js (_db, log(), toast(), nowStr()).
 // Dipende da: documenti-atleta-upload.js (DOC_ATLETA_TIPI, soglie —
 //   questo file NON ridefinisce quelle costanti, le riusa).
-//
-// PUNTO CRITICO — riferimento all'atleta: questo file NON assume di
-// conoscere la struttura esatta della collection "atleti" del resto del
-// gestionale (root diretto vs sotto basket052441/atleti/, naming, ecc.).
-// L'integrazione DEVE chiamare docAtletaImpostaRefGetter() con una
-// funzione che, dato un atletaId, restituisca il DocumentReference
-// Firestore reale dell'atleta — cosi' non c'e' rischio di indovinare un
-// path sbagliato e scrivere silenziosamente nel posto sbagliato.
-// Finche' non e' configurato, ogni funzione di questo file rifiuta con
-// un errore esplicito invece di procedere.
 // ────────────────────────────────────────────────────────────
 
-var DOC_ATLETA_REF_GETTER = null;
-
-function docAtletaImpostaRefGetter(fn) {
-  if (typeof fn !== 'function') {
-    docAtletaErr('docAtletaImpostaRefGetter: atteso una funzione, ricevuto ' + typeof fn);
-    throw new Error('docAtletaImpostaRefGetter richiede una funzione(atletaId) => DocumentReference');
-  }
-  DOC_ATLETA_REF_GETTER = fn;
-  docAtletaLog('ref-getter configurato', 'ok');
-}
+var DOC_ATLETA_DOC_CONTENITORE = 'documentiAtleti'; // documento dedicato, sotto basket052441
 
 function docAtletaCollRef(atletaId) {
   if (!atletaId) {
     throw new Error('docAtletaCollRef: atletaId mancante');
   }
-  if (typeof DOC_ATLETA_REF_GETTER !== 'function') {
-    var msg = 'docAtletaCollRef: nessun ref-getter configurato — chiamare docAtletaImpostaRefGetter() prima di usare questo modulo (vedi commento in testa al file)';
-    docAtletaErr(msg);
-    throw new Error('Modulo documenti-atleta non ancora collegato all\'anagrafica atleti — contatta lo sviluppo.');
+  if (typeof _db === 'undefined' || !_db) {
+    var msgDb = 'docAtletaCollRef: _db (Firestore) non disponibile — basket-core.js non caricato?';
+    docAtletaErr(msgDb);
+    throw new Error('Connessione al database non disponibile');
   }
-  var atletaRef = DOC_ATLETA_REF_GETTER(atletaId);
-  if (!atletaRef || typeof atletaRef.collection !== 'function') {
-    var msgRef = 'docAtletaCollRef: il ref-getter configurato non ha restituito un DocumentReference valido per atletaId=' + atletaId;
-    docAtletaErr(msgRef);
-    throw new Error('Riferimento atleta non valido (atletaId=' + atletaId + ')');
-  }
-  return atletaRef.collection('documenti');
+  // basket052441 → documentiAtleti (doc contenitore dedicato) → {atletaId} (sottocollection) → {docId} (doc)
+  return _db.collection('basket052441').doc(DOC_ATLETA_DOC_CONTENITORE).collection(String(atletaId));
 }
 
 // ── Crea un nuovo documento allegato ──
