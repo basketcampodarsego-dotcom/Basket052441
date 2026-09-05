@@ -1,10 +1,17 @@
 // ────────────────────────────────────────────────────────────
 // FILE: documenti-atleta-upload.js — ASD Basket Campodarsego
-// VERSIONE: v0.1 · 04/09/2026 · BK
+// VERSIONE: v0.2 · 05/09/2026 · BK
 // v0.1: creazione — compressione lato client + UI di selezione/anteprima
 //   per allegati documentali atleta (certificato medico, modulo iscrizione,
 //   altri atti). Vedi DEC-BK-DOC-ATLETA-FOTO-SCANSIONI e comunicato
 //   260904_COM_BK_AR_DocumentazioneAtletaFotoScansioni.yaml.
+// v0.2: due pulsanti distinti invece di un solo input file: "📷 Scatta
+//   foto" (capture="environment" — apre la fotocamera direttamente,
+//   saltando la galleria) e "📁 Scegli file" (nessun capture — apre il
+//   selettore di sistema Android, che include app scanner di terzi se
+//   registrate come fornitori di documenti, oltre a galleria/Drive/PDF).
+//   docAtletaOnFileSelezionato ora riceve l'input element esplicito
+//   invece di ricostruirne l'id, per supportare i due input distinti.
 //
 // SCOPO DI QUESTO FILE: solo compressione + UI + validazione dimensione.
 // NON scrive/legge Firestore direttamente — quello e' in
@@ -202,7 +209,12 @@ function docAtletaCreaUIUpload(containerId, tipoDocDefault) {
         '<option value="ALTRO"' + (tipoDocDefault === 'ALTRO' ? ' selected' : '') + '>Altro documento</option>' +
       '</select>' +
       '<label style="margin-top:8px;">File (foto o PDF)</label>' +
-      '<input type="file" id="' + uid + '-file" accept="image/*,application/pdf" onchange="docAtletaOnFileSelezionato(\'' + uid + '\')">' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+        '<input type="file" id="' + uid + '-file-foto" accept="image/*" capture="environment" style="display:none" onchange="docAtletaOnFileSelezionato(\'' + uid + '\', this)">' +
+        '<button type="button" class="btn btn-gray btn-sm" onclick="document.getElementById(\'' + uid + '-file-foto\').click()">📷 Scatta foto</button>' +
+        '<input type="file" id="' + uid + '-file-scegli" accept="image/*,application/pdf" style="display:none" onchange="docAtletaOnFileSelezionato(\'' + uid + '\', this)">' +
+        '<button type="button" class="btn btn-gray btn-sm" onclick="document.getElementById(\'' + uid + '-file-scegli\').click()">📁 Scegli file</button>' +
+      '</div>' +
       '<div id="' + uid + '-stato" style="font-size:11px;color:var(--muted);margin-top:6px;">Nessun file selezionato.</div>' +
       '<div id="' + uid + '-anteprima" style="margin-top:8px;"></div>' +
       '<div id="' + uid + '-errore" style="color:#e03545;font-size:12px;margin-top:6px;"></div>' +
@@ -213,8 +225,12 @@ function docAtletaCreaUIUpload(containerId, tipoDocDefault) {
 
 var docAtletaCache = {}; // uid -> { risultato, callback }
 
-function docAtletaOnFileSelezionato(uid) {
-  var fileEl = document.getElementById(uid + '-file');
+function docAtletaOnFileSelezionato(uid, inputEl) {
+  if (!inputEl) {
+    docAtletaErr('docAtletaOnFileSelezionato: chiamato senza inputEl (uid=' + uid + ') — firma cambiata in v0.2, verificare i chiamanti');
+    return;
+  }
+  var fileEl = inputEl;
   var statoEl = document.getElementById(uid + '-stato');
   var erroreEl = document.getElementById(uid + '-errore');
   var anteprimaEl = document.getElementById(uid + '-anteprima');
