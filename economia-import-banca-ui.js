@@ -1,6 +1,13 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v0.6 · 16/09/2026 · BK
+// VERSIONE: v0.7 · 16/09/2026 · BK
+// v0.7: il report duplicati DB ora ha una checkbox per movimento e un
+//   pulsante "Annulla i selezionati" — usa ecoAnnullaMovimento(), lo
+//   stesso meccanismo gia' in uso nel resto dell'app (mai una vera
+//   cancellazione Firestore, sempre marcato ANNULLATO con motivo).
+//   Blocco di sicurezza: se in un gruppo risultano selezionati TUTTI i
+//   movimenti, non annulla NULLA (di nessun gruppo) e avvisa quale
+//   gruppo correggere — almeno un movimento per gruppo deve restare.
 // v0.6: badge "GIA' PRESENTE" separato da "POSSIBILE DUPLICATO" (segue
 //   la correzione in economia-import-banca.js v0.6). Aggiunta
 //   ecoImportMostraDuplicatiDB() — report di sola lettura sui doppioni
@@ -126,14 +133,20 @@ function ecoImportOnFilePdf(input) {
   input.value = ''; // permette di riselezionare lo stesso file in un secondo tentativo
 }
 
-// ── Report duplicati gia' nel DB — solo lettura, nessuna cancellazione
-// automatica. Mostra i gruppi trovati con abbastanza dettaglio (numero
-// movimento, data, importo, nota) perche' Alberto possa ritrovarli
-// nella schermata Movimenti e decidere lui cosa cancellare. ──
+// ── Report duplicati gia' nel DB — ora con possibilita' di annullare
+// (mai una vera cancellazione Firestore: stesso meccanismo gia' in uso
+// nell'app per "cancellare" un movimento, ecoAnnullaMovimento(), che
+// marca come ANNULLATO con un motivo — mai perso il dato originale).
+// REGOLA DI SICUREZZA: in ogni gruppo di duplicati almeno un movimento
+// deve restare NON annullato — bloccato con un avviso chiaro se si
+// prova a selezionarli tutti, mai un annullamento totale silenzioso. ──
+var ecoImportUltimoReportDuplicati = null;
+
 function ecoImportMostraDuplicatiDB() {
   var out = document.getElementById('eco-import-esito');
   if (!out) { console.error('ecoImportMostraDuplicatiDB: #eco-import-esito non trovato'); return; }
   var ris = ecoImportTrovaDuplicatiInDB();
+  ecoImportUltimoReportDuplicati = ris;
   var h = '<div style="font-weight:700;margin-bottom:8px">Controllo duplicati nel database \u2014 ' + (ecoMovimenti || []).length + ' movimenti controllati</div>';
 
   if (!ris.certi.length && !ris.possibili.length) {
@@ -142,29 +155,91 @@ function ecoImportMostraDuplicatiDB() {
     return;
   }
 
-  function rigaMov(m) {
-    return '<div style="font-size:12px;padding:4px 0 4px 16px;border-left:2px solid var(--border)">' +
+  function rigaMov(m, gruppoIdx, tipoGruppo) {
+    var cbId = 'eco-dup-' + tipoGruppo + '-' + gruppoIdx + '-' + m.id;
+    return '<div style="font-size:12px;padding:4px 0 4px 8px;border-left:2px solid var(--border);display:flex;align-items:flex-start;gap:8px">' +
+      '<input type="checkbox" id="' + cbId + '" data-gruppo="' + tipoGruppo + '-' + gruppoIdx + '" data-id="' + m.id + '">' +
+      '<label for="' + cbId + '" style="flex:1">' +
       '#' + ecoImportEsc(m.numeroMovimento || '?') + ' \u2014 ' + ecoImportEsc(m.dataDocumento || '?') +
       ' \u2014 \u20ac' + (+m.importoEur || 0).toFixed(2) + ' (' + ecoImportEsc(m.tipoMovimento || '?') + ', ' + ecoImportEsc(m.categoriaCodice || '?') + ')' +
-      '<br><span style="color:var(--muted)">' + ecoImportEsc((m.note || '').substring(0, 100)) + '</span></div>';
+      '<br><span style="color:var(--muted)">' + ecoImportEsc((m.note || '').substring(0, 100)) + '</span></label></div>';
   }
 
   if (ris.certi.length) {
     h += '<div style="color:#e03545;font-weight:700;margin-top:10px">' + ris.certi.length + ' gruppo/i CERTI (stesso riferimento bancario \u2014 quasi sicuramente lo stesso movimento importato piu\u2019 volte)</div>';
-    ris.certi.forEach(function (g) {
+    ris.certi.forEach(function (g, gi) {
       h += '<div style="margin:6px 0;padding:6px;background:#e0354511;border-radius:6px">' +
-        g.movimenti.map(rigaMov).join('') + '</div>';
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Seleziona quelli da annullare \u2014 almeno uno deve restare</div>' +
+        g.movimenti.map(function (m) { return rigaMov(m, gi, 'certo'); }).join('') + '</div>';
     });
   }
   if (ris.possibili.length) {
     h += '<div style="color:#c88a4b;font-weight:700;margin-top:10px">' + ris.possibili.length + ' gruppo/i DA VERIFICARE (stessa data e importo, nessun riferimento per esserne certi \u2014 potrebbero essere operazioni diverse legittime)</div>';
-    ris.possibili.forEach(function (g) {
+    ris.possibili.forEach(function (g, gi) {
       h += '<div style="margin:6px 0;padding:6px;background:#c88a4b11;border-radius:6px">' +
-        g.movimenti.map(rigaMov).join('') + '</div>';
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Seleziona quelli da annullare SOLO se hai verificato che sono davvero lo stesso movimento \u2014 almeno uno deve restare</div>' +
+        g.movimenti.map(function (m) { return rigaMov(m, gi, 'poss'); }).join('') + '</div>';
     });
   }
-  h += '<div style="font-size:11px;color:var(--muted);margin-top:10px">Nessuna cancellazione automatica \u2014 vai nella schermata Movimenti, trova la riga con il numero indicato sopra e cancellala tu se confermi che e\u2019 un doppione.</div>';
+  h += '<button class="btn btn-red" style="margin-top:12px" onclick="ecoImportAnnullaDuplicatiSelezionati()">Annulla i selezionati</button>';
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:6px">L\u2019annullamento non cancella il dato: marca il movimento come ANNULLATO con motivo "duplicato", resta visibile e tracciato, coerente col resto dell\u2019app.</div>';
   out.innerHTML = h;
+}
+
+// ── Applica l'annullamento ai movimenti selezionati nel report. Prima
+// controlla OGNI gruppo: se tutti i movimenti di un gruppo risultano
+// selezionati, blocca con un avviso specifico e non annulla NULLA (di
+// nessun gruppo) — meglio fermarsi del tutto che lasciare un gruppo
+// senza nessun movimento valido rimasto. ──
+function ecoImportAnnullaDuplicatiSelezionati() {
+  if (!ecoImportUltimoReportDuplicati) { console.error('ecoImportAnnullaDuplicatiSelezionati: nessun report in memoria \u2014 rilancia il controllo prima'); return; }
+  var tuttiGruppi = ecoImportUltimoReportDuplicati.certi.map(function (g, gi) { return { tipo: 'certo', idx: gi, gruppo: g }; })
+    .concat(ecoImportUltimoReportDuplicati.possibili.map(function (g, gi) { return { tipo: 'poss', idx: gi, gruppo: g }; }));
+
+  var selezionatiPerGruppo = {};
+  var checkboxes = document.querySelectorAll('#eco-import-esito input[type=checkbox][data-gruppo]');
+  checkboxes.forEach(function (cb) {
+    if (!cb.checked) return;
+    var k = cb.getAttribute('data-gruppo');
+    if (!selezionatiPerGruppo[k]) selezionatiPerGruppo[k] = [];
+    selezionatiPerGruppo[k].push(cb.getAttribute('data-id'));
+  });
+
+  // controllo di sicurezza: nessun gruppo puo' finire senza almeno un movimento non annullato
+  for (var i = 0; i < tuttiGruppi.length; i++) {
+    var tg = tuttiGruppi[i];
+    var k = tg.tipo + '-' + tg.idx;
+    var selezionati = selezionatiPerGruppo[k] || [];
+    if (selezionati.length >= tg.gruppo.movimenti.length && selezionati.length > 0) {
+      alert('Nel gruppo "' + tg.gruppo.chiave + '" hai selezionato TUTTI i movimenti (' + selezionati.length + ') \u2014 almeno uno deve restare. Nessun annullamento e\u2019 stato applicato, correggi la selezione e riprova.');
+      return;
+    }
+  }
+
+  var idsDaAnnullare = [];
+  Object.keys(selezionatiPerGruppo).forEach(function (k) { idsDaAnnullare = idsDaAnnullare.concat(selezionatiPerGruppo[k]); });
+  if (!idsDaAnnullare.length) { alert('Nessun movimento selezionato.'); return; }
+
+  var annullati = 0, errori = [];
+  var daSalvare = 0, salvati = 0;
+  idsDaAnnullare.forEach(function (id) {
+    var m = ecoMovimenti.find(function (x) { return x.id === id; });
+    if (!m) { errori.push(id + ': non trovato in ecoMovimenti (gia\' rimosso da un\'altra sessione?)'); return; }
+    var r = ecoAnnullaMovimento(m, 'Duplicato individuato dal controllo duplicati BK', m.createdBy);
+    if (!r.ok) { errori.push('#' + (m.numeroMovimento || id) + ': ' + r.errore); return; }
+    daSalvare++;
+    ecoSalvaDocMovimento(m, function () {
+      salvati++;
+      if (salvati === daSalvare) {
+        ecoRenderMovimenti(); ecoRenderScadenzario(); ecoRenderConti();
+        ecoImportMostraDuplicatiDB(); // ricontrolla e ridisegna il report aggiornato
+      }
+    });
+    annullati++;
+  });
+
+  diag('ecoImportAnnullaDuplicatiSelezionati: ' + annullati + ' annullati, ' + errori.length + ' errori', errori.length ? 'warn' : 'ok');
+  if (errori.length) alert(annullati + ' movimento/i annullato/i.\n\n' + errori.length + ' errore/i:\n' + errori.join('\n'));
 }
 
 // ── Punto d'ingresso per l'estratto conto CARTA (formato diverso,
