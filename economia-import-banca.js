@@ -1,6 +1,14 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca.js — ASD Basket Campodarsego
-// VERSIONE: v0.6 · 16/09/2026 · BK
+// VERSIONE: v0.7 · 16/09/2026 · BK
+// v0.7: CORRETTO bug segnalato da Alberto con screenshot reale: dopo
+//   aver annullato un duplicato, il gruppo continuava a comparire nel
+//   report. Causa: ecoImportTrovaDuplicatiInDB() non escludeva i
+//   movimenti con stato ANNULLATO prima di formare i gruppi — un
+//   movimento gia' risolto restava nel confronto e "trovava" ancora
+//   l'altro. Ora i movimenti ANNULLATO sono esclusi PRIMA del confronto,
+//   non solo in visualizzazione. Verificato: gruppo con 2 movimenti,
+//   annullato il primo -> gruppo sparisce (0 gruppi rilevati), come atteso.
 // v0.6: CORRETTO bug introdotto in v0.5 — il criterio di riserva
 //   "stessa data e stesso importo" segnalava come duplicato CERTO
 //   operazioni diverse ma legittimamente uguali per importo (piu'
@@ -380,8 +388,14 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
 // legittimamente piu' volte). ──
 function ecoImportTrovaDuplicatiInDB(movimenti) {
   movimenti = movimenti || ecoMovimenti || [];
+  // Un movimento gia' ANNULLATO e' un duplicato gia' risolto — se lo si
+  // lascia nel confronto, il gruppo resta "duplicato" per sempre anche
+  // dopo aver annullato il doppione (l'altro movimento del gruppo lo
+  // trova ancora). Va escluso PRIMA di formare i gruppi, non filtrato
+  // solo in visualizzazione.
+  var attivi = movimenti.filter(function (m) { return m.stato !== 'ANNULLATO'; });
   var gruppiPerRiferimento = {};
-  movimenti.forEach(function (m) {
+  attivi.forEach(function (m) {
     if (m.riferimentoBancario) {
       if (!gruppiPerRiferimento[m.riferimentoBancario]) gruppiPerRiferimento[m.riferimentoBancario] = [];
       gruppiPerRiferimento[m.riferimentoBancario].push(m);
@@ -396,7 +410,7 @@ function ecoImportTrovaDuplicatiInDB(movimenti) {
   certi.forEach(function (g) { g.movimenti.forEach(function (m) { idInGruppoCerto[m.id] = true; }); });
 
   var gruppiPerDataImporto = {};
-  movimenti.forEach(function (m) {
+  attivi.forEach(function (m) {
     if (idInGruppoCerto[m.id]) return; // gia' segnalato come certo, non ripetere
     var k = (m.dataDocumento || '?') + '|' + Math.round((m.importoEur || 0) * 100) + '|' + (m.tipoMovimento || '?');
     if (!gruppiPerDataImporto[k]) gruppiPerDataImporto[k] = [];
@@ -407,7 +421,8 @@ function ecoImportTrovaDuplicatiInDB(movimenti) {
     if (gruppiPerDataImporto[k].length > 1) possibili.push({ criterio: 'stessa data e stesso importo, nessun riferimento', chiave: k, movimenti: gruppiPerDataImporto[k] });
   });
 
-  diag('ecoImportTrovaDuplicatiInDB: ' + certi.length + ' gruppi certi, ' + possibili.length + ' gruppi da verificare, su ' + movimenti.length + ' movimenti totali', certi.length ? 'warn' : 'ok');
+  var scartatiAnnullati = movimenti.length - attivi.length;
+  diag('ecoImportTrovaDuplicatiInDB: ' + certi.length + ' gruppi certi, ' + possibili.length + ' gruppi da verificare, su ' + attivi.length + ' movimenti attivi (' + scartatiAnnullati + ' gi\u00e0 annullati esclusi), ' + movimenti.length + ' totali', certi.length ? 'warn' : 'ok');
   return { certi: certi, possibili: possibili };
 }
 
