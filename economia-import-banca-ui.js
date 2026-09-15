@@ -1,6 +1,10 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v0.3 · 15/09/2026 · BK
+// VERSIONE: v0.4 · 16/09/2026 · BK
+// v0.4: entrambi i punti di ingresso file (banca/carta) ora chiamano
+//   ecoImportRilevaTipoPDF() per-file e avvisano esplicitamente (con
+//   conferma manuale, mai un blocco silenzioso) se il file caricato
+//   sembra del tipo sbagliato per quel pulsante.
 // v0.3: estratta ecoImportEstraiTestoPDF() come funzione condivisa
 //   (prima duplicata solo dentro ecoImportOnFilePdf), aggiunto
 //   ecoImportOnFileCartaPdf() per l'estratto conto carta Tasca
@@ -78,6 +82,21 @@ function ecoImportOnFilePdf(input) {
     var fatti = 0;
     files.forEach(function (file) {
       ecoImportEstraiTestoPDF(file, function (txt) {
+        var tipo = ecoImportRilevaTipoPDF(txt);
+        if (tipo === 'CARTA') {
+          var msgTipo = 'ecoImportOnFilePdf: file "' + file.name + '" rilevato come estratto CARTA, non banca';
+          diag(msgTipo, 'warn');
+          var continua = confirm('"' + file.name + '" sembra un estratto della CARTA TASCA, non del conto corrente bancario.\n\nSe è davvero la carta, annulla e usa il pulsante "PDF estratto conto carta Tasca" qui sotto.\n\nSe invece è comunque un estratto banca (il riconoscimento può sbagliare), premi OK per continuare.');
+          if (!continua) {
+            fatti++;
+            if (fatti === files.length && testi.length) {
+              var nuove0 = ecoImportPreparaElenco(testi.join('\n'));
+              ecoImportElencoCorrente = ecoImportElencoCorrente.concat(nuove0);
+              ecoImportRenderTabella();
+            }
+            return;
+          }
+        }
         testi.push(txt);
         fatti++;
         if (fatti === files.length) {
@@ -119,6 +138,21 @@ function ecoImportOnFileCartaPdf(input) {
     var fatti = 0;
     files.forEach(function (file) {
       ecoImportEstraiTestoPDF(file, function (txt) {
+        var tipo = ecoImportRilevaTipoPDF(txt);
+        if (tipo === 'BANCA') {
+          var msgTipo = 'ecoImportOnFileCartaPdf: file "' + file.name + '" rilevato come estratto BANCA, non carta';
+          diag(msgTipo, 'warn');
+          var continua = confirm('"' + file.name + '" sembra un estratto conto BANCARIO, non della carta Tasca.\n\nSe è davvero l\'estratto banca, annulla e usa il pulsante "PDF estratto conto banca" qui sopra.\n\nSe invece è comunque un estratto carta (il riconoscimento può sbagliare), premi OK per continuare.');
+          if (!continua) {
+            fatti++;
+            if (fatti === files.length && testi.length) {
+              var nuove0 = ecoImportPreparaElencoCarta(testi.join('\n'));
+              ecoImportElencoCorrente = ecoImportElencoCorrente.concat(nuove0);
+              ecoImportRenderTabella();
+            }
+            return;
+          }
+        }
         testi.push(txt);
         fatti++;
         if (fatti === files.length) {

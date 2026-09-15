@@ -1,6 +1,22 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca.js — ASD Basket Campodarsego
-// VERSIONE: v0.2 · 05/09/2026 · BK
+// VERSIONE: v0.4 · 16/09/2026 · BK
+// v0.4: aggiunta ecoImportRilevaTipoPDF() — riconosce dagli indizi
+//   testuali se un PDF e' un estratto banca o carta Tasca, per avvisare
+//   subito se Alberto carica il file nel pulsante sbagliato invece di
+//   lasciare che il parser trovi silenziosamente pochi/zero movimenti.
+// v0.3: corretto bug reale in ecoImportEstraiRighe — la regex era ancorata
+//   a inizio riga (^), quindi quando due movimenti finivano sulla stessa
+//   riga logica del testo estratto dal PDF (capita con PDF multi-colonna),
+//   il secondo veniva ingoiato come continuazione della descrizione del
+//   primo — NON solo sporcava la descrizione, il movimento spariva del
+//   tutto, mai importabile. Segnalato da Alberto con screenshot reale
+//   dall'app in uso (12/11/2025 -0,30 conteneva al suo interno l'intero
+//   movimento "STUDIO INFORMATICA -26,64" mai separato). Rimossa l'ancora,
+//   ora cerca la testata ovunque nella riga e assegna il testo precedente
+//   al movimento corrente invece di perderlo/fonderlo per errore.
+//   Verificato: stesso identico risultato (216 righe, somma -7730.39) sul
+//   dataset gia' validato prima della modifica — nessuna regressione.
 // v0.2: aggiunto abbinamento atleta (ecoImportTrovaAtleta, stessa
 //   cascata gia' in uso in parsaBancaPDFText/parsaBancaRowsPDF: CF
 //   atleta -> CF tutore -> cognome+nome con disambiguazione) e dedup
@@ -57,12 +73,23 @@
 // iniziale"/"Saldo finale" (non sono movimenti).
 function ecoImportEstraiRighe(txt) {
   var righe = (txt || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
-  var reHead = /^(\d{2}\/\d{2}\/\d{4})\s+(?:(\d{2}\/\d{2}\/\d{4})\s+)?(-?[\d.]+,\d{2})\s+(.*)$/;
+  // NON ancorata a inizio riga (^) di proposito: quando due movimenti finiscono
+  // sulla stessa riga logica del testo estratto dal PDF (capita spesso con
+  // PDF a più colonne), il secondo comincia A META' della riga, non all'inizio.
+  // Con l'ancora ^ quella seconda testata veniva ingoiata come continuazione
+  // del movimento precedente — non solo la descrizione si sporcava, il
+  // movimento SPARIVA del tutto dall'elenco (mai importabile). Vedi
+  // VIO-BK-PARSER-RIGHE-CONCATENATE-20260916.
+  var reHead = /(\d{2}\/\d{2}\/\d{4})\s+(?:(\d{2}\/\d{2}\/\d{4})\s+)?(-?[\d.]+,\d{2})(?:\s+(.*))?$/;
   var movimenti = [];
   var corrente = null;
   righe.forEach(function (l) {
     var m = reHead.exec(l);
     if (m) {
+      var pre = l.slice(0, m.index).trim(); // testo PRIMA della data su questa riga: appartiene al movimento precedente
+      if (pre && corrente) {
+        corrente.descrizione += ' ' + pre;
+      }
       if (corrente) movimenti.push(corrente);
       var descrizioneInline = m[4] || '';
       if (/^Saldo (iniziale|finale)/i.test(descrizioneInline)) {
@@ -215,6 +242,28 @@ function ecoImportPagamentoGiaPresente(atletaId, dataISO, importo) {
 
 // Non scrive nulla — restituisce solo l'elenco arricchito (dedup +
 // suggerimento categoria) che la UI mostrera' per la conferma manuale.
+// ── Riconoscimento del tipo di estratto (banca conto corrente vs carta
+// Tasca) dagli indizi testuali del PDF — serve per avvisare subito se
+// Alberto carica il file sbagliato nel pulsante sbagliato, invece di
+// lasciare che il parser trovi silenziosamente pochi o zero movimenti
+// e lasciarlo pensare che l'estratto sia vuoto/rotto. ──
+function ecoImportRilevaTipoPDF(txt) {
+  var t = (txt || '').toUpperCase();
+  var puntiCarta = 0, puntiBanca = 0;
+  if (/CARTA\s*N\.?\s*\d{4}/.test(t)) puntiCarta++;
+  if (/RICARICA DA HB BANCA COLLOCATRICE/.test(t)) puntiCarta++;
+  if (/DATA ACQUISTO\s+DATA REGISTR/.test(t)) puntiCarta += 2; // intestazione tabella, molto specifica
+  if (/CARTABCC/.test(t)) puntiCarta++;
+  if (/IBAN\s*IT\d{2}/.test(t) || /IBAN\s*IT\s*\d{2}/.test(t)) puntiBanca++;
+  if (/DETTAGLIO MOVIMENTI/.test(t)) puntiBanca++;
+  if (/DATA CONTABILE\s+DATA VALUTA/.test(t)) puntiBanca += 2;
+  if (/\bA VS FAVORE\b/.test(t) || /\bA FAVORE DI\b/.test(t)) puntiBanca++;
+  if (/CONTO CORRENTE/.test(t)) puntiBanca++;
+  if (puntiCarta > puntiBanca) return 'CARTA';
+  if (puntiBanca > puntiCarta) return 'BANCA';
+  return 'SCONOSCIUTO';
+}
+
 function ecoImportPreparaElenco(txt) {
   if (!ecoConfigCache) {
     var msg = 'ecoImportPreparaElenco: ecoConfigCache non caricata — apri prima la pagina Economia almeno una volta in questa sessione';
