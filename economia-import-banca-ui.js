@@ -1,6 +1,18 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v0.4 · 16/09/2026 · BK
+// VERSIONE: v0.6 · 16/09/2026 · BK
+// v0.6: badge "GIA' PRESENTE" separato da "POSSIBILE DUPLICATO" (segue
+//   la correzione in economia-import-banca.js v0.6). Aggiunta
+//   ecoImportMostraDuplicatiDB() — report di sola lettura sui doppioni
+//   gia' presenti nel database, con pulsante dedicato.
+// v0.5: aggiunta ecoImportOnFileMisto() — un solo input file per banca+
+//   carta insieme, riconoscimento tipo per-file, elaborazione
+//   VOLUTAMENTE sequenziale (non in parallelo) cosi' il controllo
+//   duplicati vede anche le sovrapposizioni tra file diversi dello
+//   stesso lotto (es. estratto annuale + trimestrale che si
+//   sovrappongono). File non riconosciuti mai scartati in silenzio -
+//   elencati a fine lotto. I due pulsanti separati esistenti ora
+//   passano anch'essi ecoImportElencoCorrente per coerenza.
 // v0.4: entrambi i punti di ingresso file (banca/carta) ora chiamano
 //   ecoImportRilevaTipoPDF() per-file e avvisano esplicitamente (con
 //   conferma manuale, mai un blocco silenzioso) se il file caricato
@@ -90,7 +102,7 @@ function ecoImportOnFilePdf(input) {
           if (!continua) {
             fatti++;
             if (fatti === files.length && testi.length) {
-              var nuove0 = ecoImportPreparaElenco(testi.join('\n'));
+              var nuove0 = ecoImportPreparaElenco(testi.join('\n'), ecoImportElencoCorrente);
               ecoImportElencoCorrente = ecoImportElencoCorrente.concat(nuove0);
               ecoImportRenderTabella();
             }
@@ -100,7 +112,7 @@ function ecoImportOnFilePdf(input) {
         testi.push(txt);
         fatti++;
         if (fatti === files.length) {
-          var nuove = ecoImportPreparaElenco(testi.join('\n'));
+          var nuove = ecoImportPreparaElenco(testi.join('\n'), ecoImportElencoCorrente);
           ecoImportElencoCorrente = ecoImportElencoCorrente.concat(nuove);
           ecoImportRenderTabella();
         }
@@ -114,11 +126,120 @@ function ecoImportOnFilePdf(input) {
   input.value = ''; // permette di riselezionare lo stesso file in un secondo tentativo
 }
 
+// ── Report duplicati gia' nel DB — solo lettura, nessuna cancellazione
+// automatica. Mostra i gruppi trovati con abbastanza dettaglio (numero
+// movimento, data, importo, nota) perche' Alberto possa ritrovarli
+// nella schermata Movimenti e decidere lui cosa cancellare. ──
+function ecoImportMostraDuplicatiDB() {
+  var out = document.getElementById('eco-import-esito');
+  if (!out) { console.error('ecoImportMostraDuplicatiDB: #eco-import-esito non trovato'); return; }
+  var ris = ecoImportTrovaDuplicatiInDB();
+  var h = '<div style="font-weight:700;margin-bottom:8px">Controllo duplicati nel database \u2014 ' + (ecoMovimenti || []).length + ' movimenti controllati</div>';
+
+  if (!ris.certi.length && !ris.possibili.length) {
+    h += '<div class="empty">Nessun duplicato trovato.</div>';
+    out.innerHTML = h;
+    return;
+  }
+
+  function rigaMov(m) {
+    return '<div style="font-size:12px;padding:4px 0 4px 16px;border-left:2px solid var(--border)">' +
+      '#' + ecoImportEsc(m.numeroMovimento || '?') + ' \u2014 ' + ecoImportEsc(m.dataDocumento || '?') +
+      ' \u2014 \u20ac' + (+m.importoEur || 0).toFixed(2) + ' (' + ecoImportEsc(m.tipoMovimento || '?') + ', ' + ecoImportEsc(m.categoriaCodice || '?') + ')' +
+      '<br><span style="color:var(--muted)">' + ecoImportEsc((m.note || '').substring(0, 100)) + '</span></div>';
+  }
+
+  if (ris.certi.length) {
+    h += '<div style="color:#e03545;font-weight:700;margin-top:10px">' + ris.certi.length + ' gruppo/i CERTI (stesso riferimento bancario \u2014 quasi sicuramente lo stesso movimento importato piu\u2019 volte)</div>';
+    ris.certi.forEach(function (g) {
+      h += '<div style="margin:6px 0;padding:6px;background:#e0354511;border-radius:6px">' +
+        g.movimenti.map(rigaMov).join('') + '</div>';
+    });
+  }
+  if (ris.possibili.length) {
+    h += '<div style="color:#c88a4b;font-weight:700;margin-top:10px">' + ris.possibili.length + ' gruppo/i DA VERIFICARE (stessa data e importo, nessun riferimento per esserne certi \u2014 potrebbero essere operazioni diverse legittime)</div>';
+    ris.possibili.forEach(function (g) {
+      h += '<div style="margin:6px 0;padding:6px;background:#c88a4b11;border-radius:6px">' +
+        g.movimenti.map(rigaMov).join('') + '</div>';
+    });
+  }
+  h += '<div style="font-size:11px;color:var(--muted);margin-top:10px">Nessuna cancellazione automatica \u2014 vai nella schermata Movimenti, trova la riga con il numero indicato sopra e cancellala tu se confermi che e\u2019 un doppione.</div>';
+  out.innerHTML = h;
+}
+
 // ── Punto d'ingresso per l'estratto conto CARTA (formato diverso,
 // stessa pipeline) — ACCUMULA nello stesso ecoImportElencoCorrente
 // invece di sostituirlo, cosi' si puo' caricare prima il PDF bancario
 // e poi quello della carta (o viceversa) e revisionare tutto insieme
 // in un'unica tabella prima di confermare. ──
+// ── Caricamento unico misto: Alberto seleziona insieme file banca e
+// file carta (in qualunque combinazione, anche periodi sovrapposti tra
+// loro) e questa funzione riconosce da sola il tipo di ciascuno,
+// smistandolo al parser giusto — nessun pulsante da scegliere prima.
+// Elaborazione VOLUTAMENTE sequenziale (un file alla volta, non in
+// parallelo): ogni file deve vedere cosa e' gia' stato estratto dai
+// file precedenti in questo stesso lotto per il controllo duplicati
+// (ecoImportPreparaElenco/Carta ora accettano un secondo parametro
+// proprio per questo — vedi economia-import-banca.js v0.5). File non
+// riconoscibili non vengono scartati in silenzio: restano in un elenco
+// mostrato a fine caricamento, Alberto decide come trattarli. ──
+function ecoImportOnFileMisto(input) {
+  var files = Array.from(input.files || []);
+  if (!files.length) return;
+  var out = document.getElementById('eco-import-esito');
+  if (out) out.innerHTML = '<div style="color:var(--gold);padding:16px;text-align:center">Lettura ' + files.length + ' PDF in corso\u2026 (uno alla volta, per il controllo duplicati incrociato)</div>';
+
+  if (typeof loadPdfJs !== 'function') {
+    var msgNo = 'ecoImportOnFileMisto: loadPdfJs non disponibile';
+    console.error(msgNo);
+    if (out) out.innerHTML = '<div style="color:var(--red)">Errore interno: lettore PDF non disponibile.</div>';
+    return;
+  }
+
+  var nonRiconosciuti = [];
+  var riepilogoPerFile = [];
+
+  function processaFile(idx) {
+    if (idx >= files.length) {
+      // fine lotto: aggiorna la tabella e mostra il riepilogo di cosa e' stato letto da dove
+      ecoImportRenderTabella();
+      if (nonRiconosciuti.length) {
+        var msgIgnoti = nonRiconosciuti.length + ' file non riconosciuti come banca ne\' come carta (non elaborati): ' + nonRiconosciuti.join(', ') + '. Controllali singolarmente con i pulsanti sopra/sotto se sono comunque estratti validi.';
+        console.error('[ecoImportOnFileMisto] ' + msgIgnoti);
+        alert(msgIgnoti);
+      }
+      diag('ecoImportOnFileMisto: lotto completo \u2014 ' + riepilogoPerFile.join(' | '), 'ok');
+      input.value = '';
+      return;
+    }
+    var file = files[idx];
+    ecoImportEstraiTestoPDF(file, function (txt) {
+      var tipo = ecoImportRilevaTipoPDF(txt);
+      var nuove = [];
+      if (tipo === 'BANCA') {
+        nuove = ecoImportPreparaElenco(txt, ecoImportElencoCorrente);
+        riepilogoPerFile.push(file.name + '\u2192banca(' + nuove.length + ')');
+      } else if (tipo === 'CARTA') {
+        nuove = ecoImportPreparaElencoCarta(txt, ecoImportElencoCorrente);
+        riepilogoPerFile.push(file.name + '\u2192carta(' + nuove.length + ')');
+      } else {
+        nonRiconosciuti.push(file.name);
+        riepilogoPerFile.push(file.name + '\u2192NON RICONOSCIUTO');
+      }
+      ecoImportElencoCorrente = ecoImportElencoCorrente.concat(nuove);
+      if (out) out.innerHTML = '<div style="color:var(--gold);padding:16px;text-align:center">Elaborato ' + (idx + 1) + '/' + files.length + '\u2026</div>';
+      processaFile(idx + 1);
+    }, function (err) {
+      var msg = 'ecoImportOnFileMisto: errore lettura PDF ' + file.name + ': ' + err.message;
+      console.error(msg);
+      riepilogoPerFile.push(file.name + '\u2192ERRORE LETTURA');
+      processaFile(idx + 1); // continua con gli altri file, non blocca l'intero lotto per uno rotto
+    });
+  }
+
+  loadPdfJs(function () { processaFile(0); });
+}
+
 function ecoImportOnFileCartaPdf(input) {
   var files = Array.from(input.files || []);
 
@@ -146,7 +267,7 @@ function ecoImportOnFileCartaPdf(input) {
           if (!continua) {
             fatti++;
             if (fatti === files.length && testi.length) {
-              var nuove0 = ecoImportPreparaElencoCarta(testi.join('\n'));
+              var nuove0 = ecoImportPreparaElencoCarta(testi.join('\n'), ecoImportElencoCorrente);
               ecoImportElencoCorrente = ecoImportElencoCorrente.concat(nuove0);
               ecoImportRenderTabella();
             }
@@ -156,7 +277,7 @@ function ecoImportOnFileCartaPdf(input) {
         testi.push(txt);
         fatti++;
         if (fatti === files.length) {
-          var nuove = ecoImportPreparaElencoCarta(testi.join('\n'));
+          var nuove = ecoImportPreparaElencoCarta(testi.join('\n'), ecoImportElencoCorrente);
           ecoImportElencoCorrente = ecoImportElencoCorrente.concat(nuove);
           ecoImportRenderTabella();
         }
@@ -182,8 +303,9 @@ function ecoImportRenderTabella() {
   var elenco = ecoImportElencoCorrente;
   if (!elenco.length) { out.innerHTML = '<div class="empty">Nessun movimento trovato nel PDF.</div>'; return; }
 
-  var nuovi = elenco.filter(function (e) { return !e.duplicato && !e.verifica; }).length;
+  var nuovi = elenco.filter(function (e) { return !e.duplicato && !e.possibileDuplicato && !e.verifica; }).length;
   var dup = elenco.filter(function (e) { return e.duplicato; }).length;
+  var possDup = elenco.filter(function (e) { return e.possibileDuplicato; }).length;
   var verifica = elenco.filter(function (e) { return e.verifica; }).length;
   var conAtleta = elenco.filter(function (e) { return e.atleta; }).length;
 
@@ -194,12 +316,14 @@ function ecoImportRenderTabella() {
   var h = '<div style="margin:8px 0;display:flex;gap:12px;flex-wrap:wrap;font-size:13px">' +
     '<span style="color:#4aaa6a">' + nuovi + ' nuovi</span>' +
     '<span style="color:var(--muted)">' + dup + ' gi\u00e0 presenti (non selezionati)</span>' +
+    '<span style="color:#c88a4b">' + possDup + ' possibili duplicati \u2014 nessun riferimento univoco, verifica tu (non selezionati)</span>' +
     '<span style="color:#c8a84b">' + verifica + ' da verificare (non selezionati)</span>' +
     '<span style="color:var(--blue)">' + conAtleta + ' abbinate ad atleta</span></div>';
 
   h += '<div style="max-height:50vh;overflow-y:auto">';
   elenco.forEach(function (e, i) {
     var badge = e.duplicato ? '<span class="badge" style="background:#55555522;color:#888">GI\u00c0 PRESENTE (' + ecoImportEsc(e.criterioDedup) + ')</span>'
+      : e.possibileDuplicato ? '<span class="badge" style="background:#c88a4b22;color:#c88a4b">POSSIBILE DUPLICATO \u2014 verifica</span>'
       : e.verifica ? '<span class="badge" style="background:#c8a84b22;color:#c8a84b">VERIFICA</span>'
       : '<span class="badge" style="background:#4aaa6a22;color:#4aaa6a">NUOVO</span>';
 
@@ -243,7 +367,7 @@ function ecoImportRenderTabella() {
 
 function ecoImportSelTutti(v) {
   ecoImportElencoCorrente.forEach(function (e, i) {
-    e.selezionato = v ? (!e.duplicato) : false;
+    e.selezionato = v ? (!e.duplicato && !e.possibileDuplicato) : false;
     e.pagamentoSelezionato = v ? (!!e.atleta && !e.pagamentoGiaPresente) : false;
     var cb = document.getElementById('eco-imp-sel-' + i);
     if (cb) cb.checked = e.selezionato;

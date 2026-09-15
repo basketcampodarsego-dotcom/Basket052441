@@ -1,6 +1,25 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca.js — ASD Basket Campodarsego
-// VERSIONE: v0.4 · 16/09/2026 · BK
+// VERSIONE: v0.6 · 16/09/2026 · BK
+// v0.6: CORRETTO bug introdotto in v0.5 — il criterio di riserva
+//   "stessa data e stesso importo" segnalava come duplicato CERTO
+//   operazioni diverse ma legittimamente uguali per importo (piu'
+//   commissioni da 0,30\u20ac lo stesso giorno, piu' quote da 170\u20ac di
+//   atleti diversi) — rischiava di scartare soldi veri dall'import.
+//   Ora quel criterio produce "possibileDuplicato" (mostrato, MAI
+//   selezionato di default, ma non etichettato come certo) — solo il
+//   match per riferimento bancario univoco resta "duplicato" certo.
+//   Aggiunta anche ecoImportTrovaDuplicatiInDB() — stessa distinzione
+//   certo/possibile applicata ai movimenti GIA' SALVATI nel database
+//   (non solo ai nuovi import), per trovare doppioni creati in
+//   passato. Solo segnalazione, nessuna cancellazione automatica.
+// v0.5: ecoImportPreparaElenco() accetta ora un secondo parametro
+//   opzionale (le righe gia' elaborate in questo stesso lotto) e lo usa
+//   nel controllo duplicati insieme a ecoMovimenti — prima un duplicato
+//   TRA due file caricati insieme nello stesso lotto (es. un estratto
+//   annuale + uno trimestrale che si sovrappongono) non veniva
+//   riconosciuto, solo i duplicati contro cio' che era gia' salvato.
+//   Necessario per il caricamento misto multi-file (economia-import-banca-ui.js v0.5).
 // v0.4: aggiunta ecoImportRilevaTipoPDF() — riconosce dagli indizi
 //   testuali se un PDF e' un estratto banca o carta Tasca, per avvisare
 //   subito se Alberto carica il file nel pulsante sbagliato invece di
@@ -163,14 +182,24 @@ function ecoImportEDuplicato(mov, movimentiEsistenti) {
     var perRif = (movimentiEsistenti || []).find(function (m) {
       return m.riferimentoBancario && m.riferimentoBancario === mov.riferimento.valore;
     });
-    if (perRif) return { duplicato: true, criterio: 'riferimento', esistente: perRif };
+    // Match per riferimento univoco bancario: certezza ALTA, e' lo
+    // stesso identico movimento per costruzione (l'ID_BONIFICO non si
+    // ripete mai per due operazioni diverse).
+    if (perRif) return { duplicato: true, criterio: 'riferimento', certezza: 'alta', esistente: perRif };
   }
   var perDataImporto = (movimentiEsistenti || []).find(function (m) {
     var stessaData = m.dataDocumento === ecoImportISOData(mov.dataContabile) || m.dataDocumento === ecoImportISOData(mov.dataValuta);
     return stessaData && Math.abs((+m.importoEur || 0) - Math.abs(mov.importo)) < 0.01;
   });
-  if (perDataImporto) return { duplicato: true, criterio: 'data+importo', esistente: perDataImporto };
-  return { duplicato: false };
+  // Match SOLO per data+importo (nessun riferimento a disposizione):
+  // certezza BASSA di proposito — importi tondi ricorrenti (170€ di
+  // quota, 0,30€ di commissione) capitano DAVVERO piu' volte nello
+  // stesso giorno per persone/operazioni diverse. Trattarlo come
+  // duplicato certo rischierebbe di scartare soldi veri. Chi chiama
+  // questa funzione decide come mostrarlo (mai auto-selezionato per
+  // l'import, ma nemmeno etichettato come "gia' presente" con sicurezza).
+  if (perDataImporto) return { duplicato: false, possibileDuplicato: true, criterio: 'data+importo', certezza: 'bassa', esistente: perDataImporto };
+  return { duplicato: false, possibileDuplicato: false };
 }
 
 function ecoImportISOData(ddmmyyyy) {
@@ -264,7 +293,7 @@ function ecoImportRilevaTipoPDF(txt) {
   return 'SCONOSCIUTO';
 }
 
-function ecoImportPreparaElenco(txt) {
+function ecoImportPreparaElenco(txt, giaInLavorazione) {
   if (!ecoConfigCache) {
     var msg = 'ecoImportPreparaElenco: ecoConfigCache non caricata — apri prima la pagina Economia almeno una volta in questa sessione';
     diag(msg, 'err');
@@ -273,9 +302,21 @@ function ecoImportPreparaElenco(txt) {
   }
   var righe = ecoImportEstraiRighe(txt);
   var categorie = ecoConfigCache.categorie || [];
+  // Cresce man mano che processiamo le righe di QUESTO file — cosi' un
+  // duplicato tra due file caricati insieme nello stesso lotto (es.
+  // estratto annuale + uno trimestrale che si sovrappongono) viene
+  // riconosciuto, non solo i duplicati contro cio' che e' gia' salvato.
+  // giaInLavorazione arriva nella forma "riga di revisione" (stessa di
+  // ecoImportElencoCorrente) — va convertita nella forma che
+  // ecoImportEDuplicato si aspetta (dataDocumento/importoEur/
+  // riferimentoBancario, la stessa di ecoMovimenti) PRIMA di usarla,
+  // altrimenti il confronto non trova mai corrispondenza.
+  var accumulatore = (giaInLavorazione || []).map(function (e) {
+    return { dataDocumento: ecoImportISOData(e.dataContabile), importoEur: Math.abs(e.importo), riferimentoBancario: e.riferimento ? e.riferimento.valore : null };
+  });
   var elenco = righe.map(function (r) {
     var riferimento = ecoImportEstraiRiferimento(r.descrizione);
-    var dedup = ecoImportEDuplicato({ dataContabile: r.dataContabile, dataValuta: r.dataValuta, importo: r.importo, riferimento: riferimento }, ecoMovimenti);
+    var dedup = ecoImportEDuplicato({ dataContabile: r.dataContabile, dataValuta: r.dataValuta, importo: r.importo, riferimento: riferimento }, ecoMovimenti.concat(accumulatore));
     var suggerimento = ecoImportSuggerisciCategoria(r.descrizione, r.importo, categorie);
 
     // Abbinamento atleta — solo per righe in entrata (importo>0)
@@ -297,18 +338,19 @@ function ecoImportPreparaElenco(txt) {
       }
     }
 
-    return {
+    var rigaFinale = {
       dataContabile: r.dataContabile,
       dataValuta: r.dataValuta,
       importo: r.importo,
       descrizione: r.descrizione,
       riferimento: riferimento,
       duplicato: dedup.duplicato,
+      possibileDuplicato: !!dedup.possibileDuplicato,
       criterioDedup: dedup.criterio,
       categoriaCodice: suggerimento.categoriaCodice,
       verifica: suggerimento.verifica,
       notaCategoria: suggerimento.nota,
-      selezionato: !dedup.duplicato && !suggerimento.verifica,
+      selezionato: !dedup.duplicato && !dedup.possibileDuplicato && !suggerimento.verifica,
       // campi lato pagamento atleta (v0.2)
       atleta: atletaInfo.atleta,
       atletaFonteTrovato: atletaInfo.fonteTrovato,
@@ -316,10 +358,57 @@ function ecoImportPreparaElenco(txt) {
       pagamentoGiaPresente: pagamentoGiaPresente,
       pagamentoSelezionato: !!atletaInfo.atleta && !pagamentoGiaPresente
     };
+    // Aggiunta all'accumulatore SUBITO, prima della prossima riga —
+    // cosi' un terzo/quarto duplicato della stessa operazione viene
+    // riconosciuto anche se le prime due comparivano solo in questo lotto.
+    accumulatore.push({ dataDocumento: ecoImportISOData(r.dataContabile), importoEur: Math.abs(r.importo), riferimentoBancario: riferimento ? riferimento.valore : null });
+    return rigaFinale;
   });
   var conAtleta = elenco.filter(function (e) { return e.atleta; }).length;
   diag('ecoImportPreparaElenco: ' + elenco.length + ' righe, ' + elenco.filter(function (e) { return e.duplicato; }).length + ' gi\u00e0 presenti, ' + elenco.filter(function (e) { return e.verifica; }).length + ' da verificare, ' + conAtleta + ' abbinate ad atleta', 'ok');
   return elenco;
+}
+
+// ── Controllo duplicati GIA' PRESENTI nel database (non solo nei nuovi
+// import) — utile per trovare doppioni creati in passato (import fatti
+// due volte, inserimenti manuali ripetuti, ecc). SOLO segnalazione:
+// non elimina nulla in automatico, la cancellazione la fa sempre
+// Alberto dalla schermata Movimenti dopo aver controllato con i suoi
+// occhi. Stessa distinzione certo/possibile del controllo sui nuovi
+// import: riferimento bancario uguale = certo, solo data+importo = da
+// verificare (i 0,30€ di commissione o le quote da 170€ ricorrono
+// legittimamente piu' volte). ──
+function ecoImportTrovaDuplicatiInDB(movimenti) {
+  movimenti = movimenti || ecoMovimenti || [];
+  var gruppiPerRiferimento = {};
+  movimenti.forEach(function (m) {
+    if (m.riferimentoBancario) {
+      if (!gruppiPerRiferimento[m.riferimentoBancario]) gruppiPerRiferimento[m.riferimentoBancario] = [];
+      gruppiPerRiferimento[m.riferimentoBancario].push(m);
+    }
+  });
+  var certi = [];
+  Object.keys(gruppiPerRiferimento).forEach(function (k) {
+    if (gruppiPerRiferimento[k].length > 1) certi.push({ criterio: 'stesso riferimento bancario', chiave: k, movimenti: gruppiPerRiferimento[k] });
+  });
+
+  var idInGruppoCerto = {};
+  certi.forEach(function (g) { g.movimenti.forEach(function (m) { idInGruppoCerto[m.id] = true; }); });
+
+  var gruppiPerDataImporto = {};
+  movimenti.forEach(function (m) {
+    if (idInGruppoCerto[m.id]) return; // gia' segnalato come certo, non ripetere
+    var k = (m.dataDocumento || '?') + '|' + Math.round((m.importoEur || 0) * 100) + '|' + (m.tipoMovimento || '?');
+    if (!gruppiPerDataImporto[k]) gruppiPerDataImporto[k] = [];
+    gruppiPerDataImporto[k].push(m);
+  });
+  var possibili = [];
+  Object.keys(gruppiPerDataImporto).forEach(function (k) {
+    if (gruppiPerDataImporto[k].length > 1) possibili.push({ criterio: 'stessa data e stesso importo, nessun riferimento', chiave: k, movimenti: gruppiPerDataImporto[k] });
+  });
+
+  diag('ecoImportTrovaDuplicatiInDB: ' + certi.length + ' gruppi certi, ' + possibili.length + ' gruppi da verificare, su ' + movimenti.length + ' movimenti totali', certi.length ? 'warn' : 'ok');
+  return { certi: certi, possibili: possibili };
 }
 
 window.addEventListener('error', function (e) {
