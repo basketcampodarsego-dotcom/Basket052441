@@ -1,17 +1,24 @@
-// ═══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 // FILE: economia-movimenti-ui.js — ASD Basket Campodarsego
-// VERSIONE: v1.1 · 23/08/2026 · BK
-// v1.1: aggiunto ecoCopiaMovimento() + bottone "Copia" in ecoRenderMovimenti()
-//   (richiesta Alberto 23/08: duplicare un movimento esistente con data
-//   odierna, utile per la seconda gamba dei GIROCONTO). Data documento
-//   impostata a oggi per esplicita richiesta della funzione — non è un
-//   default di form generico, resto dei campi vuoti resta invariato altrove.
+// VERSIONE: v1.2 · 23/08/2026 · BK
+// v1.2: ridisegnata tabella Elenco Movimenti (richiesta Alberto 23/08).
+//   Numero+Tipo compattati in un'unica colonna formato ANNO-NNNN-U/E (es.
+//   "2026-0029-U", elaborato da ecoNumeroBreve() SOLO per la vista, il
+//   numeroMovimento reale resta "MOV-2026-000029" ovunque altro — ricevute,
+//   tabulati stampati, riferimenti legali non toccati). Aggiunta colonna
+//   Data (dataDocumento) che PRIMA non compariva affatto nell'elenco —
+//   "la data è indispensabile" (Alberto): era mostrata solo la scadenza,
+//   che ha già una sua vista dedicata (Scadenzario) e qui è stata tolta
+//   per fare spazio, non serve duplicarla.
+// v1.1 · 23/08/2026: aggiunto ecoCopiaMovimento() + bottone "Copia" in
+//   ecoRenderMovimenti() (richiesta Alberto: duplicare un movimento
+//   esistente con data odierna, utile per la seconda gamba dei GIROCONTO).
 // v1.0 · 20/08/2026: estratto da basket052441.html per lavorare a file
 //   separati (richiesta Alberto: file piccoli, moduli per argomento).
 // Dipende da: economia-core-DRAFT.js (funzioni pure), caricato PRIMA di
 // questo file. Va incluso con <script src> in basket052441.html, dopo
 // economia-core-DRAFT.js.
-// ══════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
 
 var ecoConfigCache = null; // { categorie:[...], sottocategorie:[...], centriCosto:[...] }
 function ecoEsc(s) {
@@ -46,7 +53,7 @@ function ecoLoadSezioni(cb) {
       ecoMovimenti = [];
       res[2].forEach(function (doc) { ecoMovimenti.push(doc.data()); });
     } catch (ex) {
-      diag('Economia: errore parsing dati — ' + ex.message, 'err');
+      diag('Economia: errore parsing dati — ' + ex. message, 'err');
     }
     if (cb) cb();
   }).catch(function (err) {
@@ -130,6 +137,26 @@ function ecoFiltroStato(v) {
   ecoRenderMovimenti();
 }
 
+// ── Formato breve numero movimento per la sola vista Elenco (v1.2,
+// 23/08/2026): "MOV-2026-000029" + tipoMovimento -> "2026-0029-U". Il
+// numeroMovimento REALE non cambia — resta quello usato in ricevute,
+// tabulati stampati, riferimenti. Se il formato non combacia con quello
+// atteso (dato storico anomalo, generatore mai eseguito, ecc.) si ritorna
+// il numeroMovimento originale intatto, MAI un valore vuoto o inventato:
+// meglio mostrare qualcosa di riconoscibile che nascondere l'anomalia. ──
+function ecoNumeroBreve(m) {
+  var match = /^MOV-(\d{4})-(\d+)$/.exec(m.numeroMovimento || '');
+  if (!match) {
+    if (m.numeroMovimento) return m.numeroMovimento;
+    console.error('[economia-ui] ecoNumeroBreve: movimento senza numeroMovimento, id=' + m.id);
+    return '(senza numero)';
+  }
+  var anno = match[1];
+  var num = String(parseInt(match[2], 10)).padStart(4, '0');
+  var suffisso = m.tipoMovimento === 'ENTRATA' ? 'E' : 'U';
+  return anno + '-' + num + '-' + suffisso;
+}
+
 function ecoRenderMovimenti() {
   var catF = document.getElementById('eco-filtro-cat').value;
   var lista = ecoMovimenti.filter(function (m) {
@@ -139,16 +166,15 @@ function ecoRenderMovimenti() {
   }).sort(function (a, b) { return (b.dataRegistrazione || '').localeCompare(a.dataRegistrazione || ''); });
 
   var tb = document.getElementById('eco-mov-tbody');
-  if (!lista.length) { tb.innerHTML = '<tr><td colspan="7" class="empty">Nessun movimento</td></tr>'; return; }
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">Nessun movimento</td></tr>'; return; }
   tb.innerHTML = lista.map(function (m) {
     var segno = m.tipoMovimento === 'ENTRATA' ? '+' : '-';
     var colStato = { DA_PAGARE: '#c8a84b', PAGATO: '#22a85a', PARZIALE: '#1a5aaa', SCADUTO: '#e03545', ANNULLATO: '#666' }[m.stato] || '#888';
     return '<tr>' +
-      '<td>' + ecoEsc(m.numeroMovimento || '') + '</td>' +
-      '<td>' + (m.tipoMovimento === 'ENTRATA' ? 'Entrata' : 'Uscita') + '</td>' +
+      '<td>' + ecoEsc(ecoNumeroBreve(m)) + '</td>' +
+      '<td>' + (m.dataDocumento || '-') + '</td>' +
       '<td>' + ecoEsc(m.categoriaCodice || '') + '</td>' +
       '<td>' + segno + '€' + Number(m.importoEur || 0).toFixed(2) + '</td>' +
-      '<td>' + (m.dataScadenza || '-') + '</td>' +
       '<td><span style="color:' + colStato + ';font-weight:700;font-size:11px">' + m.stato + '</span></td>' +
       '<td><button class="btn btn-gray btn-xs" onclick="ecoApriModalMovimento(\'' + m.id + '\')">Apri</button> ' +
       '<button class="btn btn-gray btn-xs" onclick="ecoCopiaMovimento(\'' + m.id + '\')">Copia</button></td>' +
