@@ -1,6 +1,13 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v0.7 · 16/09/2026 · BK
+// VERSIONE: v0.8 · 09/10/2026 22:40 · BK
+// v0.8: ecoImportEstraiTestoPDF passa a cbOk anche le righe CON coordinata y
+//   (secondo argomento: pagine = [[{y, txt}]]) oltre al testo piatto, che
+//   resta identico. I due percorsi BANCA (pulsante banca e caricamento misto)
+//   ora usano ecoImportRiordinaRigheBanca(pagine) (economia-import-banca.js
+//   v0.8) invece del testo piatto: corregge le descrizioni mescolate tra
+//   movimenti vicini (segnalazione Alberto 09/10/2026). Percorso CARTA e
+//   riconoscimento tipo invariati (usano ancora il testo piatto).
 // v0.7: il report duplicati DB ora ha una checkbox per movimento e un
 //   pulsante "Annulla i selezionati" — usa ecoAnnullaMovimento(), lo
 //   stesso meccanismo gia' in uso nel resto dell'app (mai una vera
@@ -52,6 +59,7 @@ function ecoImportEstraiTestoPDF(file, cbOk, cbErr) {
     var typedArray = new Uint8Array(e.target.result);
     pdfjsLib.getDocument(typedArray).promise.then(function (pdf) {
       var pageTexts = new Array(pdf.numPages);
+      var pageRighe = new Array(pdf.numPages); // v0.8: righe con y per il riordino banca
       var done = 0;
       for (var p = 1; p <= pdf.numPages; p++) {
         (function (pNum) {
@@ -61,14 +69,17 @@ function ecoImportEstraiTestoPDF(file, cbOk, cbErr) {
               tc.items.forEach(function (item) {
                 var y = Math.round(item.transform[5] / 3) * 3;
                 if (!lines[y]) lines[y] = [];
-                lines[y].push({ x: item.transform[4], txt: item.str });
+                lines[y].push({ x: item.transform[4], txt: item.str, yEsatta: item.transform[5] });
               });
               var ySorted = Object.keys(lines).map(Number).sort(function (a, b) { return b - a; });
-              pageTexts[pNum - 1] = ySorted.map(function (y) {
-                return lines[y].sort(function (a, b) { return a.x - b.x; }).map(function (i) { return i.txt; }).join(' ');
-              }).join('\n');
+              pageRighe[pNum - 1] = ySorted.map(function (y) {
+                var items = lines[y].sort(function (a, b) { return a.x - b.x; });
+                var yMax = Math.max.apply(null, items.map(function (i) { return i.yEsatta; }));
+                return { y: yMax, txt: items.map(function (i) { return i.txt; }).join(' ') };
+              });
+              pageTexts[pNum - 1] = pageRighe[pNum - 1].map(function (r) { return r.txt; }).join('\n');
               done++;
-              if (done === pdf.numPages) cbOk(pageTexts.join('\n'));
+              if (done === pdf.numPages) cbOk(pageTexts.join('\n'), pageRighe);
             });
           });
         })(p);
@@ -100,7 +111,7 @@ function ecoImportOnFilePdf(input) {
     var testi = [];
     var fatti = 0;
     files.forEach(function (file) {
-      ecoImportEstraiTestoPDF(file, function (txt) {
+      ecoImportEstraiTestoPDF(file, function (txt, pagine) {
         var tipo = ecoImportRilevaTipoPDF(txt);
         if (tipo === 'CARTA') {
           var msgTipo = 'ecoImportOnFilePdf: file "' + file.name + '" rilevato come estratto CARTA, non banca';
@@ -116,7 +127,7 @@ function ecoImportOnFilePdf(input) {
             return;
           }
         }
-        testi.push(txt);
+        testi.push(ecoImportRiordinaRigheBanca(pagine));
         fatti++;
         if (fatti === files.length) {
           var nuove = ecoImportPreparaElenco(testi.join('\n'), ecoImportElencoCorrente);
@@ -288,11 +299,11 @@ function ecoImportOnFileMisto(input) {
       return;
     }
     var file = files[idx];
-    ecoImportEstraiTestoPDF(file, function (txt) {
+    ecoImportEstraiTestoPDF(file, function (txt, pagine) {
       var tipo = ecoImportRilevaTipoPDF(txt);
       var nuove = [];
       if (tipo === 'BANCA') {
-        nuove = ecoImportPreparaElenco(txt, ecoImportElencoCorrente);
+        nuove = ecoImportPreparaElenco(ecoImportRiordinaRigheBanca(pagine), ecoImportElencoCorrente);
         riepilogoPerFile.push(file.name + '\u2192banca(' + nuove.length + ')');
       } else if (tipo === 'CARTA') {
         nuove = ecoImportPreparaElencoCarta(txt, ecoImportElencoCorrente);

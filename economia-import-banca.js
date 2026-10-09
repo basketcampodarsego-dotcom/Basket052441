@@ -1,6 +1,24 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca.js — ASD Basket Campodarsego
-// VERSIONE: v0.7 · 16/09/2026 · BK
+// VERSIONE: v0.8 · 09/10/2026 22:40 · BK
+// v0.8: CORRETTO bug segnalato da Alberto 09/10/2026 (estratto Relax
+//   Banking "estratto_al_09102026.pdf", 19 pagine): le descrizioni si
+//   mescolavano tra movimenti vicini. Causa: nel PDF la descrizione di
+//   ogni movimento e' centrata verticalmente sulla riga data/importo —
+//   la PRIMA riga di descrizione sta ~3,2pt SOPRA la testata, le altre
+//   sotto. Il parser attaccava al movimento solo le righe successive alla
+//   testata, quindi la prima riga di ogni movimento finiva in coda al
+//   movimento precedente (es. "-731,00 ARGOS" conteneva "Ricarica carta
+//   TASCA", e il -300,00 restava con solo "da Home Banking"). Secondo
+//   difetto trovato nello stesso controllo: intestazione di pagina (nome
+//   banca, saldi, IBAN) e pie' di pagina "Stampa da Relax Banking" finivano
+//   nella descrizione dell'ultimo movimento di ogni pagina (18 casi).
+//   Fix: nuova ecoImportRiordinaRigheBanca(pagine) che lavora sulle righe
+//   CON coordinata y (fornite da ecoImportEstraiTestoPDF v0.8): aggancia
+//   alla testata la riga che le sta sopra entro ECO_IMPORT_SOGLIA_PRIMA_RIGA_PT
+//   (misurato: 3,2pt per la prima riga, mai meno di 11,8pt tra un movimento
+//   e il successivo) e scarta intestazione/pie' di pagina. ecoImportEstraiRighe
+//   non cambia logica; la testata e' ora una costante condivisa.
 // v0.7: CORRETTO bug segnalato da Alberto con screenshot reale: dopo
 //   aver annullato un duplicato, il gruppo continuava a comparire nel
 //   report. Causa: ecoImportTrovaDuplicatiInDB() non escludeva i
@@ -98,6 +116,73 @@
 // importo) e accumula le righe di descrizione successive fino alla
 // prossima intestazione. Scarta esplicitamente le righe "Saldo
 // iniziale"/"Saldo finale" (non sono movimenti).
+// ── Testata di un movimento nell'estratto BCC/Relax Banking: data contabile,
+// data valuta (facoltativa), importo, eventuale descrizione sulla stessa riga.
+// Condivisa tra ecoImportEstraiRighe e ecoImportRiordinaRigheBanca (v0.8).
+var ECO_IMPORT_RE_TESTATA_BANCA = /(\d{2}\/\d{2}\/\d{4})\s+(?:(\d{2}\/\d{2}\/\d{4})\s+)?(-?[\d.]+,\d{2})(?:\s+(.*))?$/;
+// Distanza massima (pt) sopra la testata entro cui una riga e' la PRIMA riga
+// della descrizione di quel movimento. Misurato sull'estratto reale 09/10/2026:
+// prima riga a +3,2pt; la riga piu' vicina appartenente al movimento PRECEDENTE
+// e' a +11,8pt. Soglia a meta' strada, con margine da entrambi i lati.
+var ECO_IMPORT_SOGLIA_PRIMA_RIGA_PT = 6;
+var ECO_IMPORT_RE_INTESTAZIONE_COLONNE = /^Data contabile\s+Data valuta\s+Importo\s+Descrizione/i;
+var ECO_IMPORT_RE_PIE_PAGINA = /^Stampa da Relax Banking/i;
+
+// ── Riordina le righe estratte dal PDF banca prima del parsing (v0.8).
+// pagine = [ [ {y, txt}, ... ] , ... ]: per ogni pagina, righe dall'alto in
+// basso con y = baseline in punti PDF (cresce verso l'alto), come prodotte da
+// ecoImportEstraiTestoPDF. Ritorna il testo (righe separate da \n) pronto per
+// ecoImportEstraiRighe, con:
+//  - intestazione di pagina scartata (tutto fino alla riga intestazione colonne);
+//  - pie' di pagina "Stampa da Relax Banking..." scartato;
+//  - la riga che sta subito sopra una testata (entro soglia) spostata DENTRO
+//    la testata come inizio della descrizione, cosi' non viene attaccata al
+//    movimento precedente.
+// Una pagina senza riga intestazione colonne viene tenuta intera e segnalata
+// in diag (formato inatteso: meglio testo sporco visibile che righe perse).
+function ecoImportRiordinaRigheBanca(pagine) {
+  var out = [];
+  var agganciate = 0, scartateIntest = 0, scartatePie = 0;
+  (pagine || []).forEach(function (righe, iPag) {
+    righe = righe || [];
+    var inizio = -1;
+    for (var i = 0; i < righe.length; i++) {
+      if (ECO_IMPORT_RE_INTESTAZIONE_COLONNE.test((righe[i].txt || '').trim())) { inizio = i; break; }
+    }
+    if (inizio === -1) {
+      diag('ecoImportRiordinaRigheBanca: pagina ' + (iPag + 1) + ' senza intestazione colonne — tenuta intera (formato inatteso)', 'warn');
+    } else {
+      scartateIntest += inizio + 1;
+    }
+    var corpo = righe.slice(inizio + 1).filter(function (r) {
+      var t = (r.txt || '').trim();
+      if (!t) return false;
+      if (ECO_IMPORT_RE_PIE_PAGINA.test(t)) { scartatePie++; return false; }
+      return true;
+    });
+    for (var k = 0; k < corpo.length; k++) {
+      var riga = corpo[k], succ = corpo[k + 1];
+      var eTestata = ECO_IMPORT_RE_TESTATA_BANCA.test(riga.txt);
+      if (!eTestata && succ && ECO_IMPORT_RE_TESTATA_BANCA.test(succ.txt)) {
+        var dist = riga.y - succ.y;
+        if (dist > 0 && dist <= ECO_IMPORT_SOGLIA_PRIMA_RIGA_PT) {
+          var m = ECO_IMPORT_RE_TESTATA_BANCA.exec(succ.txt);
+          var inline = m[4] || '';
+          var finoImporto = succ.txt.slice(0, m.index + m[0].length - (inline ? inline.length : 0)).replace(/\s+$/, '');
+          succ = { y: succ.y, txt: finoImporto + ' ' + riga.txt.trim() + (inline ? ' ' + inline : '') };
+          corpo[k + 1] = succ;
+          agganciate++;
+          continue; // la riga ora vive dentro la testata: non va emessa da sola
+        }
+      }
+      out.push(riga.txt);
+    }
+  });
+  diag('ecoImportRiordinaRigheBanca: ' + agganciate + ' prime righe agganciate alla testata, ' +
+    scartateIntest + ' righe di intestazione e ' + scartatePie + ' pie\' di pagina scartati', 'info');
+  return out.join('\n');
+}
+
 function ecoImportEstraiRighe(txt) {
   var righe = (txt || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean);
   // NON ancorata a inizio riga (^) di proposito: quando due movimenti finiscono
@@ -107,7 +192,7 @@ function ecoImportEstraiRighe(txt) {
   // del movimento precedente — non solo la descrizione si sporcava, il
   // movimento SPARIVA del tutto dall'elenco (mai importabile). Vedi
   // VIO-BK-PARSER-RIGHE-CONCATENATE-20260916.
-  var reHead = /(\d{2}\/\d{2}\/\d{4})\s+(?:(\d{2}\/\d{2}\/\d{4})\s+)?(-?[\d.]+,\d{2})(?:\s+(.*))?$/;
+  var reHead = ECO_IMPORT_RE_TESTATA_BANCA;
   var movimenti = [];
   var corrente = null;
   righe.forEach(function (l) {
