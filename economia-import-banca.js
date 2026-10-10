@@ -1,6 +1,14 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca.js — ASD Basket Campodarsego
-// VERSIONE: v0.8 · 09/10/2026 22:40 · BK
+// VERSIONE: v0.9 · 10/10/2026 11:00 · BK
+// v0.9: CORRETTO blocco import segnalato da Alberto 10/10/2026: le righe
+//   NUOVO senza categoria riconosciuta partivano GIA' SELEZIONATE (81 su 224
+//   nell'estratto reale) — invisibili scorrendo l'elenco, ma alla conferma
+//   bloccavano l'intero import ("righe senza categoria"). Ora una riga parte
+//   selezionata solo se ha anche una categoria. Aggiunti suggerimenti per le
+//   voci bancarie ricorrenti (applicati SOLO se la categoria esiste nella
+//   tabella): commissioni/bollo/interessi -> SPESE_BANCARIE, F24 (Delega
+//   Unificata) -> TASSE.
 // v0.8: CORRETTO bug segnalato da Alberto 09/10/2026 (estratto Relax
 //   Banking "estratto_al_09102026.pdf", 19 pagine): le descrizioni si
 //   mescolavano tra movimenti vicini. Causa: nel PDF la descrizione di
@@ -259,6 +267,10 @@ function ecoImportSuggerisciCategoria(descrizione, importo, categorieDisponibili
     candidato = 'QUOTE';
   } else if (/COMUNE DI CAMPODARSEGO/.test(d) && /CONTRIBUTO/.test(d)) {
     candidato = 'CONTRIB';
+  } else if (/^COMMISSIONI SU BONIFICO|^IMPOSTA DI BOLLO|^INTERESSI E COMPETENZE/.test(d)) {
+    candidato = 'SPESE_BANCARIE'; // v0.9
+  } else if (/DELEGA UNIFICATA|\bF24\b/.test(d)) {
+    candidato = 'TASSE'; // v0.9
   }
 
   var esiste = candidato && (categorieDisponibili || []).some(function (c) { return c.codice === candidato; });
@@ -443,7 +455,7 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
       categoriaCodice: suggerimento.categoriaCodice,
       verifica: suggerimento.verifica,
       notaCategoria: suggerimento.nota,
-      selezionato: !dedup.duplicato && !dedup.possibileDuplicato && !suggerimento.verifica,
+      selezionato: !dedup.duplicato && !dedup.possibileDuplicato && !suggerimento.verifica && !!suggerimento.categoriaCodice, // v0.9: mai pre-selezionata senza categoria
       // campi lato pagamento atleta (v0.2)
       atleta: atletaInfo.atleta,
       atletaFonteTrovato: atletaInfo.fonteTrovato,

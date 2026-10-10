@@ -1,6 +1,15 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v0.8 · 09/10/2026 22:40 · BK
+// VERSIONE: v0.9 · 10/10/2026 11:00 · BK
+// v0.9: import non piu' bloccato da righe incomplete (segnalazione Alberto
+//   10/10/2026). (1) Scegliere una categoria nel menu seleziona la riga da
+//   sola, toglierla la deseleziona (ecoImportOnCategoria). (2) "Seleziona
+//   tutti" prende solo le righe PRONTE (nuove, con categoria, non da
+//   verificare) — prima includeva anche VERIFICA e righe senza categoria.
+//   (3) ecoImportConferma: se tra le selezionate ci sono righe senza
+//   categoria, chiede conferma elencandole, importa le altre e lascia
+//   quelle in elenco (prima bloccava tutto con un conteggio generico).
+//   (4) Contatore "senza categoria" in testa all'elenco.
 // v0.8: ecoImportEstraiTestoPDF passa a cbOk anche le righe CON coordinata y
 //   (secondo argomento: pagine = [[{y, txt}]]) oltre al testo piatto, che
 //   resta identico. I due percorsi BANCA (pulsante banca e caricamento misto)
@@ -394,6 +403,7 @@ function ecoImportRenderTabella() {
   var possDup = elenco.filter(function (e) { return e.possibileDuplicato; }).length;
   var verifica = elenco.filter(function (e) { return e.verifica; }).length;
   var conAtleta = elenco.filter(function (e) { return e.atleta; }).length;
+  var senzaCat = elenco.filter(function (e) { return !e.duplicato && !e.categoriaCodice; }).length; // v0.9
 
   var categorie = (ecoConfigCache && ecoConfigCache.categorie) || [];
   var optionsCategorie = '<option value="">(nessuna \u2014 scegli)</option>' +
@@ -404,7 +414,8 @@ function ecoImportRenderTabella() {
     '<span style="color:var(--muted)">' + dup + ' gi\u00e0 presenti (non selezionati)</span>' +
     '<span style="color:#c88a4b">' + possDup + ' possibili duplicati \u2014 nessun riferimento univoco, verifica tu (non selezionati)</span>' +
     '<span style="color:#c8a84b">' + verifica + ' da verificare (non selezionati)</span>' +
-    '<span style="color:var(--blue)">' + conAtleta + ' abbinate ad atleta</span></div>';
+    '<span style="color:var(--blue)">' + conAtleta + ' abbinate ad atleta</span>' +
+    '<span style="color:#e03545">' + senzaCat + ' senza categoria (scegli la categoria: la riga si seleziona da sola)</span></div>';
 
   h += '<div style="max-height:50vh;overflow-y:auto">';
   elenco.forEach(function (e, i) {
@@ -436,7 +447,7 @@ function ecoImportRenderTabella() {
       badge + '</div>' +
       '<div style="font-size:11px;color:var(--muted);padding-left:26px">Movimento Economia \u2014 ' + ecoImportEsc(e.descrizione.substring(0, 160)) + (e.descrizione.length > 160 ? '\u2026' : '') + '</div>' +
       (e.notaCategoria ? '<div style="font-size:11px;color:#c8a84b;padding-left:26px">' + ecoImportEsc(e.notaCategoria) + '</div>' : '') +
-      '<div style="padding-left:26px"><select onchange="ecoImportElencoCorrente[' + i + '].categoriaCodice=this.value">' +
+      '<div style="padding-left:26px"><select onchange="ecoImportOnCategoria(' + i + ', this.value)">' +
       optionsCategorie.replace('value="' + ecoImportEsc(e.categoriaCodice || '') + '"', 'value="' + ecoImportEsc(e.categoriaCodice || '') + '" selected') +
       '</select></div>' +
       rigaAtleta +
@@ -445,15 +456,28 @@ function ecoImportRenderTabella() {
   h += '</div>';
   h += '<div class="btn-bar" style="margin-top:10px">' +
     '<button class="btn btn-gray" onclick="ecoImportSelTutti(false)">Deseleziona tutto</button>' +
-    '<button class="btn btn-gold" onclick="ecoImportSelTutti(true)">Seleziona tutti i NUOVI (economia + pagamenti)</button>' +
+    '<button class="btn btn-gold" onclick="ecoImportSelTutti(true)">Seleziona tutti i pronti (nuovi con categoria + pagamenti)</button>' +
     '<button class="btn btn-green" onclick="ecoImportConferma()">Importa selezionati</button>' +
     '</div>';
   out.innerHTML = h;
 }
 
+// v0.9: scelta categoria dal menu della riga i. Con categoria la riga viene
+// selezionata (salvo GIA' PRESENTE: quella resta una scelta esplicita della
+// spunta); togliendo la categoria viene deselezionata, cosi' non puo' piu'
+// bloccare la conferma.
+function ecoImportOnCategoria(i, valore) {
+  var e = ecoImportElencoCorrente[i];
+  if (!e) { console.error('ecoImportOnCategoria: riga ' + i + ' non trovata'); diag('ecoImportOnCategoria: riga ' + i + ' non trovata', 'err'); return; }
+  e.categoriaCodice = valore || null;
+  if (e.categoriaCodice && !e.duplicato) e.selezionato = true;
+  if (!e.categoriaCodice) e.selezionato = false;
+  var cb = document.getElementById('eco-imp-sel-' + i);
+  if (cb) cb.checked = !!e.selezionato;
+}
 function ecoImportSelTutti(v) {
   ecoImportElencoCorrente.forEach(function (e, i) {
-    e.selezionato = v ? (!e.duplicato && !e.possibileDuplicato) : false;
+    e.selezionato = v ? (!e.duplicato && !e.possibileDuplicato && !e.verifica && !!e.categoriaCodice) : false; // v0.9
     e.pagamentoSelezionato = v ? (!!e.atleta && !e.pagamentoGiaPresente) : false;
     var cb = document.getElementById('eco-imp-sel-' + i);
     if (cb) cb.checked = e.selezionato;
@@ -475,8 +499,17 @@ function ecoImportConferma() {
 
   var senzaCategoria = righeEconomia.filter(function (e) { return !e.categoriaCodice; });
   if (senzaCategoria.length) {
-    alert(senzaCategoria.length + ' riga/e movimento Economia selezionata/e senza categoria \u2014 scegli una categoria per ciascuna prima di importare.');
-    return;
+    // v0.9: non blocca piu' tutto — elenca le righe incomplete, importa le
+    // altre e lascia queste in elenco (deselezionate) per completarle dopo.
+    var elencoInc = senzaCategoria.slice(0, 10).map(function (e) { return '  ' + e.dataContabile + '  \u20ac' + e.importo.toFixed(2); }).join('\n') +
+      (senzaCategoria.length > 10 ? '\n  ... e altre ' + (senzaCategoria.length - 10) : '');
+    var ok = confirm(senzaCategoria.length + ' riga/e selezionata/e SENZA categoria:\n' + elencoInc +
+      '\n\nOK = importo le altre ' + (righeEconomia.length - senzaCategoria.length) + ' righe e lascio queste in elenco da completare.\nAnnulla = non importo nulla.');
+    if (!ok) { diag('ecoImportConferma: annullato dall\'utente (' + senzaCategoria.length + ' righe senza categoria)', 'info'); return; }
+    senzaCategoria.forEach(function (e) { e.selezionato = false; });
+    righeEconomia = righeEconomia.filter(function (e) { return !!e.categoriaCodice; });
+    diag('ecoImportConferma: ' + senzaCategoria.length + ' righe senza categoria saltate, restano in elenco', 'warn');
+    if (!righeEconomia.length && !righePagamento.length) { ecoImportRenderTabella(); return; }
   }
 
   var contoDefault = (ecoConti || []).find(function (c) { return c.tipo === 'BANCA'; });
