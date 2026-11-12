@@ -1,6 +1,12 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v0.9 · 10/10/2026 11:00 · BK
+// VERSIONE: v1.0 · 12/11/2026 10:30 · BK
+// v1.0: righe abbinate a spese gia' registrate da spese-rapide.html
+//   (economia-import-banca.js v1.0): badge "GIA' REGISTRATA", spunta
+//   "abbina" attiva di default, nessun nuovo movimento. Alla conferma la
+//   spesa esistente riceve riferimento bancario, date e descrizione
+//   dell'estratto e smette di essere "in attesa" (ecoImportApplicaAbbinamenti).
+//   La conferma funziona anche se ci sono SOLO abbinamenti da salvare.
 // v0.9: import non piu' bloccato da righe incomplete (segnalazione Alberto
 //   10/10/2026). (1) Scegliere una categoria nel menu seleziona la riga da
 //   sola, toglierla la deseleziona (ecoImportOnCategoria). (2) "Seleziona
@@ -403,6 +409,7 @@ function ecoImportRenderTabella() {
   var possDup = elenco.filter(function (e) { return e.possibileDuplicato; }).length;
   var verifica = elenco.filter(function (e) { return e.verifica; }).length;
   var conAtleta = elenco.filter(function (e) { return e.atleta; }).length;
+  var daAbbinare = elenco.filter(function (e) { return e.riconcilia; }).length; // v1.0
   var senzaCat = elenco.filter(function (e) { return !e.duplicato && !e.categoriaCodice; }).length; // v0.9
 
   var categorie = (ecoConfigCache && ecoConfigCache.categorie) || [];
@@ -415,11 +422,13 @@ function ecoImportRenderTabella() {
     '<span style="color:#c88a4b">' + possDup + ' possibili duplicati \u2014 nessun riferimento univoco, verifica tu (non selezionati)</span>' +
     '<span style="color:#c8a84b">' + verifica + ' da verificare (non selezionati)</span>' +
     '<span style="color:var(--blue)">' + conAtleta + ' abbinate ad atleta</span>' +
-    '<span style="color:#e03545">' + senzaCat + ' senza categoria (scegli la categoria: la riga si seleziona da sola)</span></div>';
+    '<span style="color:#e03545">' + senzaCat + ' senza categoria (scegli la categoria: la riga si seleziona da sola)</span>' +
+    (daAbbinare ? '<span style="color:#3a9bd5">' + daAbbinare + ' gi\u00e0 registrate con foto: verranno abbinate, non importate</span>' : '') + '</div>';
 
   h += '<div style="max-height:50vh;overflow-y:auto">';
   elenco.forEach(function (e, i) {
-    var badge = e.duplicato ? '<span class="badge" style="background:#55555522;color:#888">GI\u00c0 PRESENTE (' + ecoImportEsc(e.criterioDedup) + ')</span>'
+    var badge = e.riconcilia ? '<span class="badge" style="background:#3a9bd522;color:#3a9bd5">GI\u00c0 REGISTRATA (' + ecoImportEsc(e.criterioDedup) + ')</span>'
+      : e.duplicato ? '<span class="badge" style="background:#55555522;color:#888">GI\u00c0 PRESENTE (' + ecoImportEsc(e.criterioDedup) + ')</span>'
       : e.possibileDuplicato ? '<span class="badge" style="background:#c88a4b22;color:#c88a4b">POSSIBILE DUPLICATO \u2014 verifica</span>'
       : e.verifica ? '<span class="badge" style="background:#c8a84b22;color:#c8a84b">VERIFICA</span>'
       : '<span class="badge" style="background:#4aaa6a22;color:#4aaa6a">NUOVO</span>';
@@ -451,6 +460,7 @@ function ecoImportRenderTabella() {
       optionsCategorie.replace('value="' + ecoImportEsc(e.categoriaCodice || '') + '"', 'value="' + ecoImportEsc(e.categoriaCodice || '') + '" selected') +
       '</select></div>' +
       rigaAtleta +
+      (e.riconcilia ? ecoImportHtmlAbbinamento(e, i) : '') +
       '</div>';
   });
   h += '</div>';
@@ -475,6 +485,36 @@ function ecoImportOnCategoria(i, valore) {
   var cb = document.getElementById('eco-imp-sel-' + i);
   if (cb) cb.checked = !!e.selezionato;
 }
+// v1.0: dettaglio della spesa gia' registrata a cui la riga verra' abbinata
+function ecoImportHtmlAbbinamento(e, i) {
+  var movs = (e.riconcilia || []).map(function (id) { return (ecoMovimenti || []).find(function (m) { return m.id === id; }); }).filter(Boolean);
+  if (movs.length !== (e.riconcilia || []).length) console.error('ecoImportHtmlAbbinamento: movimenti da abbinare non trovati in ecoMovimenti per la riga ' + i);
+  var dett = movs.map(function (m) { return ecoImportEsc((m.numeroMovimento || m.id) + ' del ' + (m.dataDocumento || '') + ' \u20ac' + (+m.importoEur).toFixed(2) + (m.fotoDocId ? ' \ud83d\udcf7' : '')); }).join(', ');
+  return '<div style="display:flex;align-items:center;gap:8px;padding-left:26px;margin-top:4px;font-size:12px">' +
+    '<input type="checkbox" id="eco-imp-abb-' + i + '" ' + (e.riconciliaSelezionato ? 'checked' : '') + ' onchange="ecoImportElencoCorrente[' + i + '].riconciliaSelezionato=this.checked">' +
+    '<span>Abbina a ' + (e.riconciliaTipo === 'RIMBORSO' ? 'rimborso di ' + movs.length + ' spese: ' : '') + dett +
+    (e.riconciliaGiorni ? ' <span style="color:var(--muted)">(' + e.riconciliaGiorni + ' gg di differenza)</span>' : '') + '</span></div>';
+}
+// v1.0: applica gli abbinamenti selezionati. Ritorna { fatti, errori:[] }
+function ecoImportApplicaAbbinamenti(righe) {
+  var fatti = 0, errori = [];
+  righe.forEach(function (e) {
+    (e.riconcilia || []).forEach(function (id) {
+      var m = (ecoMovimenti || []).find(function (x) { return x.id === id; });
+      if (!m) { errori.push(e.dataContabile + ' \u20ac' + e.importo.toFixed(2) + ': spesa da abbinare ' + id + ' non trovata (ricarica la pagina)'); return; }
+      m.daRiconciliare = false;
+      m.riconciliatoIl = new Date().toISOString();
+      m.dataContabileEstratto = ecoImportISOData(e.dataContabile);
+      m.dataValutaEstratto = ecoImportISOData(e.dataValuta);
+      m.descrizioneEstratto = (e.descrizione || '').substring(0, 200);
+      if (!m.riferimentoBancario && e.riferimento && e.riconciliaTipo !== 'RIMBORSO') m.riferimentoBancario = e.riferimento.valore;
+      m.updatedAt = m.riconciliatoIl;
+      ecoSalvaDocMovimento(m);
+      fatti++;
+    });
+  });
+  return { fatti: fatti, errori: errori };
+}
 function ecoImportSelTutti(v) {
   ecoImportElencoCorrente.forEach(function (e, i) {
     e.selezionato = v ? (!e.duplicato && !e.possibileDuplicato && !e.verifica && !!e.categoriaCodice) : false; // v0.9
@@ -495,7 +535,8 @@ function ecoImportSelTutti(v) {
 function ecoImportConferma() {
   var righeEconomia = ecoImportElencoCorrente.filter(function (e) { return e.selezionato; });
   var righePagamento = ecoImportElencoCorrente.filter(function (e) { return e.pagamentoSelezionato; });
-  if (!righeEconomia.length && !righePagamento.length) { alert('Nessuna riga selezionata.'); return; }
+  var righeAbbina = ecoImportElencoCorrente.filter(function (e) { return e.riconcilia && e.riconciliaSelezionato; }); // v1.0
+  if (!righeEconomia.length && !righePagamento.length && !righeAbbina.length) { alert('Nessuna riga selezionata.'); return; }
 
   var senzaCategoria = righeEconomia.filter(function (e) { return !e.categoriaCodice; });
   if (senzaCategoria.length) {
@@ -509,7 +550,7 @@ function ecoImportConferma() {
     senzaCategoria.forEach(function (e) { e.selezionato = false; });
     righeEconomia = righeEconomia.filter(function (e) { return !!e.categoriaCodice; });
     diag('ecoImportConferma: ' + senzaCategoria.length + ' righe senza categoria saltate, restano in elenco', 'warn');
-    if (!righeEconomia.length && !righePagamento.length) { ecoImportRenderTabella(); return; }
+    if (!righeEconomia.length && !righePagamento.length && !righeAbbina.length) { ecoImportRenderTabella(); return; }
   }
 
   var contoDefault = (ecoConti || []).find(function (c) { return c.tipo === 'BANCA'; });
@@ -559,13 +600,16 @@ function ecoImportConferma() {
 
   if (movCreati > 0 || righeEconomia.length) { ecoRenderMovimenti(); ecoRenderScadenzario(); ecoRenderConti(); }
 
-  var riepilogo = movCreati + ' movimenti Economia importati, ' + pagCreati + ' pagamenti atleta importati.';
+  var abb = ecoImportApplicaAbbinamenti(righeAbbina); // v1.0
+  var riepilogo = movCreati + ' movimenti Economia importati, ' + pagCreati + ' pagamenti atleta importati' +
+    (righeAbbina.length ? ', ' + abb.fatti + ' spese gi\u00e0 registrate abbinate all\'estratto' : '') + '.';
+  if (abb.errori.length) riepilogo += '\n\n' + abb.errori.length + ' abbinamento/i NON fatto/i:\n' + abb.errori.join('\n');
   if (movErrori.length) riepilogo += '\n\n' + movErrori.length + ' movimento/i Economia NON importato/i:\n' + movErrori.join('\n');
   if (pagErrori.length) riepilogo += '\n\n' + pagErrori.length + ' pagamento/i NON importato/i:\n' + pagErrori.join('\n');
   alert(riepilogo);
   diag('ecoImportConferma: mov ' + movCreati + '/' + movErrori.length + ' errori, pag ' + pagCreati + '/' + pagErrori.length + ' errori', (movErrori.length || pagErrori.length) ? 'warn' : 'ok');
 
-  ecoImportElencoCorrente = ecoImportElencoCorrente.filter(function (e) { return !e.selezionato && !e.pagamentoSelezionato; });
+  ecoImportElencoCorrente = ecoImportElencoCorrente.filter(function (e) { return !e.selezionato && !e.pagamentoSelezionato && !(e.riconcilia && e.riconciliaSelezionato); });
   ecoImportRenderTabella();
 }
 

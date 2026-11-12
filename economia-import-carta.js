@@ -1,6 +1,10 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-carta.js — ASD Basket Campodarsego
-// VERSIONE: v0.1 · 15/09/2026 · BK
+// VERSIONE: v0.2 · 12/11/2026 10:30 · BK
+// v0.2: abbinamento con le spese pagate con carta Tasca gia' registrate da
+//   spese-rapide.html (ecoImportTrovaDaRiconciliare, fonte 'CARTA', in
+//   economia-import-banca.js v1.0): la riga dell'estratto non viene
+//   importata di nuovo, la spesa esistente viene abbinata alla conferma.
 // v0.1: creazione — import estratto conto PDF CartaBCC (carta Tasca
 //   prepagata, N. 5226 **** **** 8068) nei movimenti Economia generali.
 //   Formato PDF DIVERSO dall'estratto conto bancario BCC Roma (ordine
@@ -92,11 +96,17 @@ function ecoImportPreparaElencoCarta(txt) {
   }
   var righe = ecoImportEstraiRigheCarta(txt);
   var categorie = ecoConfigCache.categorie || [];
+  var riservati = {}; // v0.2: una spesa registrata si abbina a una sola riga
   var elenco = righe.map(function (r) {
     var suggerimento = ecoImportSuggerisciCategoriaCarta(r.descrizione, categorie);
     var dedup = suggerimento.giroconto
       ? { duplicato: false }
       : ecoImportEDuplicato({ dataContabile: r.dataContabile, dataValuta: r.dataValuta, importo: r.importo, riferimento: null }, ecoMovimenti);
+    var abbina = (suggerimento.giroconto || dedup.duplicato) ? null : ecoImportTrovaDaRiconciliare(r, ecoMovimenti, 'CARTA', riservati);
+    if (abbina) {
+      abbina.movimenti.forEach(function (m) { riservati[m.id] = true; });
+      dedup = { duplicato: true, criterio: 'spesa gia\' registrata con foto' };
+    }
     return {
       dataContabile: r.dataContabile,
       dataValuta: r.dataValuta,
@@ -112,7 +122,11 @@ function ecoImportPreparaElencoCarta(txt) {
       // righe carta non abbinate mai ad atleta: quasi tutte spese, e le
       // uniche entrate (ricariche) sono gia' escluse per principio sopra
       atleta: null, atletaFonteTrovato: '', atletaMotivoFallback: '',
-      pagamentoGiaPresente: false, pagamentoSelezionato: false
+      pagamentoGiaPresente: false, pagamentoSelezionato: false,
+      riconcilia: abbina ? abbina.movimenti.map(function (m) { return m.id; }) : null,
+      riconciliaTipo: abbina ? abbina.tipo : null,
+      riconciliaGiorni: abbina ? abbina.giorni : null,
+      riconciliaSelezionato: !!abbina
     };
   });
   diag('ecoImportPreparaElencoCarta: ' + elenco.length + ' righe, ' + elenco.filter(function (e) { return e.verifica; }).length + ' ricariche escluse, ' + elenco.filter(function (e) { return e.duplicato; }).length + ' gi\u00e0 presenti', 'ok');

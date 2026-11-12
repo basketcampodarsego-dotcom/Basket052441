@@ -1,6 +1,19 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca.js — ASD Basket Campodarsego
-// VERSIONE: v0.9 · 10/10/2026 11:00 · BK
+// VERSIONE: v1.0 · 12/11/2026 10:30 · BK
+// v1.0: abbinamento con le spese gia' registrate da spese-rapide.html
+//   (richiesta Alberto 12/11/2026). Una spesa pagata con bonifico o carta
+//   Tasca registrata al momento (con foto) resta "daRiconciliare": quando
+//   la stessa uscita arriva dall'estratto, NON va importata di nuovo ma
+//   ABBINATA. Nuova ecoImportTrovaDaRiconciliare(): stesso importo, stesso
+//   segno, stessa fonte (BANCA/CARTA), date entro ECO_IMPORT_GIORNI_ABBINA
+//   giorni; per i rimborsi ad Alberto con bonifico confronta il TOTALE del
+//   gruppo di rimborso (un solo bonifico per piu' spese). La riga abbinata
+//   e' segnata "gia' registrata" e mai importata; alla conferma il
+//   movimento esistente riceve riferimento e date dell'estratto.
+//   ecoImportEDuplicato riconosce anche le righe gia' abbinate in passato
+//   (dataContabileEstratto), cosi' reimportare lo stesso estratto non
+//   duplica nulla.
 // v0.9: CORRETTO blocco import segnalato da Alberto 10/10/2026: le righe
 //   NUOVO senza categoria riconosciuta partivano GIA' SELEZIONATE (81 su 224
 //   nell'estratto reale) — invisibili scorrendo l'elenco, ma alla conferma
@@ -282,6 +295,52 @@ function ecoImportSuggerisciCategoria(descrizione, importo, categorieDisponibili
 }
 
 // ── Dedup a cascata contro i movimenti gia' presenti (ecoMovimenti) ──
+// ── v1.0: abbinamento con spese registrate in anticipo (spese-rapide.html) ──
+var ECO_IMPORT_GIORNI_ABBINA = 6;
+function ecoImportGiorniTra(isoA, isoB) {
+  if (!isoA || !isoB) return 9999;
+  var a = isoA.split('-').map(Number), b = isoB.split('-').map(Number);
+  return Math.abs(Math.round((Date.UTC(a[0], a[1] - 1, a[2]) - Date.UTC(b[0], b[1] - 1, b[2])) / 86400000));
+}
+// mov = { dataContabile, dataValuta (gg/mm/aaaa), importo (con segno) }
+// fonte = 'BANCA' | 'CARTA'; giaAbbinati = { idMovimento: true } (riserve di questo lotto)
+// Ritorna null oppure { movimenti: [..], tipo: 'SPESA'|'RIMBORSO', giorni }
+function ecoImportTrovaDaRiconciliare(mov, movimentiEsistenti, fonte, giaAbbinati) {
+  giaAbbinati = giaAbbinati || {};
+  var date = [ecoImportISOData(mov.dataContabile), ecoImportISOData(mov.dataValuta)];
+  var tipo = mov.importo < 0 ? 'USCITA' : 'ENTRATA';
+  var imp = Math.abs(mov.importo);
+  var aperti = (movimentiEsistenti || []).filter(function (m) {
+    return m.daRiconciliare === true && m.stato !== 'ANNULLATO' && m.riconciliaSu === fonte && !giaAbbinati[m.id];
+  });
+  function dist(isoList) {
+    var best = 9999;
+    isoList.forEach(function (x) { date.forEach(function (d) { best = Math.min(best, ecoImportGiorniTra(x, d)); }); });
+    return best;
+  }
+  // 1) singola spesa/giroconto
+  var singoli = aperti.filter(function (m) {
+    return !m.rimborso && m.tipoMovimento === tipo && Math.abs((+m.importoEur || 0) - imp) < 0.005;
+  }).map(function (m) { return { m: m, g: dist([m.dataDocumento, m.dataPagamento]) }; })
+    .filter(function (x) { return x.g <= ECO_IMPORT_GIORNI_ABBINA; })
+    .sort(function (a, b) { return a.g - b.g; });
+  if (singoli.length) return { movimenti: [singoli[0].m], tipo: 'SPESA', giorni: singoli[0].g, alternative: singoli.length - 1 };
+  // 2) rimborso ad Alberto: un bonifico = totale del gruppo
+  if (tipo === 'USCITA' && fonte === 'BANCA') {
+    var gruppi = {};
+    aperti.forEach(function (m) { if (m.rimborso && m.rimborso.gruppoId) (gruppi[m.rimborso.gruppoId] = gruppi[m.rimborso.gruppoId] || []).push(m); });
+    var trovato = null;
+    Object.keys(gruppi).forEach(function (gid) {
+      var g = gruppi[gid];
+      var tot = Math.round(g.reduce(function (s, m) { return s + (+m.importoEur || 0); }, 0) * 100) / 100;
+      var giorni = dist([g[0].rimborso.data]);
+      if (Math.abs(tot - imp) < 0.005 && giorni <= ECO_IMPORT_GIORNI_ABBINA + 4 && (!trovato || giorni < trovato.giorni)) trovato = { movimenti: g, tipo: 'RIMBORSO', giorni: giorni, alternative: 0 };
+    });
+    if (trovato) return trovato;
+  }
+  return null;
+}
+
 function ecoImportEDuplicato(mov, movimentiEsistenti) {
   if (mov.riferimento) {
     var perRif = (movimentiEsistenti || []).find(function (m) {
@@ -292,6 +351,18 @@ function ecoImportEDuplicato(mov, movimentiEsistenti) {
     // ripete mai per due operazioni diverse).
     if (perRif) return { duplicato: true, criterio: 'riferimento', certezza: 'alta', esistente: perRif };
   }
+  // v1.0: riga gia' abbinata in un import precedente a una spesa registrata in anticipo
+  var dataEstratto = ecoImportISOData(mov.dataContabile);
+  var abbinatiQuelGiorno = (movimentiEsistenti || []).filter(function (m) { return m.riconciliatoIl && m.dataContabileEstratto === dataEstratto; });
+  var giaAbbinato = abbinatiQuelGiorno.find(function (m) {
+    return !m.rimborso && Math.abs((+m.importoEur || 0) - Math.abs(mov.importo)) < 0.01;
+  });
+  if (giaAbbinato) return { duplicato: true, criterio: 'gia\' abbinato', certezza: 'alta', esistente: giaAbbinato };
+  // rimborso ad Alberto gia' abbinato: un bonifico = totale del gruppo
+  var gruppi = {};
+  abbinatiQuelGiorno.forEach(function (m) { if (m.rimborso && m.rimborso.gruppoId) gruppi[m.rimborso.gruppoId] = (gruppi[m.rimborso.gruppoId] || 0) + (+m.importoEur || 0); });
+  var gruppoUguale = Object.keys(gruppi).find(function (g) { return Math.abs(gruppi[g] - Math.abs(mov.importo)) < 0.01; });
+  if (gruppoUguale) return { duplicato: true, criterio: 'rimborso gia\' abbinato', certezza: 'alta', esistente: null };
   var perDataImporto = (movimentiEsistenti || []).find(function (m) {
     var stessaData = m.dataDocumento === ecoImportISOData(mov.dataContabile) || m.dataDocumento === ecoImportISOData(mov.dataValuta);
     return stessaData && Math.abs((+m.importoEur || 0) - Math.abs(mov.importo)) < 0.01;
@@ -416,12 +487,20 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
   // ecoImportEDuplicato si aspetta (dataDocumento/importoEur/
   // riferimentoBancario, la stessa di ecoMovimenti) PRIMA di usarla,
   // altrimenti il confronto non trova mai corrispondenza.
+  // v1.0: spese gia' prenotate da righe di QUESTO lotto (una spesa si abbina a una riga sola)
+  var riservati = {};
+  (giaInLavorazione || []).forEach(function (e) { (e.riconcilia || []).forEach(function (id) { riservati[id] = true; }); });
   var accumulatore = (giaInLavorazione || []).map(function (e) {
     return { dataDocumento: ecoImportISOData(e.dataContabile), importoEur: Math.abs(e.importo), riferimentoBancario: e.riferimento ? e.riferimento.valore : null };
   });
   var elenco = righe.map(function (r) {
     var riferimento = ecoImportEstraiRiferimento(r.descrizione);
     var dedup = ecoImportEDuplicato({ dataContabile: r.dataContabile, dataValuta: r.dataValuta, importo: r.importo, riferimento: riferimento }, ecoMovimenti.concat(accumulatore));
+    var abbina = dedup.duplicato ? null : ecoImportTrovaDaRiconciliare(r, ecoMovimenti, 'BANCA', riservati);
+    if (abbina) {
+      abbina.movimenti.forEach(function (m) { riservati[m.id] = true; });
+      dedup = { duplicato: true, possibileDuplicato: false, criterio: abbina.tipo === 'RIMBORSO' ? 'rimborso ad Alberto gia\' registrato' : 'spesa gia\' registrata con foto' };
+    }
     var suggerimento = ecoImportSuggerisciCategoria(r.descrizione, r.importo, categorie);
 
     // Abbinamento atleta — solo per righe in entrata (importo>0)
@@ -461,7 +540,12 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
       atletaFonteTrovato: atletaInfo.fonteTrovato,
       atletaMotivoFallback: atletaInfo.motivoFallback,
       pagamentoGiaPresente: pagamentoGiaPresente,
-      pagamentoSelezionato: !!atletaInfo.atleta && !pagamentoGiaPresente
+      pagamentoSelezionato: !!atletaInfo.atleta && !pagamentoGiaPresente && !abbina,
+      // v1.0: abbinamento a spese registrate in anticipo
+      riconcilia: abbina ? abbina.movimenti.map(function (m) { return m.id; }) : null,
+      riconciliaTipo: abbina ? abbina.tipo : null,
+      riconciliaGiorni: abbina ? abbina.giorni : null,
+      riconciliaSelezionato: !!abbina
     };
     // Aggiunta all'accumulatore SUBITO, prima della prossima riga —
     // cosi' un terzo/quarto duplicato della stessa operazione viene

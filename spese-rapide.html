@@ -1,0 +1,284 @@
+<!-- spese-rapide.html | v0.1 · 12/11/2026 10:30 · BK -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#0a1628">
+<title>Spese rapide</title>
+<link rel="icon" href="logo.jpg">
+<link rel="apple-touch-icon" href="logo.jpg">
+<style>
+  :root{
+    --bg:#0a1628; --bg2:#0e1e35; --bg3:#132844; --border:#22385a;
+    --text:#e8eef7; --muted:#7a8fa8; --gold:#c8a84b;
+    --ok:#22a85a; --warn:#c8a84b; --err:#e0455a; --blue:#3a7bd5;
+    --pal:#3a9bd5; --soc:#d58a3a;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased;}
+  input,select,textarea,button{font-family:inherit;font-size:15px;}
+  input,select,textarea{width:100%;padding:10px 12px;margin:4px 0 10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);}
+  label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+  button{cursor:pointer;border:none;border-radius:8px;padding:10px 14px;min-height:40px;font-weight:600;}
+  .btn-gold{background:var(--gold);color:#0a1628;}
+  .btn-blue{background:var(--blue);color:#fff;}
+  .btn-gray{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+  .btn-red{background:transparent;color:var(--err);border:1px solid var(--err);}
+  .btn-green{background:var(--ok);color:#fff;}
+  .btn-sm{padding:6px 10px;font-size:12px;min-height:32px;}
+  .btn-block{width:100%;}
+  button:disabled{opacity:.5;cursor:default;}
+  #login-scr{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:28px;max-width:340px;width:100%;}
+  .login-card h1{font-size:18px;margin:0 0 4px;}
+  .login-card p{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  #login-err{color:var(--err);font-size:13px;margin-top:6px;min-height:16px;}
+  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:50;gap:8px;}
+  .topbar-title{font-size:16px;font-weight:700;color:var(--gold);}
+  .topbar-sub{font-size:10px;color:var(--muted);}
+  #cassa-badge{font-size:12px;font-weight:700;background:var(--bg3);border:1px solid var(--border);padding:6px 10px;border-radius:8px;white-space:nowrap;}
+  .nav-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);overflow-x:auto;}
+  .nav-tab{flex:1;text-align:center;padding:12px 6px;font-size:12.5px;color:var(--muted);cursor:pointer;white-space:nowrap;border-bottom:3px solid transparent;}
+  .nav-tab.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:700;}
+  .page{display:none;padding:14px;max-width:640px;margin:0 auto;}
+  .page.active{display:block;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px;}
+  .card-title{font-size:15px;font-weight:700;margin-bottom:6px;}
+  .card-desc{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .big-row{display:flex;gap:10px;margin-bottom:10px;}
+  .big-btn{flex:1;min-height:76px;font-size:17px;border-radius:12px;}
+  .big-btn .ico{font-size:28px;display:block;}
+  #mic-btn.ascolto{background:var(--err);color:#fff;animation:pulse 1s infinite;}
+  @keyframes pulse{50%{opacity:.6}}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 10px;}
+  .chip{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:8px 12px;min-height:38px;font-size:13px;font-weight:600;}
+  .chip.sel{background:var(--gold);color:#0a1628;border-color:var(--gold);}
+  .chip.sel.pal{background:var(--pal);border-color:var(--pal);color:#fff;}
+  .chip.sel.soc{background:var(--soc);border-color:var(--soc);color:#fff;}
+  .chip.manca{border-color:var(--err);}
+  .riep{background:var(--bg3);border:1px solid var(--gold);border-radius:12px;padding:12px;margin-bottom:10px;}
+  .riep-imp{font-size:30px;font-weight:800;}
+  .riep-riga{font-size:13px;color:var(--muted);margin-top:4px;}
+  .domanda{background:rgba(200,168,75,.12);border:1px solid var(--warn);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;}
+  .errore{background:rgba(224,69,90,.12);border:1px solid var(--err);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;color:#ffb3bd;}
+  .ok-msg{background:rgba(34,168,90,.12);border:1px solid var(--ok);border-radius:10px;padding:10px 12px;margin:8px 0;font-size:14px;}
+  #foto-prev{max-width:100%;max-height:220px;border-radius:8px;display:none;margin:6px auto;border:1px solid var(--border);}
+  .mov{display:flex;gap:10px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;align-items:flex-start;}
+  .mov.annullato{opacity:.45;}
+  .mov-thumb{width:52px;height:52px;border-radius:6px;object-fit:cover;background:var(--bg2);border:1px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--muted);}
+  .mov-body{flex:1;min-width:0;}
+  .mov-top{display:flex;justify-content:space-between;gap:6px;font-weight:700;}
+  .mov-top>span:last-child{white-space:nowrap;}
+  .mov-desc{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin:2px 3px 0 0;}
+  .b-pal{background:rgba(58,155,213,.2);color:var(--pal);}
+  .b-soc{background:rgba(213,138,58,.2);color:var(--soc);}
+  .b-att{background:rgba(200,168,75,.2);color:var(--warn);}
+  .b-rimb{background:rgba(224,69,90,.18);color:var(--err);}
+  .b-ok{background:rgba(34,168,90,.18);color:var(--ok);}
+  .tot-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+  .tot{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;}
+  .tot .n{font-size:19px;font-weight:800;}
+  .tot .l{font-size:11px;color:var(--muted);}
+  .neg{color:#ff8a98;} .pos{color:#6fe09a;}
+  .cat-list{max-height:45vh;overflow-y:auto;}
+  #lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:200;align-items:center;justify-content:center;}
+  #lightbox img{max-width:96vw;max-height:92vh;}
+  #diag-toggle{position:fixed;bottom:12px;right:12px;background:var(--bg3);border:1px solid var(--border);border-radius:50%;width:38px;height:38px;font-size:16px;opacity:.6;min-height:0;padding:0;z-index:150;}
+  #diag-panel{display:none;position:fixed;bottom:56px;right:12px;left:12px;max-height:40vh;overflow-y:auto;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px;font-size:11px;font-family:monospace;z-index:150;}
+  #diag-panel.show{display:block;}
+  .log-line{padding:2px 0;border-bottom:1px solid var(--border);}
+  .log-err{color:var(--err);} .log-ok{color:var(--ok);} .log-warn{color:var(--warn);}
+  .empty{text-align:center;color:var(--muted);padding:18px 10px;font-size:13px;}
+  .riga2{display:flex;gap:8px;} .riga2>div{flex:1;}
+  table.conf{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  table.conf th,table.conf td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:right;}
+  table.conf th:first-child,table.conf td:first-child{text-align:left;color:var(--muted);}
+  table.conf th{font-size:11px;text-transform:uppercase;color:var(--muted);}
+  table.conf tr.saldo td{font-weight:800;}
+</style>
+</head>
+<body>
+
+<div id="login-scr">
+  <div class="login-card">
+    <h1>📸 Spese rapide</h1>
+    <p>ASD Basket Campodarsego — stesso account del gestionale</p>
+    <label>Email</label>
+    <input type="email" id="login-email" autocomplete="username">
+    <label>Password</label>
+    <input type="password" id="login-pass" autocomplete="current-password">
+    <button class="btn-gold btn-block" onclick="doLogin()">Accedi</button>
+    <div id="login-err"></div>
+  </div>
+</div>
+
+<div id="main-scr" style="display:none;">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">📸 Spese rapide</div>
+      <div class="topbar-sub" id="build-badge"></div>
+    </div>
+    <div id="cassa-badge" onclick="srGoTab('cassa')">Cassa: …</div>
+  </div>
+
+  <div class="nav-tabs">
+    <div class="nav-tab active" data-tab="nuova" onclick="srGoTab('nuova')">➕ Nuova</div>
+    <div class="nav-tab" data-tab="elenco" onclick="srGoTab('elenco')">📋 Elenco</div>
+    <div class="nav-tab" data-tab="cassa" onclick="srGoTab('cassa')">💶 Cassa</div>
+    <div class="nav-tab" data-tab="rimborsi" onclick="srGoTab('rimborsi')">↩️ Rimborsi</div>
+  </div>
+
+  <div id="avvisi-config"></div>
+
+  <!-- ── NUOVA ── -->
+  <div class="page active" id="page-nuova">
+    <div class="chips" id="tipo-mov">
+      <button class="chip sel" data-v="USCITA" onclick="srSetTipoMov('USCITA')">➖ Spesa</button>
+      <button class="chip" data-v="ENTRATA" onclick="srSetTipoMov('ENTRATA')">➕ Incasso</button>
+    </div>
+    <div class="big-row">
+      <button class="btn-gray big-btn" onclick="document.getElementById('foto-cam').click()"><span class="ico">📷</span>Foto</button>
+      <button class="btn-gold big-btn" id="mic-btn" onclick="srAscolta()"><span class="ico">🎤</span>Parla</button>
+    </div>
+    <input type="file" id="foto-cam" accept="image/*" capture="environment" style="display:none" onchange="srFotoScelta(this)">
+    <input type="file" id="foto-file" accept="image/*" style="display:none" onchange="srFotoScelta(this)">
+    <div style="text-align:right;margin-top:-4px;"><button class="btn-gray btn-sm" onclick="document.getElementById('foto-file').click()">🖼️ Foto dalla galleria</button></div>
+    <img id="foto-prev" alt="scontrino">
+
+    <label>Cosa hai speso (scrivi o detta)</label>
+    <div style="display:flex;gap:6px;">
+      <input id="frase" placeholder="es. benzina 45 euro Eni carta" style="margin-bottom:0" onkeydown="if(event.key==='Enter')srInterpretaDaCampo()">
+      <button class="btn-blue" onclick="srInterpretaDaCampo()">OK</button>
+    </div>
+    <div id="domande"></div>
+
+    <div class="card" id="form-spesa" style="margin-top:12px;">
+      <div class="riep" id="riepilogo"></div>
+      <div class="riga2">
+        <div><label>Importo €</label><input id="f-importo" inputmode="decimal" placeholder="0,00" oninput="srDaCampi()"></div>
+        <div><label>Data</label><input id="f-data" type="date" onchange="srDaCampi()"></div>
+      </div>
+      <label>Centro (obbligatorio)</label>
+      <div class="chips" id="f-centro"></div>
+      <label>Voce di spesa</label>
+      <div style="display:flex;gap:6px;align-items:center;margin:4px 0 10px;">
+        <div id="f-categoria-label" style="flex:1;font-weight:700;"></div>
+        <button class="btn-gray btn-sm" onclick="srApriSceltaCategoria(null)">Cambia</button>
+      </div>
+      <label>Pagato con</label>
+      <div class="chips" id="f-mezzo"></div>
+      <div id="blocco-natura">
+        <label>Natura (per il rendiconto)</label>
+        <div class="chips" id="f-natura"></div>
+      </div>
+      <label>Documento</label>
+      <div class="chips" id="f-documento"></div>
+      <label>Descrizione</label>
+      <input id="f-descrizione" oninput="srDaCampi()">
+      <div id="esito-salva"></div>
+      <button class="btn-green btn-block" id="btn-salva" style="min-height:52px;font-size:17px;" onclick="srSalva()">💾 Salva</button>
+      <button class="btn-gray btn-block" style="margin-top:6px;" onclick="srNuova()">Ricomincia</button>
+    </div>
+  </div>
+
+  <!-- ── ELENCO ── -->
+  <div class="page" id="page-elenco">
+    <label>Periodo</label>
+    <div class="chips" id="el-periodo">
+      <button class="chip sel" data-v="7" onclick="srSetPeriodo('7')">Ultimi 7 giorni</button>
+      <button class="chip" data-v="30" onclick="srSetPeriodo('30')">Ultimi 30</button>
+      <button class="chip" data-v="MESE" onclick="srSetPeriodo('MESE')">Questo mese</button>
+      <button class="chip" data-v="DA" onclick="srSetPeriodo('DA')">Da una data…</button>
+    </div>
+    <div class="riga2">
+      <div id="el-da-box" style="display:none;"><label>Dal</label><input type="date" id="el-da" onchange="srElencoAggiorna()"></div>
+      <div><label>Mostra</label><select id="el-filtro" onchange="srRenderElenco()">
+        <option value="">Tutti i movimenti</option>
+        <option value="PALESTRA">Solo palestra</option>
+        <option value="SPORT">Solo società</option>
+        <option value="ATTESA">In attesa di banca/carta</option>
+        <option value="NOFOTO">Uscite senza documento</option>
+      </select></div>
+    </div>
+    <div id="el-confronto"></div>
+    <div id="el-mezzi"></div>
+    <button class="btn-blue btn-block" style="margin:4px 0 12px;" onclick="srStampaElenco()">🖨️ Stampa elenco del periodo</button>
+    <div id="el-lista"></div>
+  </div>
+
+  <!-- ── CASSA ── -->
+  <div class="page" id="page-cassa">
+    <div class="card">
+      <div class="card-title">💶 Cassa della società</div>
+      <div id="cassa-saldo"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔢 Conta cassa</div>
+      <div class="card-desc">Conta i contanti della società che hai in mano. La differenza con il saldo teorico viene registrata come rettifica, così da quel momento i due numeri coincidono.</div>
+      <label>Contanti contati €</label>
+      <input id="conta-reale" inputmode="decimal" placeholder="0,00">
+      <label>Nota (facoltativa)</label>
+      <input id="conta-nota" placeholder="es. portafoglio società + busta">
+      <div id="conta-esito"></div>
+      <button class="btn-gold btn-block" onclick="srContaCassa()">Registra conta</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🏧 Prelievo o versamento</div>
+      <div class="card-desc">Spostamento tra banca e cassa: non è una spesa, è un giroconto.</div>
+      <div class="chips" id="giro-verso">
+        <button class="chip sel" data-v="PRELIEVO" onclick="srSetGiroVerso('PRELIEVO')">Banca → Cassa (prelievo)</button>
+        <button class="chip" data-v="VERSAMENTO" onclick="srSetGiroVerso('VERSAMENTO')">Cassa → Banca (versamento)</button>
+      </div>
+      <div class="riga2">
+        <div><label>Importo €</label><input id="giro-importo" inputmode="decimal"></div>
+        <div><label>Data</label><input id="giro-data" type="date"></div>
+      </div>
+      <div id="giro-esito"></div>
+      <button class="btn-gold btn-block" onclick="srGiroconto()">Registra</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Ultimi movimenti di cassa</div>
+      <div id="cassa-lista"></div>
+    </div>
+  </div>
+
+  <!-- ── RIMBORSI ── -->
+  <div class="page" id="page-rimborsi">
+    <div class="card">
+      <div class="card-title">↩️ Da rimborsare ad Alberto</div>
+      <div class="card-desc">Spese pagate con la tua carta personale o con i tuoi contanti. Seleziona quelle che la società ti rimborsa adesso.</div>
+      <div id="rimb-totale"></div>
+      <div id="rimb-lista"></div>
+      <label>Rimborso fatto con</label>
+      <div class="chips" id="rimb-modo">
+        <button class="chip sel" data-v="BONIFICO" onclick="srSetRimbModo('BONIFICO')">🏦 Bonifico</button>
+        <button class="chip" data-v="CONTANTI" onclick="srSetRimbModo('CONTANTI')">💶 Contanti dalla cassa</button>
+      </div>
+      <div id="rimb-esito"></div>
+      <button class="btn-green btn-block" onclick="srRimborsa()">Registra rimborso delle selezionate</button>
+    </div>
+    <div class="card">
+      <div class="card-title">🖨️ Nota spese</div>
+      <div class="card-desc">Elenco degli anticipi di un mese con totale, da stampare o salvare in PDF.</div>
+      <input type="month" id="nota-mese">
+      <button class="btn-blue btn-block" onclick="srStampaNotaSpese()">Stampa nota spese</button>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox" onclick="this.style.display='none'"><img id="lightbox-img" alt=""></div>
+<button id="diag-toggle" onclick="document.getElementById('diag-panel').classList.toggle('show')">🔧</button>
+<div id="diag-panel"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- funzioni pure Economia: ecoValidaMovimento, ecoNextNumeroMovimento, ecoNewId, ecoAnnullaMovimento, ecoNuovoCodice -->
+<script src="economia-core-DRAFT.js"></script>
+<script src="spese-rapide-voce.js"></script>
+<script src="spese-rapide.js"></script>
+</body>
+</html>

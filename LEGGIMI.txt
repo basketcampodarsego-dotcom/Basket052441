@@ -1,0 +1,31 @@
+BK-546 · 12/11/2026 · Spese rapide v0.1 + abbinamento negli import
+
+CARICARE SU GITHUB (Basket052441, cartella principale) TUTTI questi file:
+  NUOVI
+    spese-rapide.html            pagina (v0.1)
+    spese-rapide.js              logica pagina (v0.1)
+    spese-rapide-voce.js         lettura della frase (v0.1)
+  AGGIORNATI
+    economia-import-banca.js     v0.9 -> v1.0  (abbinamento spese gia' registrate)
+    economia-import-banca-ui.js  v0.9 -> v1.0
+    economia-import-carta.js     v0.1 -> v0.2
+    index-strumenti.html         + voce "Spese rapide"
+Gestionale e admin restano v7.03 / v9.64 (non cambiano).
+
+DOPO IL CARICAMENTO (circa 10 minuti di attesa):
+1. Apri sul telefono, in Chrome:
+   https://basketcampodarsego-dotcom.github.io/Basket052441/spese-rapide.html
+2. Menu ⋮ -> "Aggiungi a schermata Home": da quel momento e' un'icona.
+3. Primo avvio: se compare un riquadro rosso (centri Palestra/Societa' o
+   conto Cassa mancanti) tocca il pulsante per crearli.
+4. Scheda Cassa -> "Conta cassa": conta i contanti della societa', diventa
+   la base di partenza.
+
+USO: Foto -> Parla ("benzina 45 euro Eni carta") -> controlla il riepilogo -> Salva.
+CONTROLLO: scheda Elenco -> periodo -> confronto Palestra/Societa' -> Stampa.
+
+Verifiche eseguite (output reale in chat): 20/20 frasi di prova lette bene;
+E2E headless con database simulato (salvataggio, foto, apprendimento,
+anticipo, rimborso, conta cassa, giroconto, annullamento, errore di
+scrittura, stampa); abbinamento import su 6 casi + reimport senza doppioni;
+smoke gestionale/admin/pagina: 0 errori JS, nessuna funzione duplicata.
