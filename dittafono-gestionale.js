@@ -5,7 +5,10 @@
 //   singole o frasi brevi senza numeri ("residenti", "cassa", "affitti", "documenti
 //   mancanti") contano come domanda. "residenti" mostra anche l'elenco con i nomi;
 //   "anagrafica incompleta": per ogni atleta cosa manca per TESSERAMENTO, RICEVUTA
-//   DETRAIBILE e RICEVUTA NON DETRAIBILE (dfgAnagrafica).
+//   DETRAIBILE e RICEVUTA NON DETRAIBILE (dfgAnagrafica). Se due atleti con lo stesso
+//   cognome sembrano fratelli e solo uno ha i dati del genitore, CHIEDE se e' lo stesso
+//   genitore (osservazione Alberto: Zuanon Gabriele e Nicolo'): Si' -> copia i dati del
+//   genitore (e l'indirizzo se manca) solo nei campi vuoti; No -> non lo chiede piu'.
 //   "non residenti" solo i non residenti; "comune mancante"/"residenza non compilata" chi non ha il comune.
 // v0.6: QUOTE dovute/pagate/residuo con le regole di Alberto (Pulcini 200, altri
 //   minibasket e Special 340, fratello minore -20%, basket amatori 20; quota dal
@@ -218,6 +221,77 @@ function dfgAnagrafica(a, oggi) {
   if (!v(a.cf)) d.push('CF atleta');
   return { tess: t, det: d, nodet: nd };
 }
+var DFG_CAMPI_TUT = ['tutCog', 'tutNom', 'tutCf', 'cfTut', 'tutDn', 'tutNatoA', 'tutNatoProv', 'tutVia', 'tutNr', 'tutCap', 'tutComune', 'tutProv', 'tutCell1', 'tutCell2', 'tutEmail', 'indTut'];
+var DFG_CAMPI_IND = ['indVia', 'indNr', 'indCap', 'indComune', 'indProv'];
+// Coppie da verificare: stesso cognome, uno con genitore (nome+cognome), l'altro con dati del genitore mancanti.
+function dfgFratelliDaVerificare(atleti) {
+  var v = function (x) { return String(x || '').trim() !== ''; };
+  var norm = function (x) { return String(x || '').trim().toUpperCase(); };
+  var gruppi = {};
+  (atleti || []).forEach(function (a) { if (a && a.cog && !a.ritirato) (gruppi[norm(a.cog)] = gruppi[norm(a.cog)] || []).push(a); });
+  var out = [];
+  Object.keys(gruppi).forEach(function (g) {
+    var arr = gruppi[g]; if (arr.length < 2) return;
+    arr.forEach(function (y) {
+      var manca = DFG_CAMPI_TUT.filter(function (k) { return !v(y[k]); });
+      if (!(manca.indexOf('tutCog') >= 0 || manca.indexOf('tutNom') >= 0 || (manca.indexOf('tutCf') >= 0 && manca.indexOf('cfTut') >= 0) || manca.indexOf('tutCell1') >= 0)) return;
+      var cand = arr.filter(function (x) {
+        if (x === y || !v(x.tutCog) || !v(x.tutNom)) return false;
+        if ((y.tutoreDiversoDa || []).indexOf(x.id) >= 0 || (x.tutoreDiversoDa || []).indexOf(y.id) >= 0) return false;
+        if (v(y.tutNom) && norm(y.tutNom) !== norm(x.tutNom)) return false; // genitore diverso gia' scritto
+        if (v(y.tutCf) && v(x.tutCf) && norm(y.tutCf) !== norm(x.tutCf)) return false;
+        return true;
+      }).sort(function (p, q) { return DFG_CAMPI_TUT.filter(function (k) { return v(q[k]); }).length - DFG_CAMPI_TUT.filter(function (k) { return v(p[k]); }).length; });
+      var x = cand[0]; if (!x) return;
+      var campi = DFG_CAMPI_TUT.filter(function (k) { return !v(y[k]) && v(x[k]); });
+      var conInd = !v(y.indVia) && !v(y.ind) && v(x.indVia);
+      if (conInd) campi = campi.concat(DFG_CAMPI_IND.filter(function (k) { return !v(y[k]) && v(x[k]); }));
+      if (!campi.length) return;
+      out.push({ da: x.id, a: y.id, daNome: (x.cog + ' ' + (x.nom || '')).trim(), aNome: (y.cog + ' ' + (y.nom || '')).trim(), genitore: (x.tutNom + ' ' + x.tutCog).trim(), campi: campi, indirizzo: conInd });
+    });
+  });
+  return out;
+}
+function dfgHtmlFratelli(lista) {
+  if (!lista || !lista.length) return '';
+  return '<div style="margin-top:10px">' + lista.map(function (f) {
+    var idb = 'dfg-fr-' + f.a + '-' + f.da;
+    return '<div class="domanda" id="' + idb + '" style="margin-top:6px">👪 <b>' + srEsc(f.aNome) + '</b> e <b>' + srEsc(f.daNome) + '</b> hanno lo stesso genitore (' + srEsc(f.genitore) + ')?<br>' +
+      '<button class="btn-sm" onclick="dfgCopiaGenitore(' + f.da + ',' + f.a + ')">Sì, copia i dati' + (f.indirizzo ? ' e l\'indirizzo' : '') + '</button> ' +
+      '<button class="btn-gray btn-sm" onclick="dfgNonFratelli(' + f.da + ',' + f.a + ')">No</button></div>';
+  }).join('') + '</div>';
+}
+function _dfgScriviAtleti(fn, descr, idb) {
+  var ref = _db.collection('basket052441').doc('atleti'), box = document.getElementById(idb), adesso = new Date().toISOString();
+  if (box) box.innerHTML = 'Aggiornamento…';
+  return _db.runTransaction(function (tx) {
+    return tx.get(ref).then(function (d) {
+      var arr = d.exists && d.data().v ? JSON.parse(d.data().v) : [];
+      fn(arr, adesso);
+      tx.set(ref, { v: JSON.stringify(arr), ts: adesso, da: 'dittafono ' + SR.utente });
+      DFG.atl = arr;
+    });
+  }).then(function () { srLog(descr, 'ok'); if (box) box.innerHTML = '✅ ' + srEsc(descr); })
+    .catch(function (err) { srLog('NON aggiornato: ' + err.message, 'err'); if (box) box.innerHTML = '<span class="errore">NON aggiornato: ' + srEsc(err.message) + '</span>'; });
+}
+function dfgCopiaGenitore(daId, aId) {
+  var f = dfgFratelliDaVerificare(DFG.atl).find(function (x) { return x.da === daId && x.a === aId; });
+  if (!f) { srLog('Copia genitore: coppia ' + daId + '/' + aId + ' non piu\' da verificare', 'warn'); return; }
+  if (!confirm('Copio in ' + f.aNome + ' i dati del genitore ' + f.genitore + (f.indirizzo ? ' e l\'indirizzo' : '') + ' presi da ' + f.daNome + '?\nSolo i campi vuoti: ' + f.campi.length)) return;
+  _dfgScriviAtleti(function (arr, adesso) {
+    var x = arr.find(function (z) { return z.id === daId; }), y = arr.find(function (z) { return z.id === aId; });
+    if (!x || !y) throw new Error('atleta non più presente in anagrafica');
+    var fatti = f.campi.filter(function (k) { if (String(y[k] || '').trim() === '' && String(x[k] || '').trim() !== '') { y[k] = x[k]; return true; } return false; });
+    y.modTs = adesso;
+    y.storiaDittafono = (y.storiaDittafono || []).concat([{ il: adesso, campi: fatti, da: 'copiati da ' + f.daNome + ' (stesso genitore)' }]).slice(-50);
+  }, f.aNome + ': dati del genitore copiati da ' + f.daNome, 'dfg-fr-' + aId + '-' + daId);
+}
+function dfgNonFratelli(daId, aId) {
+  _dfgScriviAtleti(function (arr) {
+    var y = arr.find(function (z) { return z.id === aId; }); if (!y) throw new Error('atleta non più presente in anagrafica');
+    y.tutoreDiversoDa = (y.tutoreDiversoDa || []).filter(function (i) { return i !== daId; }).concat([daId]);
+  }, 'Annotato: genitore diverso, non lo chiedo più', 'dfg-fr-' + aId + '-' + daId);
+}
 // Dati mancanti per ricevute, report e tesseramento
 function dfgDatiMancanti(a, oggi) {
   var m = [];
@@ -303,7 +377,7 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
         return [dfgNomeAtl(a), cat(a), srEuro(dov), srEuro(pg), srEuro(res)];
       }).filter(Boolean);
       return { titolo: 'Quote da saldare', sotto: 'Stagione ' + st.chiave + ' · ' + r3.length + ' atleti · totale ' + srEuro(tot3), colonne: ['Atleta', 'Categoria', 'Dovuta', 'Pagata', 'Residuo'], righe: r3,
-        link: link3, linkTesto: '💬', nota: 'Regole: Pulcini 200 €, altri minibasket e Special 340 €, fratello minore -20%, basket amatori 20 €, volley amatori = affitto di gruppo; quota scritta in scheda se diversa.' + (daDec.length ? ' Quota da decidere: ' + daDec.join(', ') + '.' : '') + ' 💬 = messaggio WhatsApp pronto al genitore (serve il telefono in scheda).' };
+        link: link3, linkTesto: '💬', nota: 'Regole: Pulcini 200 €, altri minibasket e Special 340 €, fratello minore -20%, basket amatori 20 €, volley amatori Max Music = contributo di squadra (no quota individuale); quota scritta in scheda se diversa.' + (daDec.length ? ' Quota da decidere: ' + daDec.join(', ') + '.' : '') + ' 💬 = messaggio WhatsApp pronto al genitore (serve il telefono in scheda).' };
     }
     case 'ANAGRAFICA': { // v0.7
       var link7 = [], nT = 0, nD = 0, nN = 0;
@@ -314,13 +388,13 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
         return [dfgNomeAtl(a), f(x.tess), f(x.det), f(x.nodet)];
       }).filter(Boolean);
       return { titolo: 'Anagrafica incompleta', sotto: 'Stagione ' + st.chiave + ' · ' + r7.length + ' atleti su ' + atletiVeri.length + ' · tesseramento ' + nT + ' · ric. detraibile ' + nD + ' · ric. non detraibile ' + nN,
-        colonne: ['Atleta', 'Tesseramento', 'Ricevuta detraibile', 'Ricevuta non detraibile'], righe: r7, link: link7, linkTesto: '✏️',
+        colonne: ['Atleta', 'Tesseramento', 'Ricevuta detraibile', 'Ricevuta non detraibile'], righe: r7, link: link7, linkTesto: '✏️', fratelli: dfgFratelliDaVerificare(atleti),
         nota: 'Ricevute intestate al genitore se minorenne. ✏️ apre la scheda nel gestionale: i dati personali si inseriscono da tastiera.' };
     }
     case 'DA_COMPLETARE': {
       var link4 = [];
       var r4b = ord(atletiVeri.slice()).map(function (a) { var m = dfgDatiMancanti(a, oggi); if (!m.length) return null; link4.push(dfgLinkScheda(a.id)); return [dfgNomeAtl(a), cat(a), m.join(', ')]; }).filter(Boolean);
-      return { titolo: 'Schede da completare', sotto: 'Stagione ' + st.chiave + ' · ' + r4b.length + ' atleti', colonne: ['Atleta', 'Categoria', 'Manca'], righe: r4b, link: link4, linkTesto: '✏️',
+      return { titolo: 'Schede da completare', sotto: 'Stagione ' + st.chiave + ' · ' + r4b.length + ' atleti', colonne: ['Atleta', 'Categoria', 'Manca'], righe: r4b, link: link4, linkTesto: '✏️', fratelli: dfgFratelliDaVerificare(atleti),
         nota: '✏️ apre la scheda nel gestionale: i dati personali si inseriscono da tastiera.' };
     }
     case 'RESIDENZA_MANCANTE': {
@@ -680,7 +754,7 @@ function dfgHtmlRisposta(r, stampa) {
   return '<div class="card"' + (stampa ? '' : ' style="padding:10px 12px"') + '><div style="font-weight:700;font-size:15px">' + srEsc(r.titolo) + '</div>' +
     (r.sotto ? '<div style="font-size:12px;opacity:.75;margin-bottom:6px">' + srEsc(r.sotto) + '</div>' : '') +
     (r.righe.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>' + th + '</tr></thead><tbody>' + tr + '</tbody></table></div>' : '') +
-    (r.nota ? '<div style="font-size:12px;opacity:.75;margin-top:6px">' + srEsc(r.nota) + '</div>' : '') + '</div>';
+    (r.nota ? '<div style="font-size:12px;opacity:.75;margin-top:6px">' + srEsc(r.nota) + '</div>' : '') + (stampa ? '' : dfgHtmlFratelli(r.fratelli)) + '</div>';
 }
 function dfgStampa() {
   var r = DFG.risposta; if (!r) return;
@@ -965,4 +1039,4 @@ function dfgConfermaPresenze(id) {
 }
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { dfgQuotaDovuta: dfgQuotaDovuta, dfgQuotaPagata: dfgQuotaPagata, dfgDatiMancanti: dfgDatiMancanti, dfgDetraibile: dfgDetraibile, dfgPagamentiAnno: dfgPagamentiAnno, dfgEstraiPresenze: dfgEstraiPresenze, dfgAllenamentoEsistente: dfgAllenamentoEsistente, dfgCategorieDette: dfgCategorieDette, dfgDate: dfgDate, dfgEstraiDati: dfgEstraiDati, dfgEstraiMetodo: dfgEstraiMetodo, dfgEstraiTipoPag: dfgEstraiTipoPag,
-  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgAnagrafica: dfgAnagrafica, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };
+  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgAnagrafica: dfgAnagrafica, dfgFratelliDaVerificare: dfgFratelliDaVerificare, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };
