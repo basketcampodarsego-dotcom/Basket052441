@@ -1,11 +1,11 @@
-<!-- spese-rapide.html | v0.5 · 20/11/2026 11:00 · BK -->
+<!-- spese-rapide.html | v0.2 · 12/11/2026 11:50 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="theme-color" content="#0a1628">
-<title>BK dittafono</title>
+<title>Spese rapide</title>
 <link rel="icon" href="logo.jpg">
 <link rel="apple-touch-icon" href="logo.jpg">
 <style>
@@ -118,56 +118,23 @@
 <div id="main-scr" style="display:none;">
   <div class="topbar">
     <div>
-      <div class="topbar-title">🎤 BK</div>
+      <div class="topbar-title">📸 Spese rapide</div>
       <div class="topbar-sub" id="build-badge"></div>
     </div>
     <div id="cassa-badge" onclick="srGoTab('cassa')">Cassa: …</div>
   </div>
 
   <div class="nav-tabs">
-    <div class="nav-tab active" data-tab="detta" onclick="srGoTab('detta')">🎤 Detta</div>
-    <div class="nav-tab" data-tab="note" onclick="srGoTab('note')">📥 Note</div>
-    <div class="nav-tab" data-tab="nuova" onclick="srGoTab('nuova')">➕ Spesa</div>
+    <div class="nav-tab active" data-tab="nuova" onclick="srGoTab('nuova')">➕ Nuova</div>
     <div class="nav-tab" data-tab="elenco" onclick="srGoTab('elenco')">📋 Elenco</div>
     <div class="nav-tab" data-tab="cassa" onclick="srGoTab('cassa')">💶 Cassa</div>
-    <div class="nav-tab" data-tab="rimborsi" onclick="srGoTab('rimborsi')">↩️ Rimb.</div>
+    <div class="nav-tab" data-tab="rimborsi" onclick="srGoTab('rimborsi')">↩️ Rimborsi</div>
   </div>
 
   <div id="avvisi-config"></div>
 
   <!-- ── NUOVA ── -->
-  <!-- ── DETTA (dittafono, v0.3) ── -->
-  <div class="page active" id="page-detta">
-    <button class="btn-gold big-btn" id="df-mic" style="width:100%;min-height:120px;font-size:20px;margin-bottom:10px" onclick="dfAscolta()"><span class="ico">🎤</span>Detta</button>
-    <div class="card-desc" style="margin-bottom:6px">Dì quello che vuoi ricordare: spese, pagamenti, presenze, dati degli atleti, appunti. Si salva subito così com'è; lo sistemi dopo in 📥 Note.</div>
-    <textarea id="df-testo" rows="3" placeholder="…oppure scrivi qui. Puoi anche chiedere: &quot;chi ha il certificato scaduto?&quot;, &quot;chi non ha pagato?&quot;, &quot;cassa&quot;, &quot;situazione Rossi&quot;"></textarea>
-    <div style="display:flex;gap:8px;margin-bottom:8px">
-      <button class="btn-gray" style="flex:1" onclick="document.getElementById('df-foto-cam').click()">📷 Foto</button>
-      <button class="btn-blue" style="flex:1" onclick="dfSalvaDaCampo()">💾 Salva nota</button>
-    </div>
-    <input type="file" id="df-foto-cam" accept="image/*" capture="environment" style="display:none" onchange="dfFotoScelta(this)">
-    <img id="df-foto-prev" alt="foto" style="max-width:100%;max-height:200px;border-radius:8px;display:none;margin:4px auto;border:1px solid var(--border)">
-    <div id="df-esito"></div>
-    <div id="dfg-risposta"></div>
-    <div id="df-coda"></div>
-    <div id="df-ultima"></div>
-  </div>
-
-  <!-- ── NOTE (dittafono, v0.3) ── -->
-  <div class="page" id="page-note">
-    <div class="chips" id="df-filtro">
-      <button class="chip sel" data-v="NUOVA" onclick="dfSetFiltro('NUOVA')">Da elaborare</button>
-      <button class="chip" data-v="APPUNTO" onclick="dfSetFiltro('APPUNTO')">Appunti</button>
-      <button class="chip" data-v="ELABORATA" onclick="dfSetFiltro('ELABORATA')">Elaborate</button>
-      <button class="chip" data-v="TUTTE" onclick="dfSetFiltro('TUTTE')">Tutte</button>
-    </div>
-    <div style="display:flex;gap:8px;margin:6px 0"><button class="btn-gray btn-sm" onclick="document.getElementById('df-import-file').click()">📂 Importa note da file</button></div>
-    <input type="file" id="df-import-file" accept=".json,application/json" style="display:none" onchange="dfImportaFile(this)">
-    <div id="df-import-esito"></div>
-    <div id="df-lista"></div>
-  </div>
-
-  <div class="page" id="page-nuova">
+  <div class="page active" id="page-nuova">
     <div id="banner-modifica"></div>
     <div class="chips" id="tipo-mov">
       <button class="chip sel" data-v="USCITA" onclick="srSetTipoMov('USCITA')">➖ Spesa</button>
@@ -314,8 +281,5 @@
 <script src="economia-core-DRAFT.js"></script>
 <script src="spese-rapide-voce.js"></script>
 <script src="spese-rapide.js"></script>
-<script src="dittafono.js"></script>
-<script src="report-residenti.js"></script>
-<script src="dittafono-gestionale.js"></script>
 </body>
 </html>
