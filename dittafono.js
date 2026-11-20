@@ -1,6 +1,10 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono.js — ASD Basket Campodarsego
-// VERSIONE: v0.7 · 20/11/2026 18:00 · BK
+// VERSIONE: v0.9 · 20/11/2026 13:55 · BK
+// v0.9: su Android i CSV scaricati restavano grigi (non selezionabili): il campo file
+//   accetta qualunque file e il tipo (CSV/JSON) si riconosce dal nome o dal contenuto.
+// v0.8: "Importa dati da file" accetta anche un CSV di spese (es. dalla chat palestra) ->
+//   revisione e registrazione in blocco (dittafono-import.js v0.2).
 // v0.7: il file del foglio (versione 2) porta anche la tabella Atleti -> revisione e
 //   applicazione in blocco (dittafono-import.js) dopo l'import delle note.
 // v0.6: tipo PALESTRA (sospensioni/assenze degli utenti della palestra, palestra-affitti.js):
@@ -412,8 +416,15 @@ function dfImportaFile(inp) {
   var esito = document.getElementById('df-import-esito');
   var r = new FileReader();
   r.onerror = function () { srLog('Import note: file illeggibile', 'err'); esito.innerHTML = '<div class="errore">File illeggibile.</div>'; };
+  var csv = /\.csv$/i.test(f.name || '') || /csv/.test(f.type || '');
   r.onload = function () {
     inp.value = '';
+    var testo = String(r.result || '').replace(/^\uFEFF/, '');
+    if (!/\.json$/i.test(f.name || '') && !/^\s*[\[{]/.test(testo)) { // v0.9: riconosce dal contenuto
+      if (/[;,\t]/.test(testo.split(/\r?\n/)[0] || '')) csv = true;
+      else { srLog('Import: file non riconosciuto ' + f.name, 'err'); esito.innerHTML = '<div class="errore">File non riconosciuto: serve un CSV (righe separate da ;) o il file .json del foglio.</div>'; return; }
+    }
+    if (csv) { if (typeof dfsImportaCSV === 'function') dfsImportaCSV(String(r.result), f.name); else esito.innerHTML = '<div class="errore">Import CSV non disponibile: aggiorna i file.</div>'; return; } // v0.8
     var res;
     var dati;
     try { dati = JSON.parse(r.result); res = dfNoteDaImport(dati, DF.atleti, SR.utente, new Date().toISOString()); }

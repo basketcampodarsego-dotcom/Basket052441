@@ -1,6 +1,16 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-import.js — ASD Basket Campodarsego
-// VERSIONE: v0.1 · 20/11/2026 18:00 · BK
+// VERSIONE: v0.3 · 20/11/2026 14:45 · BK
+// v0.3: il CSV puo' contenere anche ENTRATE (colonna facoltativa "movimento" = entrata),
+//   es. affitti della palestra versati in contanti: categoria uso palestra, centro Palestra.
+//   Data nel futuro: avviso (non bloccata).
+// v0.2: IMPORT CSV DI SPESE (file della chat palestra, colonne data;voce;
+//   importo_eur;centro;tipo;documento;n_documento;pagamento;note) con UNA
+//   revisione: voce di spesa proposta, natura dal tipo (una tantum = miglioria,
+//   consumabile = funzionamento, manutenzione/utenza = costo fisso), mezzo dal
+//   campo pagamento (vuoto = da scegliere), doppioni con Economia segnalati e
+//   non spuntati, "dal 09/2026 ... /mese" espanso mese per mese, date solo
+//   mese/anno segnalate. Poi "Registra" -> movimenti in Economia.
 // v0.1 (richiesta Alberto 20/11/2026: "un unico caricamento con tutte le
 //   informazioni gia' passate con la lista atleti", "diminuire al massimo
 //   l'intervento manuale"): IMPORT IN BLOCCO della tabella Atleti del foglio
@@ -20,7 +30,7 @@
 // Dipende da: dittafono.js, dittafono-gestionale.js, spese-rapide.js, economia-core-DRAFT.js.
 // ════════════════════════════════════════════════════════
 
-var DFI_VERSIONE = 'v0.1 · 20/11/2026 18:00';
+var DFI_VERSIONE = 'v0.3 · 20/11/2026 14:45';
 var DFI = { righe: [], dati: null };
 var DFI_CAT = [[/^pulcini/i, 'Pulcini'], [/^scoiattoli/i, 'Scoiattoli'], [/^aquilotti/i, 'Aquilotti'], [/^esordienti/i, 'Esordienti'], [/special\s*[–-]\s*partner/i, 'Special', true],
   [/pallacanestro special|^special/i, 'Special'], [/pallacanestro amatoriale|basket amatori/i, 'AmaBasket'], [/pallavolo amatoriale|volley/i, 'AmaVolley'], [/dirigenza|dirigente/i, 'Dirigente'], [/volontari/i, 'Volontario']];
@@ -212,4 +222,147 @@ function dfiApplica() {
   }).catch(function (err) { srLog('Import foglio NON applicato: ' + err.message, 'err'); es.innerHTML = '<div class="errore">NON applicato (nessuna modifica fatta): ' + srEsc(err.message) + '</div>'; });
 }
 
-if (typeof module !== 'undefined' && module.exports) module.exports = { dfiSimili: dfiSimili, dfiProposte: dfiProposte, dfiSeparaNome: dfiSeparaNome, dfiCategoria: dfiCategoria, dfiSiNo: dfiSiNo };
+// ════════ IMPORT CSV DI SPESE (v0.2) ════════
+var DFS = { righe: [], nome: '' };
+var DFS_TIPO_CAT_ENTRATE = [[/affitt|uso palestra|condiv|tariff/i, ['CONDIVPALESTRA', 'TARIFFE_PAL']], [/quot|iscrizion|rett/i, ['QUOTE']]];
+var DFS_TIPO_CAT = [[/consumabil|pulizi/i, ['PUL', 'PULIZIE']], [/manutenz/i, ['MANUT']], [/utenz|bollett/i, ['UTENZE']], [/carburant/i, ['CARBURANTE', 'CARBURANTI', 'CARBUR']],
+  [/una tantum|attrezz|miglior/i, ['ATTREZZ', 'MIGLIORIE']], [/ricorrent/i, ['UTENZE']]];
+var DFS_TIPO_NATURA = [[/una tantum|attrezz|miglior/i, 'MIGLIORIA'], [/manutenz|utenz/i, 'FISSO'], [/consumabil|ricorrent|carburant/i, 'FUNZIONAMENTO']];
+function dfsCSVRighe(testo) {
+  var righe = String(testo || '').replace(/^﻿/, '').split(/\r?\n/).filter(function (l) { return l.trim(); });
+  var sep = (righe[0].match(/;/g) || []).length >= (righe[0].match(/,/g) || []).length ? ';' : ',';
+  var split = function (l) { var out = [], cur = '', q = false; for (var i = 0; i < l.length; i++) { var c = l[i]; if (c === '"') { if (q && l[i + 1] === '"') { cur += '"'; i++; } else q = !q; } else if (c === sep && !q) { out.push(cur); cur = ''; } else cur += c; } out.push(cur); return out.map(function (x) { return x.trim(); }); };
+  var testa = split(righe[0]).map(function (h) { return h.toLowerCase(); });
+  return righe.slice(1).map(function (l) { var v = split(l), o = {}; testa.forEach(function (h, i) { o[h] = v[i] || ''; }); return o; });
+}
+function dfsImporto(s) { var m = String(s || '').replace(/\s/g, '').match(/^(\d+(?:[.,]\d{1,2})?)/); return m ? Math.round(parseFloat(m[1].replace(',', '.')) * 100) / 100 : null; }
+function dfsUltimoGiorno(a, m) { var d = new Date(a, m, 0); return a + '-' + String(m).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function dfsMezzo(s) {
+  var t = String(s || '').toLowerCase();
+  if (!t) return null;
+  if (/personal/.test(t)) return 'CARTA_PERSONALE';
+  if (/bonific/.test(t)) return 'BONIFICO';
+  if (/carta (asd|tasca)|tasca|carta asd/.test(t)) return 'CARTA_TASCA';
+  if (/contant/.test(t)) return 'CONTANTI_CASSA';
+  return null;
+}
+function dfsDocumento(s) { var t = String(s || '').toLowerCase(); return /fattura/.test(t) ? 'FATTURA' : /scontrino/.test(t) ? 'SCONTRINO' : /ricevut/.test(t) ? 'RICEVUTA' : null; }
+function dfsCategoria(tipo, voce, attive, interpreta, entrata) {
+  var codici = attive.map(function (c) { return c.codice; }), tab = entrata ? DFS_TIPO_CAT_ENTRATE : DFS_TIPO_CAT;
+  for (var i = 0; i < tab.length; i++) if (tab[i][0].test(tipo + ' ' + (entrata ? voce : ''))) { var c = tab[i][1].find(function (x) { return codici.indexOf(x) >= 0; }); if (c) return c; }
+  var r = interpreta ? interpreta(voce + ' ' + tipo) : null;
+  return r && r.categoria && codici.indexOf(r.categoria) >= 0 ? r.categoria : '';
+}
+// Righe del CSV -> spese proposte. oggi = 'AAAA-MM-GG'. attive = categorie attive. interpreta = srInterpreta (facoltativo)
+function dfsProposte(righe, esistenti, oggi, attive, interpreta) {
+  var out = [];
+  righe.forEach(function (r, n) {
+    var voce = r.voce || r.descrizione || '', tipo = r.tipo || '', note = r.note || '', pag = r.pagamento || '';
+    var centro = /palestr/i.test(r.centro || '') ? 'PALESTRA' : /societ|sport/i.test(r.centro || '') ? 'SPORT' : '';
+    var entrata = /entrat|incass/i.test(r.movimento || '');
+    var natura = null; if (!entrata) DFS_TIPO_NATURA.some(function (x) { if (x[0].test(tipo)) { natura = x[1]; return true; } return false; });
+    var base = { riga: n + 2, tipoMov: entrata ? 'ENTRATA' : 'USCITA', voce: voce, tipo: tipo, importo: dfsImporto(r.importo_eur || r.importo), centro: centro, natura: natura, documento: dfsDocumento(r.documento), numeroDocumento: r.n_documento || null,
+      mezzo: dfsMezzo(pag), pagamentoOrig: pag, note: note, categoria: dfsCategoria(tipo, voce, attive, interpreta, entrata), avvisi: [], sel: true };
+    var d = String(r.data || '').trim(), m;
+    var aggiungi = function (data, extra) { var x = JSON.parse(JSON.stringify(base)); x.data = data; Object.assign(x, extra || {}); out.push(x); return x; };
+    if ((m = d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/))) aggiungi(m[3] + '-' + String(m[2]).padStart(2, '0') + '-' + String(m[1]).padStart(2, '0'));
+    else if ((m = d.match(/^dal\s+(\d{1,2})\/(\d{4})$/i)) && /\/\s*mese/i.test(r.importo_eur || '')) {
+      var a = +m[2], mm = +m[1], fine = oggi.slice(0, 7);
+      while ((a + '-' + String(mm).padStart(2, '0')) <= fine) {
+        var gg = dfsUltimoGiorno(a, mm); if (gg > oggi) gg = oggi;
+        aggiungi(gg, { voce: voce + ' – ' + ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'][mm - 1] + ' ' + a, avvisi: ['ricorrente: un movimento al mese fino a oggi'] });
+        mm++; if (mm > 12) { mm = 1; a++; }
+      }
+    } else if ((m = d.match(/^(\d{1,2})\/(\d{4})$/))) aggiungi(dfsUltimoGiorno(+m[2], +m[1]), { avvisi: ['data esatta non indicata: messo l\'ultimo giorno del mese'] });
+    else aggiungi('', { avvisi: ['data non capita: "' + d + '"'], sel: false });
+  });
+  out.forEach(function (x) {
+    if (!(x.importo > 0)) { x.avvisi.push('importo mancante'); x.sel = false; }
+    if (!x.centro) { x.avvisi.push('centro non capito'); x.sel = false; }
+    if (!x.mezzo) x.avvisi.push(x.pagamentoOrig ? 'pagamento "' + x.pagamentoOrig + '" non capito: scegli' : 'pagamento non indicato: scegli');
+    if (/da decidere/i.test(x.note)) { x.avvisi.push(x.note); x.sel = false; }
+    else if (/da verificare|a rate|rata/i.test(x.note + ' ' + x.pagamentoOrig + ' ' + x.voce)) x.avvisi.push('da verificare: ' + (x.note || x.pagamentoOrig));
+    if (!x.categoria) x.avvisi.push('voce di spesa da scegliere');
+    if (x.data && x.data > oggi) x.avvisi.push('data nel futuro');
+    if (x.data) {
+      var esatto = (esistenti || []).find(function (e) { return e.tipoMovimento === x.tipoMov && e.stato !== 'ANNULLATO' && (e.dataDocumento || '') === x.data && Math.abs((+e.importoEur || 0) - x.importo) < 0.01; });
+      var simile = !esatto && (esistenti || []).find(function (e) {
+        if (e.tipoMovimento !== x.tipoMov || e.stato === 'ANNULLATO' || Math.abs((+e.importoEur || 0) - x.importo) >= 0.01) return false;
+        var g = Math.abs((new Date(e.dataDocumento || '1970-01-01') - new Date(x.data)) / 864e5); return g <= 15;
+      });
+      if (esatto) { x.gia = esatto.numeroMovimento || esatto.id; x.sel = false; x.avvisi.unshift('già in Economia (' + x.gia + ')'); }
+      else if (simile) { x.simile = simile.numeroMovimento || simile.id; x.sel = false; x.avvisi.unshift('forse già in Economia: ' + x.simile + ' del ' + simile.dataDocumento + ' (' + (simile.note || '').slice(0, 40) + ')'); }
+    }
+  });
+  return out;
+}
+function dfsImportaCSV(testo, nome) {
+  var el = document.getElementById('df-import-esito');
+  var righe;
+  try { righe = dfsCSVRighe(testo); if (!righe.length || !('importo_eur' in righe[0] || 'importo' in righe[0])) throw new Error('colonne attese: data;voce;importo_eur;centro;tipo;documento;n_documento;pagamento;note'); }
+  catch (ex) { srLog('Import CSV: ' + ex.message, 'err'); el.innerHTML = '<div class="errore">CSV non riconosciuto: ' + srEsc(ex.message) + '</div>'; return; }
+  var anni = {}; righe.forEach(function (r) { var m = String(r.data || '').match(/(\d{4})/); if (m) anni[m[1]] = 1; }); anni[srOggi().slice(0, 4)] = 1;
+  el.innerHTML = '<div class="domanda">Controllo i doppioni in Economia…</div>';
+  Promise.all(Object.keys(anni).map(function (y) { return srAnnoCaricato(Number(y)); })).then(function (mm) {
+    var esistenti = [].concat.apply([], mm);
+    DFS.nome = nome || 'CSV';
+    DFS.righe = dfsProposte(righe, esistenti, srOggi(), srCategorieAttive(), function (t) { return srInterpreta(t, { oggiISO: srOggi(), diz: SR.diz, categorieAttive: srCategorieAttive() }); });
+    dfsRender();
+  }).catch(function (err) { srLog('Import CSV: ' + err.message, 'err'); el.innerHTML = '<div class="errore">' + srEsc(err.message) + '</div>'; });
+}
+function dfsRender() {
+  var el = document.getElementById('df-import-esito'), R = DFS.righe, cats = srCategorieAttive();
+  var sel = R.filter(function (x) { return x.sel; }), tot = sel.reduce(function (s, x) { return s + (x.importo || 0); }, 0);
+  var optCat = function (v) { return '<option value="">— voce —</option>' + cats.map(function (c) { return '<option value="' + srEsc(c.codice) + '"' + (c.codice === v ? ' selected' : '') + '>' + srEsc(c.descrizione || c.codice) + '</option>'; }).join(''); };
+  var optMezzo = function (v) { return '<option value="">— come pagata —</option>' + Object.keys(SR_MEZZI).map(function (k) { return '<option value="' + k + '"' + (k === v ? ' selected' : '') + '>' + SR_MEZZI[k].breve + '</option>'; }).join(''); };
+  el.innerHTML = '<div class="card" style="border:1px solid var(--gold)"><div class="card-title">🧾 Revisione spese da ' + srEsc(DFS.nome) + '</div>' +
+    '<div class="card-desc">' + R.length + ' righe · selezionate ' + sel.length + ' (' + srEuro(tot) + ') · non spuntate: doppioni, "da decidere", dati mancanti</div>' +
+    (R.some(function (x) { return !x.mezzo; }) ? '<div style="display:flex;gap:6px;align-items:center;margin:6px 0"><span style="font-size:12px">Per le righe senza pagamento:</span><select id="dfs-mezzo-tutti" style="font-size:12px;min-height:32px">' + optMezzo('') + '</select><button class="btn-gray btn-sm" onclick="dfsMezzoTutti()">Applica</button></div>' : '') +
+    '<button class="btn-gold btn-sm" style="margin:6px 0" onclick="dfsRegistra()">✅ Registra le selezionate</button>' +
+    R.map(function (x, i) {
+      return '<div style="border-top:1px solid var(--border);padding:6px 0;font-size:12px"><label style="display:flex;gap:8px;align-items:center;margin:0;color:var(--text);font-size:13px"><input type="checkbox" style="width:auto;min-height:0"' + (x.sel ? ' checked' : '') + ' onchange="DFS.righe[' + i + '].sel=this.checked;dfsRender()">' +
+        '<b>' + srEsc(x.data ? srDataIt(x.data) : '??') + ' · ' + (x.tipoMov === 'ENTRATA' ? '💰 +' : '') + srEuro(x.importo || 0) + '</b>&nbsp;' + srEsc(x.voce) + '</label>' +
+        '<div style="margin-left:26px;color:var(--muted)">' + (x.centro === 'PALESTRA' ? '🏟️ Palestra' : x.centro === 'SPORT' ? '🏀 Società' : '?') + (x.natura ? ' · ' + SR_NATURE[x.natura] : '') + (x.documento ? ' · ' + SR_DOCUMENTI[x.documento] : '') + '</div>' +
+        '<div style="display:flex;gap:6px;margin:4px 0 0 26px"><select style="font-size:12px;min-height:32px" onchange="DFS.righe[' + i + '].categoria=this.value">' + optCat(x.categoria) + '</select>' +
+        '<select style="font-size:12px;min-height:32px" onchange="DFS.righe[' + i + '].mezzo=this.value||null">' + optMezzo(x.mezzo) + '</select></div>' +
+        (x.avvisi.length ? '<div style="margin-left:26px;color:var(--warn)">⚠ ' + srEsc(x.avvisi.join(' · ')) + '</div>' : '') + '</div>';
+    }).join('') + '<div id="dfs-esito"></div><button class="btn-gold btn-block" onclick="dfsRegistra()">✅ Registra le selezionate</button></div>';
+}
+function dfsMezzoTutti() {
+  var v = document.getElementById('dfs-mezzo-tutti').value;
+  if (!v || !SR_MEZZI[v]) { alert('Scegli come sono state pagate.'); return; }
+  var n = 0; DFS.righe.forEach(function (x) { if (!x.mezzo) { x.mezzo = v; n++; x.avvisi = x.avvisi.filter(function (a) { return !/pagamento/.test(a); }); } });
+  srLog('Import CSV: pagamento "' + SR_MEZZI[v].breve + '" assegnato a ' + n + ' righe', 'ok'); dfsRender();
+}
+function dfsRegistra() {
+  var es = document.getElementById('dfs-esito') || document.getElementById('df-import-esito');
+  var scelte = DFS.righe.filter(function (x) { return x.sel; });
+  var manca = scelte.filter(function (x) { return !x.data || !(x.importo > 0) || !x.centro || !x.categoria || !x.mezzo || !SR_MEZZI[x.mezzo]; });
+  if (!scelte.length) { es.innerHTML = '<div class="errore">Niente di selezionato.</div>'; return; }
+  if (manca.length) { es.innerHTML = '<div class="errore">Completa voce e pagamento per: ' + manca.map(function (x) { return srEsc(x.voce.slice(0, 30)); }).join(', ') + '</div>'; return; }
+  var tot = scelte.reduce(function (s, x) { return s + x.importo; }, 0);
+  if (!confirm('Registro ' + scelte.length + ' movimenti per ' + srEuro(tot) + ' in Economia?')) return;
+  var anni = {}; scelte.forEach(function (x) { anni[x.data.slice(0, 4)] = 1; });
+  es.innerHTML = '<div class="domanda">Registro…</div>';
+  var movs = [];
+  Promise.all(Object.keys(anni).map(function (y) { return srAnnoCaricato(Number(y)); })).then(function () {
+    var numeri = {}; Object.keys(anni).forEach(function (y) { numeri[y] = (SR.movAnno[Number(y)] || []).slice(); });
+    movs = scelte.map(function (x) {
+      var m = srCostruisciMovimento({ tipoMov: x.tipoMov || 'USCITA', importo: x.importo, categoria: x.categoria, centro: x.centro, mezzo: x.mezzo, data: x.data, descrizione: x.voce + (x.note ? ' – ' + x.note : ''), frase: 'import CSV ' + DFS.nome, natura: x.natura, documento: x.documento });
+      m.origine = 'IMPORT_CSV_SPESE'; m.numeroDocumento = x.numeroDocumento || null;
+      var y = x.data.slice(0, 4); m.numeroMovimento = ecoNextNumeroMovimento(numeri[y], Number(y)); numeri[y].push(m);
+      var v = ecoValidaMovimento(m, SR.config, {}); if (!v.valido) throw new Error(x.voce.slice(0, 30) + ': ' + v.errori.join(', '));
+      return m;
+    });
+    var b = _db.batch(); movs.forEach(function (m) { b.set(srColMov().doc(m.id), m); });
+    return b.commit();
+  }).then(function () {
+    movs.forEach(function (m) { srRegistraInCache(m); });
+    if (typeof srAggiornaBadgeCassa === 'function') srAggiornaBadgeCassa();
+    srLog('Import CSV spese: ' + movs.length + ' movimenti, ' + srR2(tot) + ' €', 'ok');
+    var anticipi = movs.filter(function (m) { return m.stato === 'DA_PAGARE'; });
+    document.getElementById('df-import-esito').innerHTML = '<div class="ok-msg">✅ Registrati ' + movs.length + ' movimenti (' + srEuro(tot) + ') in Economia.' + (anticipi.length ? ' ' + anticipi.length + ' pagate da te: le trovi in ↩️ Rimb. per il rimborso.' : '') + ' Le foto dei documenti si possono aggiungere da 📋 Elenco.</div>';
+  }).catch(function (err) { srLog('Import CSV NON registrato: ' + err.message, 'err'); es.innerHTML = '<div class="errore">NON registrato (nessuna spesa scritta): ' + srEsc(err.message) + '</div>'; });
+}
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { dfsProposte: dfsProposte, dfsCSVRighe: dfsCSVRighe, dfsMezzo: dfsMezzo, dfiSimili: dfiSimili, dfiProposte: dfiProposte, dfiSeparaNome: dfiSeparaNome, dfiCategoria: dfiCategoria, dfiSiNo: dfiSiNo };

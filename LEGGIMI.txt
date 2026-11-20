@@ -1,59 +1,27 @@
-BK-546 · 20/11/2026 18:00 · CARICAMENTO UNICO
-Contiene tutto quello che non e' ancora su GitHub. Sostituisce gli zip v0.6, v0.7, v0.8
-(mai caricati). Il pacchetto v0.5 delle 09:01 e' gia' su GitHub e resta valido.
+BK-546 · 20/11/2026 14:45 · ACCESSO AL DITTAFONO + IMPORT CSV DI SPESE E INCASSI
+Sostituisce BK546_dittafono_link_csv_v0.11.zip (non caricato).
+Il caricamento unico delle 12:17 e' gia' su GitHub. Qui 7 file da caricare insieme:
+  spese-rapide.html        v0.10 -> v0.12   BK Dittafono (link "🏀 Gestionale" in alto)
+  spese-rapide.js          v0.10 -> v0.12
+  dittafono.js             v0.7  -> v0.9    "Importa dati da file" accetta anche .csv
+  dittafono-import.js      v0.1  -> v0.3    import CSV di spese e incassi con revisione
+  basket052441.html        v7.06 -> v7.07   menu: "🎤 BK Dittafono"
+  basket052441-admin.html  v9.67 -> v9.68   scheda "🎤 Dittafono"
+  index-strumenti.html     v0.1  -> v0.2    "BK Dittafono" (era "Spese rapide")
 
-==== 1. GITHUB (Basket052441, cartella principale): questi 11 file, TUTTI INSIEME ====
-  basket052441.html        v7.04 -> v7.06   gestionale
-  basket052441-admin.html  v9.66 -> v9.67   admin
-  basket-core.js           v1.4  -> v1.6
-  sw.js                    cache 20261120_1800 (fa caricare il nuovo basket-core)
-  spese-rapide.html        v0.5  -> v0.10   BK dittafono
-  spese-rapide.js          v0.5  -> v0.10
-  dittafono.js             v0.3  -> v0.7
-  dittafono-gestionale.js  v0.1  -> v0.6
-  documenti-pdf.js         NUOVO v0.2       ricevute, riepilogo detraibile, rimborsi PDF
-  palestra-affitti.js      NUOVO v0.1       affitti utenti palestra
-  dittafono-import.js      NUOVO v0.1       import in blocco del foglio atleti
-Poi chiudi e riapri gestionale e dittafono (anche due volte) finche' vedi
-gestionale v7.06 e dittafono "Build v0.10".
+LINK DIRETTO: https://basketcampodarsego-dotcom.github.io/Basket052441/spese-rapide.html
+Sul telefono: apri il link in Chrome -> ⋮ -> "Aggiungi a schermata Home" -> icona 🎤.
 
-==== 2. DATI DAL FOGLIO ATLETI (dal telefono, una volta sola) ====
-Il file BK_dati_foglio_atleti_20261120.json NON va su GitHub (dati di minori).
-  1. Salvalo sul telefono.
-  2. BK dittafono -> 📥 Note -> "📂 Importa dati da file" -> scegli il file.
-  3. Conferma le note (99) -> si apre la "Revisione dati del foglio atleti":
-     - atleti gia' in anagrafica: voci da aggiornare (campi vuoti gia' spuntati,
-       valori DIVERSI senza spunta: tocca per accettarli);
-     - atleti nuovi: schede da creare (poi completi a mano CF, genitore, telefono);
-     - "⚠ Forse e' gia' in anagrafica scritto diversamente" (es. Baldo/Balbo,
-       Marconato/Martellato): scegli e spunta tu;
-     - 28 pagamenti del foglio (4.620 €), metodo predefinito Bonifico: quelli gia'
-       nel gestionale (stessa data e importo) vengono saltati.
-  4. "✅ Applica tutto il selezionato": una sola operazione. Le note del foglio su
-     pagamenti e dati atleta vengono chiuse da sole.
-  5. Resta da registrare a mano la nota "Volley ... 1.200 € di affitto" (➡️ Registra
-     incasso): finira' negli affitti della palestra.
-  Reimportare lo stesso file non crea doppioni.
+IMPORT CSV: salva il CSV sul telefono -> 📥 Note -> "📂 Importa dati da file" -> scegli il
+CSV -> revisione (voce e pagamento proposti; "Per le righe senza pagamento" assegna lo
+stesso mezzo alle righe vuote; doppioni e "da decidere" non spuntati) -> "✅ Registra".
 
-==== 3. PRIMA CONFIGURAZIONE PALESTRA (scheda 🏟️ Palestra) ====
-  - Volley gia' impostato a 300 €/mese settembre-maggio (dal foglio). Se va a ore,
-    "✏️ Modifica" -> Calcolo "Ore di calendario" e indica le ore per giorno.
-  - "➕ Nuovo utente" per le altre associazioni: nome, ore per giorno, inizio.
-  - Tariffa 14 €/ora e fine scuole 08/06/2027 modificabili ("modifica").
+AFFITTO VOLLEY 1.200 € = 4 VERSAMENTI IN CONTANTI DA 300 €
+File Affitto_volley_2026.csv (NON va su GitHub): importalo come sopra. Date: primo
+mercoledi' del mese -> 02/09, 07/10, 04/11, 02/12/2026 (quest'ultima nel futuro: avviso,
+non blocco). Entrano in cassa, categoria uso palestra, centro Palestra, e la scheda
+🏟️ Palestra mostra il volley coperto fino al 31/12/2026.
+Poi in 📥 Note la nota "Volley ... 1.200 € di affitto" -> "Scarta" (gia' registrata).
 
-==== 4. CONTROLLO UNA TANTUM: REGOLE FIREBASE ====
-Console Firebase -> Firestore -> Regole: la scrittura su basket052441/** deve essere
-permessa agli utenti autenticati (come oggi per il gestionale). Se le regole elencano i
-percorsi uno per uno, servono anche: palestraAffitti, dittafono/note, documentiNote.
-Sintomo se manca: messaggio "permesso negato" alla prima conferma (niente si perde).
-
-==== NOVITA' (riassunto) ====
-  Dittafono: presenze dettate; ricevute PDF su WhatsApp; riepilogo detraibile; moduli di
-  rimborso; quote dovute/residue con 💬 sollecito WhatsApp; "dati da completare?" con
-  ✏️ link alla scheda; avvisi all'apertura (certificati, quote, schede); affitti palestra
-  (ore di calendario × 14 €, feste, sospensioni, assenze avvisate+riutilizzate);
-  import in blocco del foglio; 💾 copia di sicurezza.
-  Gestionale: nuovo pagamento -> anche in Economia (contanti in cassa, bonifico/POS in
-  banca da abbinare all'estratto) con DET automatico; riepilogo detraibile solo quote
-  tracciabili; Tabulato con rate per stagione; scheda apribile dal link del dittafono.
-  Admin: Tabulato con rate per stagione.
+v0.12/v0.9 (13:55): "Importa dati da file" ora apre qualsiasi file della cartella Download
+(prima su Android i CSV restavano grigi); CSV o JSON riconosciuti dal contenuto.

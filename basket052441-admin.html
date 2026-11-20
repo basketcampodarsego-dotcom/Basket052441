@@ -1,4 +1,5 @@
-<!-- basket052441-admin.html | v9.67 · 20/11/2026 18:00 -->
+<!-- basket052441-admin.html | v9.68 · 20/11/2026 14:45 -->
+<!-- v9.68: scheda "🎤 Dittafono" che apre spese-rapide.html -->
 <!-- v9.67: Tabulato, rate per stagione (set-ago) e non per anno solare -->
 <!-- v9.66: salvataggi protetti (bk-sync.js), Tabulato con Stato cert./Comune/Documenti/Pagato + CSV -->
 <!DOCTYPE html>
@@ -159,7 +160,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.67 · 20/11/2026 18:00 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.68 · 20/11/2026 14:45 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -178,7 +179,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.67 · 20/11/2026 18:00</div>
+    <div class="topbar-sub">Build v9.68 · 20/11/2026 14:45</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -197,6 +198,7 @@
   <div class="nav-tab" onclick="admGoTab('economia')">💶 Economia</div>
   <div class="nav-tab" onclick="admGoTab('verbali')">📜 Verbali</div>
   <div class="nav-tab" onclick="admGoTab('log')">📋 Log</div>
+  <div class="nav-tab" onclick="location.href='spese-rapide.html'">🎤 Dittafono</div>
 </div>
 <div class="nav-tabs-fade" id="nav-tabs-fade"></div>
 </div>
@@ -762,7 +764,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.67 · 20/11/2026 18:00";
+var BUILD_VERSION = "v9.68 · 20/11/2026 14:45";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];

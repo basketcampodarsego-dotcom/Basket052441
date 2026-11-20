@@ -1,6 +1,8 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.10 · 20/11/2026 18:00 · BK
+// VERSIONE: v0.12 · 20/11/2026 13:55 · BK
+// v0.12: solo allineamento versione (import file anche da Download su Android).
+// v0.11: solo allineamento versione (import CSV di spese).
 // v0.10: solo allineamento versione (import in blocco del foglio, quote, dati da completare, copia di sicurezza).
 // v0.9: scheda 🏟️ Palestra (affitti utenti, palestra-affitti.js) e avvisi in Detta.
 // v0.8: solo allineamento versione (riepilogo detraibile dal dittafono).
@@ -49,7 +51,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.10 · 20/11/2026 18:00';
+var SR_BUILD = 'v0.12 · 20/11/2026 13:55';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
