@@ -1,36 +1,59 @@
-BK-546 · 20/11/2026 11:00 · DITTAFONO CHE COMANDA IL GESTIONALE (UN SOLO CARICAMENTO)
-Sostituisce tutti gli zip precedenti non caricati (BK546_dittafono_import_v0.2.zip compreso).
+BK-546 · 20/11/2026 18:00 · CARICAMENTO UNICO
+Contiene tutto quello che non e' ancora su GitHub. Sostituisce gli zip v0.6, v0.7, v0.8
+(mai caricati). Il pacchetto v0.5 delle 09:01 e' gia' su GitHub e resta valido.
 
-CARICARE SU GITHUB (Basket052441, cartella principale) questi 10 file, TUTTI INSIEME:
-  basket052441.html        v7.03 -> v7.04  gestionale
-  basket052441-admin.html  v9.64 -> v9.66  admin
-  basket-core.js           v1.3  -> v1.4   salvataggio protetto + colonne tabulato
-  bk-sync.js               NUOVO v0.1      protezione salvataggi (unione modifiche)
-  sw.js                    cache 20261120_1000 (fa caricare il nuovo basket-core)
-  report-residenti.js      NUOVO v0.1
-  spese-rapide.html        v0.1 -> v0.5    BK dittafono
-  spese-rapide.js          v0.1 -> v0.5
-  dittafono.js             NUOVO v0.3
-  dittafono-gestionale.js  NUOVO v0.1
-NON caricare file .json con dati di atleti.
+==== 1. GITHUB (Basket052441, cartella principale): questi 11 file, TUTTI INSIEME ====
+  basket052441.html        v7.04 -> v7.06   gestionale
+  basket052441-admin.html  v9.66 -> v9.67   admin
+  basket-core.js           v1.4  -> v1.6
+  sw.js                    cache 20261120_1800 (fa caricare il nuovo basket-core)
+  spese-rapide.html        v0.5  -> v0.10   BK dittafono
+  spese-rapide.js          v0.5  -> v0.10
+  dittafono.js             v0.3  -> v0.7
+  dittafono-gestionale.js  v0.1  -> v0.6
+  documenti-pdf.js         NUOVO v0.2       ricevute, riepilogo detraibile, rimborsi PDF
+  palestra-affitti.js      NUOVO v0.1       affitti utenti palestra
+  dittafono-import.js      NUOVO v0.1       import in blocco del foglio atleti
+Poi chiudi e riapri gestionale e dittafono (anche due volte) finche' vedi
+gestionale v7.06 e dittafono "Build v0.10".
 
-DOPO IL CARICAMENTO: chiudi e riapri gestionale e dittafono sul telefono (due volte
-se la versione mostrata non e' ancora v7.04 / v0.5).
+==== 2. DATI DAL FOGLIO ATLETI (dal telefono, una volta sola) ====
+Il file BK_dati_foglio_atleti_20261120.json NON va su GitHub (dati di minori).
+  1. Salvalo sul telefono.
+  2. BK dittafono -> 📥 Note -> "📂 Importa dati da file" -> scegli il file.
+  3. Conferma le note (99) -> si apre la "Revisione dati del foglio atleti":
+     - atleti gia' in anagrafica: voci da aggiornare (campi vuoti gia' spuntati,
+       valori DIVERSI senza spunta: tocca per accettarli);
+     - atleti nuovi: schede da creare (poi completi a mano CF, genitore, telefono);
+     - "⚠ Forse e' gia' in anagrafica scritto diversamente" (es. Baldo/Balbo,
+       Marconato/Martellato): scegli e spunta tu;
+     - 28 pagamenti del foglio (4.620 €), metodo predefinito Bonifico: quelli gia'
+       nel gestionale (stessa data e importo) vengono saltati.
+  4. "✅ Applica tutto il selezionato": una sola operazione. Le note del foglio su
+     pagamenti e dati atleta vengono chiuse da sole.
+  5. Resta da registrare a mano la nota "Volley ... 1.200 € di affitto" (➡️ Registra
+     incasso): finira' negli affitti della palestra.
+  Reimportare lo stesso file non crea doppioni.
 
-COSA C'E' DI NUOVO
-1. Salvataggi protetti: gestionale, admin e dittafono possono scrivere insieme;
-   le modifiche si uniscono atleta per atleta. Se lo stesso dato e' cambiato da due
-   parti nello stesso momento, compare un avviso (niente si perde in silenzio).
-2. Dittafono -> Note:
-   - Pagamento atleta: "✅ Registra pagamento" -> scheda atleta + entrata in
-     Economia (Quote, Societa'; contanti = cassa). Doppioni bloccati.
-   - Dato/Nota atleta: "✅ Aggiorna scheda" -> proposta campo per campo
-     (nascita, comune, certificato, documenti) oppure "📎 Aggiungi alle note
-     dell'atleta" (codici fiscali e telefoni oscurati).
-3. Dittafono -> Detta: le DOMANDE rispondono subito, con Stampa e CSV:
-   "chi ha il certificato scaduto?", "certificati in scadenza?", "chi non ha
-   pagato?", "documenti mancanti?", "cassa", "residenti?", "spese del mese",
-   "situazione Rossi".
-4. Gestionale: in scheda atleta le caselle Documenti consegnati.
-   Tabulato (gestionale e admin): colonne Stato cert., Comune, Documenti,
-   Pagato stagione + pulsante CSV.
+==== 3. PRIMA CONFIGURAZIONE PALESTRA (scheda 🏟️ Palestra) ====
+  - Volley gia' impostato a 300 €/mese settembre-maggio (dal foglio). Se va a ore,
+    "✏️ Modifica" -> Calcolo "Ore di calendario" e indica le ore per giorno.
+  - "➕ Nuovo utente" per le altre associazioni: nome, ore per giorno, inizio.
+  - Tariffa 14 €/ora e fine scuole 08/06/2027 modificabili ("modifica").
+
+==== 4. CONTROLLO UNA TANTUM: REGOLE FIREBASE ====
+Console Firebase -> Firestore -> Regole: la scrittura su basket052441/** deve essere
+permessa agli utenti autenticati (come oggi per il gestionale). Se le regole elencano i
+percorsi uno per uno, servono anche: palestraAffitti, dittafono/note, documentiNote.
+Sintomo se manca: messaggio "permesso negato" alla prima conferma (niente si perde).
+
+==== NOVITA' (riassunto) ====
+  Dittafono: presenze dettate; ricevute PDF su WhatsApp; riepilogo detraibile; moduli di
+  rimborso; quote dovute/residue con 💬 sollecito WhatsApp; "dati da completare?" con
+  ✏️ link alla scheda; avvisi all'apertura (certificati, quote, schede); affitti palestra
+  (ore di calendario × 14 €, feste, sospensioni, assenze avvisate+riutilizzate);
+  import in blocco del foglio; 💾 copia di sicurezza.
+  Gestionale: nuovo pagamento -> anche in Economia (contanti in cassa, bonifico/POS in
+  banca da abbinare all'estratto) con DET automatico; riepilogo detraibile solo quote
+  tracciabili; Tabulato con rate per stagione; scheda apribile dal link del dittafono.
+  Admin: Tabulato con rate per stagione.

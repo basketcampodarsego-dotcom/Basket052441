@@ -1,6 +1,12 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono.js — ASD Basket Campodarsego
-// VERSIONE: v0.3 · 20/11/2026 11:00 · BK
+// VERSIONE: v0.7 · 20/11/2026 18:00 · BK
+// v0.7: il file del foglio (versione 2) porta anche la tabella Atleti -> revisione e
+//   applicazione in blocco (dittafono-import.js) dopo l'import delle note.
+// v0.6: tipo PALESTRA (sospensioni/assenze degli utenti della palestra, palestra-affitti.js):
+//   "26 e 27 dicembre niente attività", "il karate salta lunedì, ha avvisato, ora usata dagli amatori".
+// v0.5: nota con pagamento registrato -> pulsante "🧾 Ricevuta PDF" (dittafono-gestionale v0.3).
+// v0.4: note PRESENZE -> "✅ Registra presenze" (dittafono-gestionale v0.2).
 // v0.3: il dittafono comanda il gestionale (dittafono-gestionale.js):
 //   note PAGAMENTO -> "Registra pagamento" (scheda atleta + movimento in
 //   Economia); note DATO/NOTA ATLETA -> "Aggiorna scheda"; le DOMANDE
@@ -42,7 +48,8 @@ var DF_TIPI = {
   PRESENZE: { l: '🏀 Presenze', c: '#9b6bd5' },
   DATO_ATLETA: { l: '🪪 Dato atleta', c: '#3a9bd5' },
   NOTA_ATLETA: { l: '📝 Nota su atleta', c: '#7a8fa8' },
-  APPUNTO: { l: '📌 Appunto', c: '#7a8fa8' }
+  APPUNTO: { l: '📌 Appunto', c: '#7a8fa8' },
+  PALESTRA: { l: '🏟️ Palestra', c: '#c8a84b' } // v0.6
 };
 var DF_STATI = { NUOVA: 'Da elaborare', ELABORATA: 'Elaborata', APPUNTO: 'Appunto', SCARTATA: 'Scartata' };
 var DF_CODA_KEY = 'bk_dittafono_coda_v1';
@@ -174,6 +181,7 @@ function dfSalva(testo) {
   if (!DF.foto && typeof dfgProvaDomanda === 'function' && dfgProvaDomanda(testo)) { document.getElementById('df-testo').value = ''; esito.innerHTML = ''; return; }
   var risp = document.getElementById('dfg-risposta'); if (risp) risp.innerHTML = '';
   var cl = dfClassifica(testo, DF.atleti);
+  if (typeof paClassificaNota === 'function' && typeof PA !== 'undefined' && PA.conf && paClassificaNota(testo, PA.conf.utenti, cl.atleti) === 'PALESTRA') { cl.tipo = 'PALESTRA'; cl.importo = null; } // v0.6
   var adesso = new Date().toISOString();
   var nota = { id: ecoNewId('NOTA'), testo: testo, creataIl: adesso, creataDa: SR.utente, stato: 'NUOVA', tipo: cl.tipo, importo: cl.importo,
     atleti: cl.atleti, foto: !!DF.foto, collegamenti: [], storia: [{ il: adesso, da: SR.utente, azione: 'creata' }] };
@@ -262,10 +270,13 @@ function dfHtmlNota(n, compatta) {
     if (n.tipo === 'SPESA' || n.tipo === 'INCASSO') azioni += '<button class="btn-gold btn-sm" onclick="dfElaboraSpesa(\'' + n.id + '\')">➡️ Registra ' + (n.tipo === 'INCASSO' ? 'incasso' : 'spesa') + '</button> ';
     else if (n.tipo === 'PAGAMENTO' && typeof dfgApriPagamento === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriPagamento(\'' + n.id + '\')">✅ Registra pagamento</button> ';
     else if ((n.tipo === 'DATO_ATLETA' || n.tipo === 'NOTA_ATLETA') && typeof dfgApriDati === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriDati(\'' + n.id + '\')">✅ Aggiorna scheda</button> ';
-    else if (n.tipo === 'PRESENZE' && typeof dfgApriDati === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriDati(\'' + n.id + '\')">📎 Note atleta</button> ';
+    else if (n.tipo === 'PALESTRA' && typeof paApriNota === 'function') azioni += '<button class="btn-gold btn-sm" onclick="paApriNota(\'' + n.id + '\')">📅 Registra in palestra</button> ';
+    else if (n.tipo === 'PRESENZE' && typeof dfgApriPresenze === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriPresenze(\'' + n.id + '\')">✅ Registra presenze</button> <button class="btn-gray btn-sm" onclick="dfgApriDati(\'' + n.id + '\')">📎 Note atleta</button> ';
     azioni += '<button class="btn-gray btn-sm" onclick="dfCambiaTipo(\'' + n.id + '\')">Cambia tipo</button> ';
     if (!compatta) azioni += '<button class="btn-gray btn-sm" onclick="dfImpostaStato(\'' + n.id + '\',\'APPUNTO\')">📌 Tieni come appunto</button> <button class="btn-red btn-sm" onclick="dfImpostaStato(\'' + n.id + '\',\'SCARTATA\')">Scarta</button>';
   }
+  if (n.stato === 'ELABORATA' && !compatta && typeof dfgLinkPagamento === 'function' && dfgLinkPagamento(n))
+    azioni += '<button class="btn-gold btn-sm" onclick="dfgPreparaRicevuta(\'' + n.id + '\')">🧾 Ricevuta PDF</button> ';
   var link = (n.collegamenti || []).map(function (c) { return '<span class="badge b-ok">→ ' + srEsc(c.numero || c.id) + '</span>'; }).join('');
   return '<div class="mov" style="background:transparent;border:none;padding:6px 0;margin:0">' +
     (n.foto ? '<img class="mov-thumb" id="dfmini-' + n.id + '" alt="" onclick="dfApriFoto(\'' + n.id + '\')">' : '') +
@@ -404,12 +415,14 @@ function dfImportaFile(inp) {
   r.onload = function () {
     inp.value = '';
     var res;
-    try { res = dfNoteDaImport(JSON.parse(r.result), DF.atleti, SR.utente, new Date().toISOString()); }
+    var dati;
+    try { dati = JSON.parse(r.result); res = dfNoteDaImport(dati, DF.atleti, SR.utente, new Date().toISOString()); }
     catch (ex) { srLog('Import note: ' + ex.message, 'err'); esito.innerHTML = '<div class="errore">Import non fatto: ' + srEsc(ex.message) + '</div>'; return; }
     var gia = {}; DF.note.forEach(function (n) { gia[n.id] = true; });
     var nuove = res.note.filter(function (n) { return !gia[n.id]; });
     res.scartate.forEach(function (s) { srLog('Import note: ' + s, 'warn'); });
-    if (!nuove.length) { esito.innerHTML = '<div class="empty">Niente di nuovo: tutte le ' + res.note.length + ' righe sono già nel dittafono.</div>'; return; }
+    var revisione = function () { if (dati.atleti && dati.atleti.length && typeof dfiRevisione === 'function') dfiRevisione(dati); };
+    if (!nuove.length) { esito.innerHTML = '<div class="empty">Niente di nuovo: tutte le ' + res.note.length + ' righe sono già nel dittafono.</div>'; revisione(); return; }
     var pag = nuove.filter(function (n) { return n.tipo === 'PAGAMENTO'; }).length;
     if (!confirm('Importo ' + nuove.length + ' note nuove (' + pag + ' pagamenti)?\nGià presenti: ' + (res.note.length - nuove.length) + (res.scartate.length ? '\nAvvisi: ' + res.scartate.length + ' (vedi log)' : ''))) return;
     esito.innerHTML = '<div class="empty">Importazione…</div>';
@@ -426,8 +439,8 @@ function dfImportaFile(inp) {
     }).catch(function (err) {
       srLog('Import note interrotto dopo ' + fatte + ': ' + err.message, 'err');
       esito.innerHTML = '<div class="errore">Import interrotto dopo ' + fatte + ' note (' + srEsc(err.message) + '). Ricarica lo stesso file: riparte dalle mancanti.</div>';
-    }).then(function () { dfRenderNote(); dfAggiornaContatore(); });
+    }).then(function () { dfRenderNote(); dfAggiornaContatore(); revisione(); });
   };
   r.readAsText(f);
 }
-if (typeof module !== 'undefined') { module.exports.dfIdImport = dfIdImport; module.exports.dfNoteDaImport = dfNoteDaImport; }
+if (typeof module !== 'undefined') { module.exports.dfNorm = dfNorm; module.exports.dfIdImport = dfIdImport; module.exports.dfNoteDaImport = dfNoteDaImport; }

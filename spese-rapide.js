@@ -1,6 +1,11 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.5 · 20/11/2026 11:00 · BK
+// VERSIONE: v0.10 · 20/11/2026 18:00 · BK
+// v0.10: solo allineamento versione (import in blocco del foglio, quote, dati da completare, copia di sicurezza).
+// v0.9: scheda 🏟️ Palestra (affitti utenti, palestra-affitti.js) e avvisi in Detta.
+// v0.8: solo allineamento versione (riepilogo detraibile dal dittafono).
+// v0.7: solo allineamento versione (ricevute e modulo rimborso in PDF, documenti-pdf.js).
+// v0.6: solo allineamento versione (presenze dettate, dittafono v0.4).
 // v0.5: solo allineamento versione (dittafono v0.3 + dittafono-gestionale.js).
 // v0.4: solo allineamento versione (pulsante Importa note del dittafono v0.2).
 // v0.3: la pagina diventa anche DITTAFONO (dittafono.js, richiesta Alberto
@@ -44,7 +49,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.5 · 20/11/2026 11:00';
+var SR_BUILD = 'v0.10 · 20/11/2026 18:00';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
@@ -183,6 +188,7 @@ function srCaricaTutto() {
       srAggiornaBadgeCassa();
       srElencoAggiorna();
       if (typeof dfInit === 'function') dfInit().catch(function (err) { srLog('Dittafono: avvio fallito ' + err.message, 'err'); }); // v0.3
+      if (typeof paAvvisiDetta === 'function') paAvvisiDetta(); // v0.9: avvisi affitti (dicembre / fine attivita')
     })
     .catch(function (err) {
       srLog('Caricamento fallito: ' + (err && err.message || err), 'err');
@@ -707,6 +713,7 @@ function srGoTab(tab) {
   if (tab === 'cassa') srRenderCassa();
   if (tab === 'rimborsi') srRenderRimborsi();
   if (tab === 'note' && typeof dfRenderNote === 'function') dfRenderNote(); // v0.3
+  if (tab === 'palestra' && typeof paRender === 'function') paRender(); // v0.9
 }
 function srSetPeriodo(v) {
   SR.periodo = v;
@@ -1192,4 +1199,7 @@ function srStampaNotaSpese() {
   srApriStampa('Nota spese ' + nomeMese, corpo);
 }
 
-if (typeof firebase !== 'undefined') fbInit(); else srLog('Firebase non caricato', 'err');
+// v0.9: avvio solo quando TUTTI gli script della pagina sono caricati (dittafono, palestra, PDF):
+// con la cache di Firebase la catena di avvio poteva finire prima che gli ultimi script fossero letti.
+function srAvvia() { if (typeof firebase !== 'undefined') fbInit(); else srLog('Firebase non caricato', 'err'); }
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', srAvvia); else srAvvia();

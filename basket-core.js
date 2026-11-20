@@ -4,7 +4,12 @@
 // Contiene SOLO le funzioni verificate identiche in entrambi i moduli
 // (confronto automatico byte-per-byte, 17/08/2026).
 // Variabili come DB, DB_KEY, BUILD_VERSION restano locali a ciascun modulo.
-// Versione: v1.4 — Build 20/11/2026 10:00 (saveDB protetto: salva in
+// Versione: v1.6 — Build 20/11/2026 18:00 (_inStagione per il Tabulato: le rate di
+// gennaio-agosto ora contano nella stagione giusta.)
+// v1.5 — Build 20/11/2026 15:30 (_pagDetraibile: regola di Alberto
+// 20/11/2026 per il riepilogo detraibile: solo quote/rate/saldo pagate con
+// bonifico o POS; mai tesseramento/assicurazione, divisa, altro, contanti.)
+// v1.4 — Build 20/11/2026 10:00 (saveDB protetto: salva in
 // transazione solo le sezioni cambiate e UNISCE le modifiche fatte nel
 // frattempo da altre pagine, es. dittafono -> bk-sync.js. Conflitti sullo
 // stesso elemento segnalati, mai sovrascritti in silenzio.)
@@ -1021,4 +1026,23 @@ function _tabScaricaCSV(COLS,lista,valFn,nome){
   document.body.appendChild(el);el.click();
   setTimeout(function(){URL.revokeObjectURL(el.href);el.remove();},1000);
   if(typeof diag==='function')diag('Tabulato CSV: '+lista.length+' righe','ok');
+}
+
+// ── v1.5 (20/11/2026): detraibilita' di un pagamento (stessa regola di dittafono-gestionale.js) ──
+var _TIPI_PAG_DETRAIBILI=['Quota annuale','Quota (1a rata)','Quota (2a rata)','Saldo quota'];
+var _TIPI_PAG_NON_DETRAIBILI=['Assicurazione','Divisa','Altro'];
+// 'SI' | 'NO' | 'DA_VERIFICARE' (tipo sconosciuto: escluso e segnalato)
+function _pagDetraibile(p){
+  if(!p||p.det===false)return 'NO';
+  if(String(p.metodo||'').toLowerCase()==='contanti')return 'NO';
+  if(_TIPI_PAG_NON_DETRAIBILI.indexOf(p.tipo)>=0)return 'NO';
+  if(_TIPI_PAG_DETRAIBILI.indexOf(p.tipo)>=0)return 'SI';
+  return 'DA_VERIFICARE';
+}
+
+// ── v1.6: data dentro la stagione sportiva "AAAA-AA" (1 settembre - 31 agosto) ──
+function _inStagione(data, stagione){
+  var y=parseInt(String(stagione||'').slice(0,4),10);
+  if(!data||!y)return false;
+  return data>=y+'-09-01'&&data<=(y+1)+'-08-31';
 }

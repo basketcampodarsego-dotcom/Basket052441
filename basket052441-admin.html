@@ -1,4 +1,5 @@
-<!-- basket052441-admin.html | v9.66 · 20/11/2026 11:00 -->
+<!-- basket052441-admin.html | v9.67 · 20/11/2026 18:00 -->
+<!-- v9.67: Tabulato, rate per stagione (set-ago) e non per anno solare -->
 <!-- v9.66: salvataggi protetti (bk-sync.js), Tabulato con Stato cert./Comune/Documenti/Pagato + CSV -->
 <!DOCTYPE html>
 <html lang="it">
@@ -158,7 +159,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.66 · 20/11/2026 11:00 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.67 · 20/11/2026 18:00 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -177,7 +178,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.66 · 20/11/2026 11:00</div>
+    <div class="topbar-sub">Build v9.67 · 20/11/2026 18:00</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -761,7 +762,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.66 · 20/11/2026 11:00";
+var BUILD_VERSION = "v9.67 · 20/11/2026 18:00";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1218,7 +1219,7 @@ function stampaTabulatoTesserati(){
     lista.forEach(function(a){
       var pp=(DB.pagamenti[a.id]||[]).filter(function(p){
         if(!p.data)return false;
-        if(tipoP==='stagione'&&stagione)return p.data.substring(0,4)===stagione.substring(0,4);
+        if(tipoP==='stagione'&&stagione)return _inStagione(p.data,stagione); // v20/11/2026: stagione set-ago, non anno solare
         if(tipoP==='anno'&&annoSolare)return p.data.substring(0,4)===annoSolare;
         return true;
       });
@@ -1265,7 +1266,7 @@ function stampaTabulatoTesserati(){
       var _pi=parseInt(k.substring(3))-1;
       var _pp=(DB.pagamenti[a.id]||[]).filter(function(p){
         if(!p.data)return false;
-        if(tipoP==='stagione'&&stagione)return p.data.substring(0,4)===stagione.substring(0,4);
+        if(tipoP==='stagione'&&stagione)return _inStagione(p.data,stagione); // v20/11/2026: stagione set-ago, non anno solare
         if(tipoP==='anno'&&annoSolare)return p.data.substring(0,4)===annoSolare;
         return true;
       }).sort(function(x,y){return (x.data||'').localeCompare(y.data||'');});

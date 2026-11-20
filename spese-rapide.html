@@ -1,4 +1,4 @@
-<!-- spese-rapide.html | v0.5 · 20/11/2026 11:00 · BK -->
+<!-- spese-rapide.html | v0.10 · 20/11/2026 18:00 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -131,6 +131,7 @@
     <div class="nav-tab" data-tab="elenco" onclick="srGoTab('elenco')">📋 Elenco</div>
     <div class="nav-tab" data-tab="cassa" onclick="srGoTab('cassa')">💶 Cassa</div>
     <div class="nav-tab" data-tab="rimborsi" onclick="srGoTab('rimborsi')">↩️ Rimb.</div>
+    <div class="nav-tab" data-tab="palestra" onclick="srGoTab('palestra')">🏟️ Palestra</div>
   </div>
 
   <div id="avvisi-config"></div>
@@ -138,6 +139,8 @@
   <!-- ── NUOVA ── -->
   <!-- ── DETTA (dittafono, v0.3) ── -->
   <div class="page active" id="page-detta">
+    <div id="pa-avvisi"></div>
+    <div id="dfg-avvisi"></div>
     <button class="btn-gold big-btn" id="df-mic" style="width:100%;min-height:120px;font-size:20px;margin-bottom:10px" onclick="dfAscolta()"><span class="ico">🎤</span>Detta</button>
     <div class="card-desc" style="margin-bottom:6px">Dì quello che vuoi ricordare: spese, pagamenti, presenze, dati degli atleti, appunti. Si salva subito così com'è; lo sistemi dopo in 📥 Note.</div>
     <textarea id="df-testo" rows="3" placeholder="…oppure scrivi qui. Puoi anche chiedere: &quot;chi ha il certificato scaduto?&quot;, &quot;chi non ha pagato?&quot;, &quot;cassa&quot;, &quot;situazione Rossi&quot;"></textarea>
@@ -161,7 +164,7 @@
       <button class="chip" data-v="ELABORATA" onclick="dfSetFiltro('ELABORATA')">Elaborate</button>
       <button class="chip" data-v="TUTTE" onclick="dfSetFiltro('TUTTE')">Tutte</button>
     </div>
-    <div style="display:flex;gap:8px;margin:6px 0"><button class="btn-gray btn-sm" onclick="document.getElementById('df-import-file').click()">📂 Importa note da file</button></div>
+    <div style="display:flex;gap:8px;margin:6px 0"><button class="btn-gray btn-sm" onclick="document.getElementById('df-import-file').click()">📂 Importa dati da file</button><button class="btn-gray btn-sm" onclick="dfgBackup()">💾 Copia di sicurezza</button></div>
     <input type="file" id="df-import-file" accept=".json,application/json" style="display:none" onchange="dfImportaFile(this)">
     <div id="df-import-esito"></div>
     <div id="df-lista"></div>
@@ -280,6 +283,8 @@
   </div>
 
   <!-- ── RIMBORSI ── -->
+  <div class="page" id="page-palestra"><div id="pa-contenuto"></div></div>
+
   <div class="page" id="page-rimborsi">
     <div class="card">
       <div class="card-title">↩️ Da rimborsare ad Alberto</div>
@@ -293,12 +298,15 @@
       </div>
       <div id="rimb-esito"></div>
       <button class="btn-green btn-block" onclick="srRimborsa()">Registra rimborso delle selezionate</button>
+      <button class="btn-blue btn-block" style="margin-top:8px" onclick="dpModuloRimborso('SEL')">📄 Modulo di rimborso delle selezionate (PDF)</button>
     </div>
     <div class="card">
       <div class="card-title">🖨️ Nota spese</div>
       <div class="card-desc">Elenco degli anticipi di un mese con totale, da stampare o salvare in PDF.</div>
       <input type="month" id="nota-mese">
       <button class="btn-blue btn-block" onclick="srStampaNotaSpese()">Stampa nota spese</button>
+      <button class="btn-blue btn-block" style="margin-top:8px" onclick="dpModuloRimborso('MESE')">📄 Modulo di rimborso del mese (PDF)</button>
+      <div id="rimb-pdf"></div>
     </div>
   </div>
 </div>
@@ -317,5 +325,9 @@
 <script src="dittafono.js"></script>
 <script src="report-residenti.js"></script>
 <script src="dittafono-gestionale.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="documenti-pdf.js"></script>
+<script src="palestra-affitti.js"></script>
+<script src="dittafono-import.js"></script>
 </body>
 </html>
