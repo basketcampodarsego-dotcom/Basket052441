@@ -1,6 +1,12 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-gestionale.js — ASD Basket Campodarsego
-// VERSIONE: v0.6 · 20/11/2026 18:00 · BK
+// VERSIONE: v0.7 · 20/11/2026 15:00 · BK
+// v0.7: (screenshot Alberto 20/11/2026: "Residenti" salvato come appunto) le parole
+//   singole o frasi brevi senza numeri ("residenti", "cassa", "affitti", "documenti
+//   mancanti") contano come domanda. "residenti" mostra anche l'elenco con i nomi;
+//   "anagrafica incompleta": per ogni atleta cosa manca per TESSERAMENTO, RICEVUTA
+//   DETRAIBILE e RICEVUTA NON DETRAIBILE (dfgAnagrafica).
+//   "non residenti" solo i non residenti; "comune mancante"/"residenza non compilata" chi non ha il comune.
 // v0.6: QUOTE dovute/pagate/residuo con le regole di Alberto (Pulcini 200, altri
 //   minibasket e Special 340, fratello minore -20%, basket amatori 20; quota dal
 //   foglio se presente) + link WhatsApp di sollecito al genitore; "dati da
@@ -47,7 +53,7 @@
 //   report-residenti.js (rrCalcola, facoltativo).
 // ════════════════════════════════════════════════════════
 
-var DFG_VERSIONE = 'v0.6 · 20/11/2026 18:00';
+var DFG_VERSIONE = 'v0.7 · 20/11/2026 15:00';
 var DFG = { atl: [], pag: {}, all: [], pres: [], caricato: false, risposta: null, presStato: {} };
 var DFG_TIPI_PAG = ['Quota (1a rata)', 'Quota (2a rata)', 'Saldo quota', 'Quota annuale', 'Assicurazione', 'Divisa', 'Altro'];
 var DFG_METODI = { Contanti: 'CONTANTI_CASSA', Bonifico: 'BONIFICO', POS: 'BONIFICO' };
@@ -187,6 +193,31 @@ function dfgQuotaPagata(a, pag, st) {
 function dfgTelefono(a) { var t = String(a.tutCell1 || a.tel || a.tutCell2 || '').replace(/\D/g, ''); if (!t) return ''; if (t.length === 10 && t[0] === '3') t = '39' + t; return t; }
 function dfgLinkWhatsApp(a, testo) { var t = dfgTelefono(a); return t ? 'https://wa.me/' + t + '?text=' + encodeURIComponent(testo) : ''; }
 function dfgMinorenne(a, oggi) { var e = dfgEta(a, oggi.slice(0, 4)); return e !== null && e < 18; }
+// v0.7: ANAGRAFICA INCOMPLETA — cosa manca per ciascun uso del dato.
+// Ricevuta intestata a chi paga: il genitore per i minorenni, l'atleta se maggiorenne.
+function dfgAnagrafica(a, oggi) {
+  var v = function (x) { return String(x || '').trim() !== ''; };
+  var min = dfgMinorenne(a, oggi);
+  var res = v(a.indVia) || v(a.ind) || v(a.tutVia);
+  var t = [];
+  if (!v(a.cog) || !v(a.nom)) t.push('nome/cognome');
+  if (!v(a.dn)) t.push('data nascita');
+  if (!v(a.natoA)) t.push('luogo nascita');
+  if (!v(a.sex)) t.push('sesso');
+  if (!v(a.cf)) t.push('CF atleta');
+  if (!res) t.push('indirizzo');
+  if (!dfgComune(a)) t.push('comune');
+  if (!v(a.cs)) t.push('certificato'); else if (String(a.cs).slice(0, 10) < oggi) t.push('certificato scaduto');
+  if (min && !(v(a.tutCog) && v(a.tutNom))) t.push('genitore');
+  if (!dfgTelefono(a) && !v(a.email) && !v(a.tutEmail)) t.push('telefono o email');
+  var nd = [];
+  if (min ? !(v(a.tutCog) && v(a.tutNom)) : (!v(a.cog) || !v(a.nom))) nd.push(min ? 'nome genitore' : 'nome');
+  if (!res || !dfgComune(a)) nd.push('indirizzo');
+  var d = nd.slice();
+  if (min && !v(a.tutCf || a.cfTut)) d.push('CF genitore');
+  if (!v(a.cf)) d.push('CF atleta');
+  return { tess: t, det: d, nodet: nd };
+}
 // Dati mancanti per ricevute, report e tesseramento
 function dfgDatiMancanti(a, oggi) {
   var m = [];
@@ -210,9 +241,12 @@ function dfgRiconosciDomanda(testo, atleti) {
     return { tipo: 'RIEPILOGO_DET', atleti: dfTrovaAtleti(testo, atleti || []), anno: ay ? ay[1] : null };
   }
   var domanda = /\?\s*$/.test(t) || /^(chi|quanti|quante|quanto|quali|quale|elenco|lista|mostra|dimmi|situazione|scheda|stampa|tabulato)\b/.test(t);
+  // v0.7: comando breve (max 4 parole, niente numeri) su un argomento noto = domanda
+  if (!domanda && t.split(/\s+/).length <= 4 && !/\d/.test(t) && /anagraf|residen|\bcomune\b|\bcassa\b|affitt|certificat|document|complet|presenz|spese|quote|morosi|solleciti/.test(t)) domanda = true;
   if (!domanda) return null;
   if (/certificat|visit\w* medic/.test(t)) return { tipo: /scadut/.test(t) && !/scadenz/.test(t) ? 'CERT_SCADUTI' : 'CERTIFICATI' };
   if (/affitt|utenti (della )?palestra|situazione palestra/.test(t)) return { tipo: 'AFFITTI' };
+  if (/anagraf/.test(t)) return { tipo: 'ANAGRAFICA' }; // v0.7
   if (/complet|manca(no)? (dei |i )?dati|dati mancanti|schede incomplete/.test(t)) return { tipo: 'DA_COMPLETARE' };
   if (/deve(no)? (ancora )?pagare|da pagare|quote|residu|chi non ha pagato|morosi|solleciti/.test(t) && !/spes|affitt/.test(t)) { var aq = dfTrovaAtleti(testo, atleti || []); if (!aq.length) return { tipo: 'NON_PAGATO' }; }
   if (/document|modul|tessera/.test(t)) return { tipo: 'DOCUMENTI' };
@@ -222,7 +256,7 @@ function dfgRiconosciDomanda(testo, atleti) {
     return a1.length ? { tipo: 'ATLETA', atleti: a1 } : { tipo: 'NON_PAGATO' };
   }
   if (/\bcassa\b|contanti/.test(t)) return { tipo: 'CASSA' };
-  if (/residen/.test(t)) return { tipo: /manca|senza/.test(t) ? 'RESIDENZA_MANCANTE' : 'RESIDENTI' };
+  if (/residen|\bcomune\b/.test(t)) return /manca|senza|non compilat|vuot|non indicat/.test(t) ? { tipo: 'RESIDENZA_MANCANTE' } : { tipo: 'RESIDENTI', filtro: /\bnon\s+residen/.test(t) ? 'NO' : /residen/.test(t) && /\b(solo|elenco|lista)\b/.test(t) ? 'SI' : null }; // v0.7
   if (/spes|speso|uscit/.test(t)) return { tipo: 'SPESE', periodo: /settiman/.test(t) ? 'SETTIMANA' : /anno/.test(t) ? 'ANNO' : 'MESE' };
   var a2 = dfTrovaAtleti(testo, atleti || []);
   if (a2.length) return { tipo: 'ATLETA', atleti: a2 };
@@ -271,6 +305,18 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
       return { titolo: 'Quote da saldare', sotto: 'Stagione ' + st.chiave + ' · ' + r3.length + ' atleti · totale ' + srEuro(tot3), colonne: ['Atleta', 'Categoria', 'Dovuta', 'Pagata', 'Residuo'], righe: r3,
         link: link3, linkTesto: '💬', nota: 'Regole: Pulcini 200 €, altri minibasket e Special 340 €, fratello minore -20%, basket amatori 20 €, volley amatori = affitto di gruppo; quota scritta in scheda se diversa.' + (daDec.length ? ' Quota da decidere: ' + daDec.join(', ') + '.' : '') + ' 💬 = messaggio WhatsApp pronto al genitore (serve il telefono in scheda).' };
     }
+    case 'ANAGRAFICA': { // v0.7
+      var link7 = [], nT = 0, nD = 0, nN = 0;
+      var r7 = ord(atletiVeri.slice()).map(function (a) {
+        var x = dfgAnagrafica(a, oggi); if (!x.tess.length && !x.det.length && !x.nodet.length) return null;
+        if (x.tess.length) nT++; if (x.det.length) nD++; if (x.nodet.length) nN++;
+        link7.push(dfgLinkScheda(a.id)); var f = function (l) { return l.length ? l.join(', ') : '✅'; };
+        return [dfgNomeAtl(a), f(x.tess), f(x.det), f(x.nodet)];
+      }).filter(Boolean);
+      return { titolo: 'Anagrafica incompleta', sotto: 'Stagione ' + st.chiave + ' · ' + r7.length + ' atleti su ' + atletiVeri.length + ' · tesseramento ' + nT + ' · ric. detraibile ' + nD + ' · ric. non detraibile ' + nN,
+        colonne: ['Atleta', 'Tesseramento', 'Ricevuta detraibile', 'Ricevuta non detraibile'], righe: r7, link: link7, linkTesto: '✏️',
+        nota: 'Ricevute intestate al genitore se minorenne. ✏️ apre la scheda nel gestionale: i dati personali si inseriscono da tastiera.' };
+    }
     case 'DA_COMPLETARE': {
       var link4 = [];
       var r4b = ord(atletiVeri.slice()).map(function (a) { var m = dfgDatiMancanti(a, oggi); if (!m.length) return null; link4.push(dfgLinkScheda(a.id)); return [dfgNomeAtl(a), cat(a), m.join(', ')]; }).filter(Boolean);
@@ -286,6 +332,10 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
       var rr = rrCalcola(atleti, st.chiave, {});
       var r5 = [['Totale', rr.si + ' su ' + rr.tot, rr.perc + '%', rr.ok === null ? '' : (rr.ok ? 'OK (min 50%)' : 'SOTTO il 50%')]];
       rr.perCat.forEach(function (c) { r5.push([c.cat, c.si + ' su ' + c.tot, c.perc + '%', c.ok === null ? '' : (c.ok ? 'OK (min 30%)' : 'SOTTO il 30%')]); });
+      // v0.7: elenco nominativo (ordine di iscrizione): nome, categoria, data iscrizione, residente
+      var el = rr.righe.filter(function (x) { return !q.filtro || (q.filtro === 'NO' ? x.res !== 'SI' : x.res === 'SI'); });
+      r5.push(['— ' + (q.filtro === 'NO' ? 'NON RESIDENTI (compresi senza comune)' : q.filtro === 'SI' ? 'RESIDENTI' : 'ELENCO ISCRITTI') + ' (' + el.length + ') —', '', '', '']);
+      el.forEach(function (x) { r5.push([x.nome + (x.ritirato ? ' (ritirato)' : ''), (x.cats || []).join(', '), x.dataIscr ? x.dataIscr.split('-').reverse().join('/') : 'data iscr. mancante', x.res === 'SI' ? '✅ residente' : x.res === 'NO' ? 'non residente' : '⚠️ comune mancante']); });
       return { titolo: 'Residenti a Campodarsego (Capitolato §9)', sotto: 'Stagione ' + st.chiave, colonne: ['Gruppo', 'Residenti', '%', 'Esito'], righe: r5,
         nota: rr.nd ? rr.nd + ' atleti senza comune contati come non residenti.' : '' };
     }
@@ -365,7 +415,7 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
         nota: 'Presente comprende i ritardi. Senza registrazione un atleta conta come assente (come nel gestionale).' };
     }
     default:
-      return { titolo: 'Domanda non capita', colonne: [], righe: [], nota: 'Prova con: "chi ha il certificato scaduto?", "chi non ha pagato?", "documenti mancanti", "cassa", "residenti", "spese del mese", "situazione Rossi".' };
+      return { titolo: 'Domanda non capita', colonne: [], righe: [], nota: 'Prova con: "anagrafica incompleta", "chi ha il certificato scaduto?", "chi non ha pagato?", "documenti mancanti", "cassa", "residenti", "spese del mese", "situazione Rossi".' };
   }
 }
 
@@ -915,4 +965,4 @@ function dfgConfermaPresenze(id) {
 }
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { dfgQuotaDovuta: dfgQuotaDovuta, dfgQuotaPagata: dfgQuotaPagata, dfgDatiMancanti: dfgDatiMancanti, dfgDetraibile: dfgDetraibile, dfgPagamentiAnno: dfgPagamentiAnno, dfgEstraiPresenze: dfgEstraiPresenze, dfgAllenamentoEsistente: dfgAllenamentoEsistente, dfgCategorieDette: dfgCategorieDette, dfgDate: dfgDate, dfgEstraiDati: dfgEstraiDati, dfgEstraiMetodo: dfgEstraiMetodo, dfgEstraiTipoPag: dfgEstraiTipoPag,
-  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };
+  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgAnagrafica: dfgAnagrafica, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };

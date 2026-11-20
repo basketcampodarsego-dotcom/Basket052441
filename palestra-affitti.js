@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════
 // FILE: palestra-affitti.js — ASD Basket Campodarsego
-// VERSIONE: v0.1 · 20/11/2026 17:00 · BK
+// VERSIONE: v0.2 · 20/11/2026 14:45 · BK
+// v0.2: il volley amatoriale e' un gruppo tesserato della societa' (Alberto 20/11/2026):
+//   non paga affitto -> tolto dalla configurazione di partenza. I suoi 300 €/mese sono
+//   contributi alle spese della societa' (categoria QUOTE, centro Societa').
 // v0.1 (regole di Alberto, 20/11/2026) — affitti degli utenti della palestra
 //   di Via Hermagor:
 //   - tariffa 14 €/ora (dal 2009, modificabile in un punto solo);
@@ -22,7 +25,7 @@
 // Gratuito, nessun servizio esterno.
 // ════════════════════════════════════════════════════════
 
-var PA_VERSIONE = 'v0.1 · 20/11/2026 17:00';
+var PA_VERSIONE = 'v0.2 · 20/11/2026 14:45';
 var PA_GIORNI = ['', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
 var PA_MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 var PA = { conf: null, caricato: false, movimenti: [], form: null };
@@ -214,8 +217,7 @@ function paConfIniziale(oggi) {
   return {
     tariffaOraria: 14, stagione: a + '-' + String(a + 1).slice(2),
     fineScuole: a === 2026 ? '2027-06-08' : (a + 1) + '-06-08', // Veneto 2026/27: delibera n. 712 del 07/07/2026
-    utenti: [{ id: 'U-VOLLEY', nome: 'Volley amatoriale', alias: ['volley', 'pallavolo'], modalita: 'FISSO_MENSILE', importoMese: 300, inizio: a + '-09-01', fineComunicata: (a + 1) + '-05-31',
-      slots: [], rinunce: [], extraSettimane: 2, attivo: true, nota: 'Dal foglio atleti: 300 €/mese settembre-maggio. Da confermare se passare a ore × tariffa.' }],
+    utenti: [], // v0.2: volley = gruppo della societa', non utente in affitto
     sospensioni: [], storia: [{ il: new Date().toISOString(), azione: 'creata configurazione iniziale' }]
   };
 }
@@ -258,7 +260,7 @@ function paRender() {
   var tot = sit.reduce(function (a, s) { a.d += s.c.dovutoStagione; a.v += s.versato; a.r += Math.max(0, s.residuo); return a; }, { d: 0, v: 0, r: 0 });
   el.innerHTML = '<div class="card"><div class="card-title">🏟️ Affitti palestra · stagione ' + srEsc(c.stagione) + '</div>' +
     '<div class="card-desc">' + paEuro(c.tariffaOraria) + '/ora sulle ore di calendario · fine attività se non comunicata: fine scuole ' + paDataIt(c.fineScuole) + ' · <a href="#" onclick="paApriImpostazioni();return false">modifica</a></div>' +
-    (PA.nuova ? '<div class="domanda">Configurazione nuova (non ancora salvata): controlla il volley e aggiungi gli altri utenti.</div>' : '') +
+    (PA.nuova ? '<div class="domanda">Configurazione nuova (non ancora salvata): aggiungi gli utenti esterni che pagano l\'affitto.</div>' : '') +
     '<div class="riep-riga">Dovuto stagione ' + paEuro(tot.d) + ' · versato ' + paEuro(tot.v) + ' · da versare ' + paEuro(tot.r) + '</div>' +
     avv.map(function (a) { return '<div class="errore" style="margin-top:6px">⏰ ' + srEsc(a.testo) + '</div>'; }).join('') + '</div>' +
     sit.map(function (s) {

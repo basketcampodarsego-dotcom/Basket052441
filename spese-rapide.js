@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.12 · 20/11/2026 13:55 · BK
+// VERSIONE: v0.13 · 20/11/2026 15:00 · BK
+// v0.13: i movimenti importati da CSV (origine IMPORT_CSV_SPESE) si possono annullare da 📋 Elenco.
 // v0.12: solo allineamento versione (import file anche da Download su Android).
 // v0.11: solo allineamento versione (import CSV di spese).
 // v0.10: solo allineamento versione (import in blocco del foglio, quote, dati da completare, copia di sicurezza).
@@ -51,7 +52,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.12 · 20/11/2026 13:55';
+var SR_BUILD = 'v0.13 · 20/11/2026 15:00';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
@@ -937,7 +938,7 @@ function srSalvaModifica() {
 }
 
 function srAnnullabile(m) {
-  return m.stato !== 'ANNULLATO' && /^(SPESA_RAPIDA|CONTA_CASSA|GIROCONTO_RAPIDO)$/.test(m.origine || '') && !m.rimborso && !m.riconciliatoIl;
+  return m.stato !== 'ANNULLATO' && /^(SPESA_RAPIDA|CONTA_CASSA|GIROCONTO_RAPIDO|IMPORT_CSV_SPESE)$/.test(m.origine || '') && !m.rimborso && !m.riconciliatoIl;
 }
 function srCaricaMini(id) {
   if (SR.miniCache[id]) return;

@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-import.js — ASD Basket Campodarsego
-// VERSIONE: v0.3 · 20/11/2026 14:45 · BK
+// VERSIONE: v0.4 · 20/11/2026 14:45 · BK
+// v0.4: tipo "contributo" (es. contributo spese del gruppo volley) -> categoria QUOTE.
 // v0.3: il CSV puo' contenere anche ENTRATE (colonna facoltativa "movimento" = entrata),
 //   es. affitti della palestra versati in contanti: categoria uso palestra, centro Palestra.
 //   Data nel futuro: avviso (non bloccata).
@@ -30,7 +31,7 @@
 // Dipende da: dittafono.js, dittafono-gestionale.js, spese-rapide.js, economia-core-DRAFT.js.
 // ════════════════════════════════════════════════════════
 
-var DFI_VERSIONE = 'v0.3 · 20/11/2026 14:45';
+var DFI_VERSIONE = 'v0.4 · 20/11/2026 14:45';
 var DFI = { righe: [], dati: null };
 var DFI_CAT = [[/^pulcini/i, 'Pulcini'], [/^scoiattoli/i, 'Scoiattoli'], [/^aquilotti/i, 'Aquilotti'], [/^esordienti/i, 'Esordienti'], [/special\s*[–-]\s*partner/i, 'Special', true],
   [/pallacanestro special|^special/i, 'Special'], [/pallacanestro amatoriale|basket amatori/i, 'AmaBasket'], [/pallavolo amatoriale|volley/i, 'AmaVolley'], [/dirigenza|dirigente/i, 'Dirigente'], [/volontari/i, 'Volontario']];
@@ -224,7 +225,7 @@ function dfiApplica() {
 
 // ════════ IMPORT CSV DI SPESE (v0.2) ════════
 var DFS = { righe: [], nome: '' };
-var DFS_TIPO_CAT_ENTRATE = [[/affitt|uso palestra|condiv|tariff/i, ['CONDIVPALESTRA', 'TARIFFE_PAL']], [/quot|iscrizion|rett/i, ['QUOTE']]];
+var DFS_TIPO_CAT_ENTRATE = [[/affitt|uso palestra|condiv|tariff/i, ['CONDIVPALESTRA', 'TARIFFE_PAL']], [/quot|iscrizion|rett|contribut/i, ['QUOTE']]];
 var DFS_TIPO_CAT = [[/consumabil|pulizi/i, ['PUL', 'PULIZIE']], [/manutenz/i, ['MANUT']], [/utenz|bollett/i, ['UTENZE']], [/carburant/i, ['CARBURANTE', 'CARBURANTI', 'CARBUR']],
   [/una tantum|attrezz|miglior/i, ['ATTREZZ', 'MIGLIORIE']], [/ricorrent/i, ['UTENZE']]];
 var DFS_TIPO_NATURA = [[/una tantum|attrezz|miglior/i, 'MIGLIORIA'], [/manutenz|utenz/i, 'FISSO'], [/consumabil|ricorrent|carburant/i, 'FUNZIONAMENTO']];
