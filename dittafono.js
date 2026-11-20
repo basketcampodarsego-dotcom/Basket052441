@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono.js — ASD Basket Campodarsego
-// VERSIONE: v0.3 · 20/11/2026 11:00 · BK
+// VERSIONE: v0.4 · 20/11/2026 12:30 · BK
+// v0.4: note PRESENZE -> "✅ Registra presenze" (dittafono-gestionale v0.2).
 // v0.3: il dittafono comanda il gestionale (dittafono-gestionale.js):
 //   note PAGAMENTO -> "Registra pagamento" (scheda atleta + movimento in
 //   Economia); note DATO/NOTA ATLETA -> "Aggiorna scheda"; le DOMANDE
@@ -262,7 +263,7 @@ function dfHtmlNota(n, compatta) {
     if (n.tipo === 'SPESA' || n.tipo === 'INCASSO') azioni += '<button class="btn-gold btn-sm" onclick="dfElaboraSpesa(\'' + n.id + '\')">➡️ Registra ' + (n.tipo === 'INCASSO' ? 'incasso' : 'spesa') + '</button> ';
     else if (n.tipo === 'PAGAMENTO' && typeof dfgApriPagamento === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriPagamento(\'' + n.id + '\')">✅ Registra pagamento</button> ';
     else if ((n.tipo === 'DATO_ATLETA' || n.tipo === 'NOTA_ATLETA') && typeof dfgApriDati === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriDati(\'' + n.id + '\')">✅ Aggiorna scheda</button> ';
-    else if (n.tipo === 'PRESENZE' && typeof dfgApriDati === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriDati(\'' + n.id + '\')">📎 Note atleta</button> ';
+    else if (n.tipo === 'PRESENZE' && typeof dfgApriPresenze === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriPresenze(\'' + n.id + '\')">✅ Registra presenze</button> <button class="btn-gray btn-sm" onclick="dfgApriDati(\'' + n.id + '\')">📎 Note atleta</button> ';
     azioni += '<button class="btn-gray btn-sm" onclick="dfCambiaTipo(\'' + n.id + '\')">Cambia tipo</button> ';
     if (!compatta) azioni += '<button class="btn-gray btn-sm" onclick="dfImpostaStato(\'' + n.id + '\',\'APPUNTO\')">📌 Tieni come appunto</button> <button class="btn-red btn-sm" onclick="dfImpostaStato(\'' + n.id + '\',\'SCARTATA\')">Scarta</button>';
   }

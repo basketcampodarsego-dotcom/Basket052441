@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.5 · 20/11/2026 11:00 · BK
+// VERSIONE: v0.6 · 20/11/2026 12:30 · BK
+// v0.6: solo allineamento versione (presenze dettate, dittafono v0.4).
 // v0.5: solo allineamento versione (dittafono v0.3 + dittafono-gestionale.js).
 // v0.4: solo allineamento versione (pulsante Importa note del dittafono v0.2).
 // v0.3: la pagina diventa anche DITTAFONO (dittafono.js, richiesta Alberto
@@ -44,7 +45,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.5 · 20/11/2026 11:00';
+var SR_BUILD = 'v0.6 · 20/11/2026 12:30';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {

@@ -1,5 +1,5 @@
-BK-546 · 20/11/2026 11:00 · DITTAFONO CHE COMANDA IL GESTIONALE (UN SOLO CARICAMENTO)
-Sostituisce tutti gli zip precedenti non caricati (BK546_dittafono_import_v0.2.zip compreso).
+BK-546 · 20/11/2026 12:30 · DITTAFONO CHE COMANDA IL GESTIONALE + PRESENZE DETTATE
+Sostituisce tutti gli zip precedenti non caricati (BK546_dittafono_gestionale_v0.5.zip compreso).
 
 CARICARE SU GITHUB (Basket052441, cartella principale) questi 10 file, TUTTI INSIEME:
   basket052441.html        v7.03 -> v7.04  gestionale
@@ -8,14 +8,14 @@ CARICARE SU GITHUB (Basket052441, cartella principale) questi 10 file, TUTTI INS
   bk-sync.js               NUOVO v0.1      protezione salvataggi (unione modifiche)
   sw.js                    cache 20261120_1000 (fa caricare il nuovo basket-core)
   report-residenti.js      NUOVO v0.1
-  spese-rapide.html        v0.1 -> v0.5    BK dittafono
-  spese-rapide.js          v0.1 -> v0.5
-  dittafono.js             NUOVO v0.3
-  dittafono-gestionale.js  NUOVO v0.1
+  spese-rapide.html        v0.1 -> v0.6    BK dittafono
+  spese-rapide.js          v0.1 -> v0.6
+  dittafono.js             NUOVO v0.4
+  dittafono-gestionale.js  NUOVO v0.2
 NON caricare file .json con dati di atleti.
 
 DOPO IL CARICAMENTO: chiudi e riapri gestionale e dittafono sul telefono (due volte
-se la versione mostrata non e' ancora v7.04 / v0.5).
+se la versione mostrata non e' ancora v7.04 / v0.6).
 
 COSA C'E' DI NUOVO
 1. Salvataggi protetti: gestionale, admin e dittafono possono scrivere insieme;
@@ -31,6 +31,13 @@ COSA C'E' DI NUOVO
    "chi ha il certificato scaduto?", "certificati in scadenza?", "chi non ha
    pagato?", "documenti mancanti?", "cassa", "residenti?", "spese del mese",
    "situazione Rossi".
-4. Gestionale: in scheda atleta le caselle Documenti consegnati.
+4. PRESENZE DETTATE: "allenamento Aquilotti, assenti Rossi e Bianchi",
+   "Scoiattoli tutti presenti tranne Neri", "Rossi assente, Verdi giustificata,
+   Neri in ritardo", "allenamento di ieri ...". In Note: "✅ Registra presenze"
+   -> elenco iscritti della categoria con P/R/G/A gia' impostati, correggibili
+   con un tocco -> allenamento + presenze nel gestionale (pagina Presenze).
+   Stesso giorno e stesse categorie = aggiorna l'allenamento esistente.
+   Domanda: "presenze Aquilotti?" -> presenze per atleta nella stagione.
+5. Gestionale: in scheda atleta le caselle Documenti consegnati.
    Tabulato (gestionale e admin): colonne Stato cert., Comune, Documenti,
    Pagato stagione + pulsante CSV.
