@@ -1,31 +1,22 @@
-BK-546 · 12/11/2026 · Spese rapide v0.2 + abbinamento negli import
+BK-546 · 20/11/2026 · Report Residenti (Capitolato §9)
 
-CARICARE SU GITHUB (Basket052441, cartella principale) TUTTI questi file:
-  NUOVI
-    spese-rapide.html            pagina (v0.2)
-    spese-rapide.js              logica pagina (v0.2, con Modifica)
-    spese-rapide-voce.js         lettura della frase (v0.1)
-  AGGIORNATI
-    economia-import-banca.js     v0.9 -> v1.0  (abbinamento spese gia' registrate)
-    economia-import-banca-ui.js  v0.9 -> v1.0
-    economia-import-carta.js     v0.1 -> v0.2
-    index-strumenti.html         + voce "Spese rapide"
-Gestionale e admin restano v7.03 / v9.64 (non cambiano).
+CARICARE SU GITHUB (Basket052441, cartella principale):
+  basket052441-admin.html   v9.64 -> v9.65 (nuova scheda nel Report)
+  report-residenti.js       NUOVO (v0.1)
+Il gestionale (basket052441.html) NON cambia: i dati servono gia' tutti.
 
-DOPO IL CARICAMENTO (circa 10 minuti di attesa):
-1. Apri sul telefono, in Chrome:
-   https://basketcampodarsego-dotcom.github.io/Basket052441/spese-rapide.html
-2. Menu ⋮ -> "Aggiungi a schermata Home": da quel momento e' un'icona.
-3. Primo avvio: se compare un riquadro rosso (centri Palestra/Societa' o
-   conto Cassa mancanti) tocca il pulsante per crearli.
-4. Scheda Cassa -> "Conta cassa": conta i contanti della societa', diventa
-   la base di partenza.
+DOVE: Pannello Admin -> Report -> scheda "Residenti a Campodarsego".
+Stagione -> Calcola -> Stampa (pag. N di M, con firma) o Esporta CSV.
 
-USO: Foto -> Parla ("benzina 45 euro Eni carta") -> controlla il riepilogo -> Salva.
-CONTROLLO: scheda Elenco -> periodo -> confronto Palestra/Societa' -> Stampa.
+DATI USATI (gia' presenti nella scheda atleta):
+- Residente: Comune di residenza = Campodarsego o frazioni
+  (Sant'Andrea, Reschigliano, Bronzola), oppure CAP 35011.
+- Data iscrizione: scheda atleta -> Iscrizioni -> "Data iscrizione"
+  della stagione (con FIP e CSI nella stessa stagione vale la piu' vecchia).
+- Under 18: Pulcini, Scoiattoli, Aquilotti, Esordienti + Special con
+  meno di 18 anni al 31/12 dell'anno di inizio stagione.
+Chi non ha il comune risulta "non indicato" e conta come NON residente;
+chi non ha la data di iscrizione va in fondo all'elenco. Il report li conta.
 
-Verifiche eseguite (output reale in chat): 20/20 frasi di prova lette bene;
-E2E headless con database simulato (salvataggio, foto, apprendimento,
-anticipo, rimborso, conta cassa, giroconto, annullamento, errore di
-scrittura, stampa); abbinamento import su 6 casi + reimport senza doppioni;
-smoke gestionale/admin/pagina: 0 errori JS, nessuna funzione duplicata.
+Versione admin aggiornata in 4 punti: commento in testa, BUILD_VERSION,
+login, topbar.
