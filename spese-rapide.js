@@ -1,6 +1,13 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.2 · 12/11/2026 11:50 · BK
+// VERSIONE: v0.5 · 20/11/2026 11:00 · BK
+// v0.5: solo allineamento versione (dittafono v0.3 + dittafono-gestionale.js).
+// v0.4: solo allineamento versione (pulsante Importa note del dittafono v0.2).
+// v0.3: la pagina diventa anche DITTAFONO (dittafono.js, richiesta Alberto
+//   20/11/2026): prima scheda "Detta" (salvataggio immediato della nota),
+//   scheda "Note" (da elaborare / appunti / elaborate). Da una nota di spesa
+//   si apre il modulo Spesa gia' compilato: al salvataggio la nota viene
+//   collegata al movimento (SR.notaInElaborazione + dfDopoSalvataggioMovimento).
 // v0.2: aggiunta MODIFICA di una spesa gia' registrata (richiesta Alberto
 //   12/11/2026: "registro uno scontrino ma mi accorgo che ho sbagliato la
 //   data"). Dall'Elenco, ✏️ Modifica riapre la spesa nel modulo: stesso
@@ -37,7 +44,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.2 · 12/11/2026 11:50';
+var SR_BUILD = 'v0.5 · 20/11/2026 11:00';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
@@ -73,6 +80,7 @@ var SR = {
   rimbSel: {},
   salvataggioInCorso: false,
   modificaId: null,       // v0.2: id del movimento in modifica (null = nuova spesa)
+  notaInElaborazione: null, // v0.3: id della nota del dittafono da cui nasce la spesa
   miniCache: {}
 };
 
@@ -174,6 +182,7 @@ function srCaricaTutto() {
       srNuova();
       srAggiornaBadgeCassa();
       srElencoAggiorna();
+      if (typeof dfInit === 'function') dfInit().catch(function (err) { srLog('Dittafono: avvio fallito ' + err.message, 'err'); }); // v0.3
     })
     .catch(function (err) {
       srLog('Caricamento fallito: ' + (err && err.message || err), 'err');
@@ -320,6 +329,7 @@ function srNuova() {
   SR.s = srStatoVuoto();
   SR.foto = null;
   SR.modificaId = null;
+  SR.notaInElaborazione = null;
   srEl('banner-modifica').innerHTML = '';
   srEl('btn-salva').innerHTML = '💾 Salva';
   srEl('frase').value = '';
@@ -656,6 +666,7 @@ function srSalva() {
     return batch.commit();
   }).then(function () {
     srRegistraInCache(m);
+    if (SR.notaInElaborazione && typeof dfDopoSalvataggioMovimento === 'function') dfDopoSalvataggioMovimento(SR.notaInElaborazione, m); // v0.3
     if (SR.foto) SR.miniCache[m.id] = SR.foto.mini.base64;
     srLog('Salvato ' + m.numeroMovimento + ' ' + m.tipoMovimento + ' ' + m.importoEur + ' ' + m.categoriaCodice + ' ' + m.centroCostoCodice + ' ' + m.mezzoPagamento, 'ok');
     srImparaESalva(s);
@@ -695,6 +706,7 @@ function srGoTab(tab) {
   if (tab === 'elenco') srElencoAggiorna();
   if (tab === 'cassa') srRenderCassa();
   if (tab === 'rimborsi') srRenderRimborsi();
+  if (tab === 'note' && typeof dfRenderNote === 'function') dfRenderNote(); // v0.3
 }
 function srSetPeriodo(v) {
   SR.periodo = v;
