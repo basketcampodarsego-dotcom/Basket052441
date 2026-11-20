@@ -1,5 +1,4 @@
-<!-- basket052441-admin.html | v9.66 · 20/11/2026 11:00 -->
-<!-- v9.66: salvataggi protetti (bk-sync.js), Tabulato con Stato cert./Comune/Documenti/Pagato + CSV -->
+<!-- basket052441-admin.html | v9.65 · 20/11/2026 07:45 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -140,8 +139,7 @@
   <!-- jsPDF + JSZip -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="bk-sync.js"></script>
-<script src="basket-core.js"></script>
+  <script src="basket-core.js"></script>
   <script src="economia-core-DRAFT.js"></script>
   <script src="economia-admin-ui.js"></script>
   <script src="economia-report-ui.js"></script>
@@ -158,7 +156,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.66 · 20/11/2026 11:00 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.65 · 20/11/2026 07:45 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -177,7 +175,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.66 · 20/11/2026 11:00</div>
+    <div class="topbar-sub">Build v9.65 · 20/11/2026 07:45</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -423,14 +421,10 @@ document.addEventListener('DOMContentLoaded', function(){ setTimeout(_navTabsFad
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="note"> Note</label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="spunta"> □ Spunta</label>
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="pag" checked> Pagamenti</label>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="statoCs"> Stato cert.</label>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="comune"> Comune</label>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="doc"> Documenti</label>
-        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px"><input type="checkbox" class="tab-campo" value="tot"> Pagato stagione</label>
       </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-gold" onclick="stampaTabulatoTesserati()">🖨️ Stampa tabulato</button> <button class="btn btn-gray" onclick="esportaTabulatoCSV()">⬇️ CSV</button>
+      <button class="btn btn-gold" onclick="stampaTabulatoTesserati()">🖨️ Stampa tabulato</button>
     </div>
   </div>
 
@@ -761,7 +755,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.66 · 20/11/2026 11:00";
+var BUILD_VERSION = "v9.65 · 20/11/2026 07:45";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -924,7 +918,7 @@ function loadDB(){
       return col.doc(sez).get().then(function(doc){
         if(doc.exists){
           var data=doc.data();
-          if(data && data.v){ if(typeof bkRegistraBase==='function')bkRegistraBase(sez,data.v);
+          if(data && data.v){
             try{
               var parsed=JSON.parse(data.v);
               if(parsed!==undefined){
@@ -1207,10 +1201,6 @@ function stampaTabulatoTesserati(){
   if(campi.email) COLS.push({k:'email',  h:'Email',  w:'95px'});
   if(campi.ind)   COLS.push({k:'ind',    h:'Indirizzo', w:'110px'});
   if(campi.cs)    COLS.push({k:'cs',     h:'Cert.',  w:'58px'});
-  if(campi.statoCs)COLS.push({k:'statoCs',h:'Stato cert.',w:'62px'}); // v20/11/2026
-  if(campi.comune)COLS.push({k:'comune',h:'Comune',w:'80px'});
-  if(campi.doc)COLS.push({k:'doc',h:'Doc. M/I/T',w:'54px'});
-  if(campi.tot)COLS.push({k:'tot',h:'Pagato stag.',w:'60px'});
   if(campi.tut)   COLS.push({k:'tut',    h:'Tutore',         w:'auto'});
   if(campi.note)  COLS.push({k:'note',   h:'Note',   w:'auto'});
   if(campi.pag){
@@ -1260,7 +1250,6 @@ function stampaTabulatoTesserati(){
       return t.join(' | ');
     }
     if(k==='note')return a.note||'';
-    if(k==='statoCs'||k==='comune'||k==='doc'||k==='tot')return _tabValoreExtra(a,k,stag,tipoP==='anno'?annoSolare:'');
     if(k.substring(0,3)==='pag'){
       var _pi=parseInt(k.substring(3))-1;
       var _pp=(DB.pagamenti[a.id]||[]).filter(function(p){
@@ -1275,8 +1264,6 @@ function stampaTabulatoTesserati(){
     }
     return '';
   }
-
-  if(window._tabSoloCSV){window._tabSoloCSV=false;_tabScaricaCSV(COLS,lista,function(a,k){return _val(a,k,stagione);},'Tabulato_'+(stagione||'tutti'));return;}
 
   var oggi=new Date().toLocaleDateString('it-IT');
   var titoloStampa='ASD Basket Campodarsego 052441';
@@ -1952,9 +1939,7 @@ function connectDB(){
 
 // --- SALVA ---
 function salvaSezione(sez, data, callback) {
-  var _vStr=JSON.stringify(data);
-  _db.collection(FB_COL).doc(sez).set({ v: _vStr, ts: new Date().toISOString(), da: 'admin import' }).then(function(){
-    if(typeof bkRegistraBase==='function')bkRegistraBase(sez,_vStr); // v9.66: base aggiornata (protezione salvataggi)
+  _db.collection(FB_COL).doc(sez).set({ v: JSON.stringify(data) }).then(function(){
     log('Firebase aggiornato: sezione "'+sez+'"','ok');
     if(callback) callback();
   }).catch(function(e){

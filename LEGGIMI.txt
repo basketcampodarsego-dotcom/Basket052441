@@ -1,36 +1,22 @@
-BK-546 · 20/11/2026 11:00 · DITTAFONO CHE COMANDA IL GESTIONALE (UN SOLO CARICAMENTO)
-Sostituisce tutti gli zip precedenti non caricati (BK546_dittafono_import_v0.2.zip compreso).
+BK-546 · 20/11/2026 · Report Residenti (Capitolato §9)
 
-CARICARE SU GITHUB (Basket052441, cartella principale) questi 10 file, TUTTI INSIEME:
-  basket052441.html        v7.03 -> v7.04  gestionale
-  basket052441-admin.html  v9.64 -> v9.66  admin
-  basket-core.js           v1.3  -> v1.4   salvataggio protetto + colonne tabulato
-  bk-sync.js               NUOVO v0.1      protezione salvataggi (unione modifiche)
-  sw.js                    cache 20261120_1000 (fa caricare il nuovo basket-core)
-  report-residenti.js      NUOVO v0.1
-  spese-rapide.html        v0.1 -> v0.5    BK dittafono
-  spese-rapide.js          v0.1 -> v0.5
-  dittafono.js             NUOVO v0.3
-  dittafono-gestionale.js  NUOVO v0.1
-NON caricare file .json con dati di atleti.
+CARICARE SU GITHUB (Basket052441, cartella principale):
+  basket052441-admin.html   v9.64 -> v9.65 (nuova scheda nel Report)
+  report-residenti.js       NUOVO (v0.1)
+Il gestionale (basket052441.html) NON cambia: i dati servono gia' tutti.
 
-DOPO IL CARICAMENTO: chiudi e riapri gestionale e dittafono sul telefono (due volte
-se la versione mostrata non e' ancora v7.04 / v0.5).
+DOVE: Pannello Admin -> Report -> scheda "Residenti a Campodarsego".
+Stagione -> Calcola -> Stampa (pag. N di M, con firma) o Esporta CSV.
 
-COSA C'E' DI NUOVO
-1. Salvataggi protetti: gestionale, admin e dittafono possono scrivere insieme;
-   le modifiche si uniscono atleta per atleta. Se lo stesso dato e' cambiato da due
-   parti nello stesso momento, compare un avviso (niente si perde in silenzio).
-2. Dittafono -> Note:
-   - Pagamento atleta: "✅ Registra pagamento" -> scheda atleta + entrata in
-     Economia (Quote, Societa'; contanti = cassa). Doppioni bloccati.
-   - Dato/Nota atleta: "✅ Aggiorna scheda" -> proposta campo per campo
-     (nascita, comune, certificato, documenti) oppure "📎 Aggiungi alle note
-     dell'atleta" (codici fiscali e telefoni oscurati).
-3. Dittafono -> Detta: le DOMANDE rispondono subito, con Stampa e CSV:
-   "chi ha il certificato scaduto?", "certificati in scadenza?", "chi non ha
-   pagato?", "documenti mancanti?", "cassa", "residenti?", "spese del mese",
-   "situazione Rossi".
-4. Gestionale: in scheda atleta le caselle Documenti consegnati.
-   Tabulato (gestionale e admin): colonne Stato cert., Comune, Documenti,
-   Pagato stagione + pulsante CSV.
+DATI USATI (gia' presenti nella scheda atleta):
+- Residente: Comune di residenza = Campodarsego o frazioni
+  (Sant'Andrea, Reschigliano, Bronzola), oppure CAP 35011.
+- Data iscrizione: scheda atleta -> Iscrizioni -> "Data iscrizione"
+  della stagione (con FIP e CSI nella stessa stagione vale la piu' vecchia).
+- Under 18: Pulcini, Scoiattoli, Aquilotti, Esordienti + Special con
+  meno di 18 anni al 31/12 dell'anno di inizio stagione.
+Chi non ha il comune risulta "non indicato" e conta come NON residente;
+chi non ha la data di iscrizione va in fondo all'elenco. Il report li conta.
+
+Versione admin aggiornata in 4 punti: commento in testa, BUILD_VERSION,
+login, topbar.
