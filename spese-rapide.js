@@ -1,6 +1,22 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.1 · 12/11/2026 10:30 · BK
+// VERSIONE: v0.5 · 20/11/2026 11:00 · BK
+// v0.5: solo allineamento versione (dittafono v0.3 + dittafono-gestionale.js).
+// v0.4: solo allineamento versione (pulsante Importa note del dittafono v0.2).
+// v0.3: la pagina diventa anche DITTAFONO (dittafono.js, richiesta Alberto
+//   20/11/2026): prima scheda "Detta" (salvataggio immediato della nota),
+//   scheda "Note" (da elaborare / appunti / elaborate). Da una nota di spesa
+//   si apre il modulo Spesa gia' compilato: al salvataggio la nota viene
+//   collegata al movimento (SR.notaInElaborazione + dfDopoSalvataggioMovimento).
+// v0.2: aggiunta MODIFICA di una spesa gia' registrata (richiesta Alberto
+//   12/11/2026: "registro uno scontrino ma mi accorgo che ho sbagliato la
+//   data"). Dall'Elenco, ✏️ Modifica riapre la spesa nel modulo: stesso
+//   movimento (stesso id e numero, la foto resta), ogni cambiamento
+//   tracciato nel campo modifiche[] (chi, quando, campo da -> a). Se la
+//   spesa e' gia' abbinata all'estratto o gia' rimborsata, importo, tipo e
+//   mezzo di pagamento restano bloccati (cambiarli romperebbe l'abbinamento:
+//   in quel caso Annulla e reinserisci). Cambio di anno -> nuovo numero
+//   nell'anno giusto (il vecchio resta annotato nelle modifiche).
 // v0.1: creazione (richiesta Alberto 12/11/2026). Pagina standalone per:
 //   1) registrare una spesa/incasso in 15 secondi: foto dello scontrino +
 //      frase libera (voce o tastiera) -> riepilogo -> Salva;
@@ -28,7 +44,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.1 · 12/11/2026 10:30';
+var SR_BUILD = 'v0.5 · 20/11/2026 11:00';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
@@ -63,6 +79,8 @@ var SR = {
   rimbModo: 'BONIFICO',
   rimbSel: {},
   salvataggioInCorso: false,
+  modificaId: null,       // v0.2: id del movimento in modifica (null = nuova spesa)
+  notaInElaborazione: null, // v0.3: id della nota del dittafono da cui nasce la spesa
   miniCache: {}
 };
 
@@ -164,6 +182,7 @@ function srCaricaTutto() {
       srNuova();
       srAggiornaBadgeCassa();
       srElencoAggiorna();
+      if (typeof dfInit === 'function') dfInit().catch(function (err) { srLog('Dittafono: avvio fallito ' + err.message, 'err'); }); // v0.3
     })
     .catch(function (err) {
       srLog('Caricamento fallito: ' + (err && err.message || err), 'err');
@@ -309,6 +328,10 @@ function srStatoVuoto() {
 function srNuova() {
   SR.s = srStatoVuoto();
   SR.foto = null;
+  SR.modificaId = null;
+  SR.notaInElaborazione = null;
+  srEl('banner-modifica').innerHTML = '';
+  srEl('btn-salva').innerHTML = '💾 Salva';
   srEl('frase').value = '';
   srEl('foto-prev').style.display = 'none';
   srEl('foto-prev').removeAttribute('src');
@@ -335,10 +358,14 @@ function srRenderForm() {
   srEl('f-importo').value = s.importo != null ? srFmtImportoCampo(s.importo) : srEl('f-importo').value;
   if (s.importo == null && document.activeElement !== srEl('f-importo')) srEl('f-importo').value = '';
   srEl('f-data').value = s.data;
+  var blocco = !!(s.bloccati && s.bloccati.importo); // v0.2: spesa abbinata/rimborsata
+  srEl('f-importo').disabled = blocco;
+  document.querySelectorAll('#tipo-mov .chip').forEach(function (b) { b.disabled = blocco; });
   srRenderChips('f-centro', [{ v: 'PALESTRA', l: '🏟️ Palestra' }, { v: 'SPORT', l: '🏀 Società' }], s.centro, 'srSetCentro', { PALESTRA: 'pal', SPORT: 'soc' });
   var mezzi = s.tipoMov === 'ENTRATA' ? ['CONTANTI_CASSA', 'BONIFICO'] : ['BONIFICO', 'CARTA_TASCA', 'CONTANTI_CASSA', 'CARTA_PERSONALE', 'CONTANTI_PERSONALI'];
   if (s.personale && !s.mezzo) mezzi = ['CARTA_PERSONALE', 'CONTANTI_PERSONALI'].concat(mezzi.filter(function (m) { return !/PERSONAL/.test(m); }));
   srRenderChips('f-mezzo', mezzi.map(function (m) { return { v: m, l: SR_MEZZI[m].label }; }), s.mezzo, 'srSetMezzo');
+  if (blocco) srEl('f-mezzo').querySelectorAll('.chip').forEach(function (b) { b.disabled = true; });
   srEl('blocco-natura').style.display = s.centro === 'PALESTRA' && s.tipoMov === 'USCITA' ? '' : 'none';
   srRenderChips('f-natura', Object.keys(SR_NATURE).map(function (k) { return { v: k, l: SR_NATURE[k] }; }), s.natura, 'srSetNatura');
   srRenderChips('f-documento', Object.keys(SR_DOCUMENTI).map(function (k) { return { v: k, l: SR_DOCUMENTI[k] }; }), s.documento, 'srSetDocumento');
@@ -605,6 +632,7 @@ function srValidaForm(s) {
 
 function srSalva() {
   if (SR.salvataggioInCorso) return;
+  if (SR.modificaId) { srSalvaModifica(); return; } // v0.2
   srDaCampi();
   var s = SR.s;
   var esito = srEl('esito-salva');
@@ -638,6 +666,7 @@ function srSalva() {
     return batch.commit();
   }).then(function () {
     srRegistraInCache(m);
+    if (SR.notaInElaborazione && typeof dfDopoSalvataggioMovimento === 'function') dfDopoSalvataggioMovimento(SR.notaInElaborazione, m); // v0.3
     if (SR.foto) SR.miniCache[m.id] = SR.foto.mini.base64;
     srLog('Salvato ' + m.numeroMovimento + ' ' + m.tipoMovimento + ' ' + m.importoEur + ' ' + m.categoriaCodice + ' ' + m.centroCostoCodice + ' ' + m.mezzoPagamento, 'ok');
     srImparaESalva(s);
@@ -677,6 +706,7 @@ function srGoTab(tab) {
   if (tab === 'elenco') srElencoAggiorna();
   if (tab === 'cassa') srRenderCassa();
   if (tab === 'rimborsi') srRenderRimborsi();
+  if (tab === 'note' && typeof dfRenderNote === 'function') dfRenderNote(); // v0.3
 }
 function srSetPeriodo(v) {
   SR.periodo = v;
@@ -792,6 +822,7 @@ function srHtmlRiga(m) {
     ? '<img class="mov-thumb" id="mini-' + m.id + '" alt="" onclick="srApriFoto(\'' + m.id + '\')" src="' + (SR.miniCache[m.id] ? 'data:image/jpeg;base64,' + SR.miniCache[m.id] : '') + '">'
     : '<div class="mov-thumb" title="nessun documento">' + (m.tipoMovimento === 'USCITA' ? '📄' : '·') + '</div>';
   var azioni = '<button class="btn-gray btn-sm" onclick="srAllegaFoto(\'' + m.id + '\')">' + (m.fotoDocId ? '📷 Sostituisci' : '📎 Foto') + '</button> ';
+  if (srModificabile(m)) azioni += '<button class="btn-gray btn-sm" onclick="srApriModifica(\'' + m.id + '\')">✏️ Modifica</button> ';
   if (srAnnullabile(m)) azioni += '<button class="btn-red btn-sm" onclick="srAnnulla(\'' + m.id + '\')">Annulla</button>';
   return '<div class="mov' + (m.stato === 'ANNULLATO' ? ' annullato' : '') + '">' + thumb + '<div class="mov-body">' +
     '<div class="mov-top"><span>' + srDataIt(m.dataDocumento) + ' · ' + srEsc(srNomeCategoria(m.categoriaCodice)) + '</span>' +
@@ -799,6 +830,103 @@ function srHtmlRiga(m) {
     '<div class="mov-desc">' + srEsc(m.note || '') + '</div><div>' + badge + '</div>' +
     '<div style="margin-top:6px">' + azioni + '</div></div></div>';
 }
+// ── v0.2: MODIFICA di una spesa registrata da questa pagina ──
+function srModificabile(m) {
+  return m.stato !== 'ANNULLATO' && m.origine === 'SPESA_RAPIDA';
+}
+function srBloccata(m) { return !!(m.riconciliatoIl || m.rimborso); }
+function srApriModifica(id) {
+  var m = srTrovaMov(id);
+  if (!m || !srModificabile(m)) { srLog('srApriModifica: movimento ' + id + ' non modificabile o non trovato', 'err'); return; }
+  srNuova();
+  SR.modificaId = id;
+  var cen = srCentroDi(m);
+  var blocc = srBloccata(m);
+  SR.s = { tipoMov: m.tipoMovimento, importo: Number(m.importoEur), candidatiImporto: [], data: m.dataDocumento, centro: cen === 'PALESTRA' || cen === 'SPORT' ? cen : null,
+    categoria: m.categoriaCodice, categorieAmbigue: [], propostaCategoria: null, mezzo: srMezzoDi(m), personale: false, natura: m.natura || null,
+    documento: m.documento || null, descrizione: m.note || '', frase: '', parole: [], bloccati: { importo: blocc } };
+  srEl('frase').value = '';
+  if (m.fotoDocId) {
+    var mostra = function (b64) { var prev = srEl('foto-prev'); prev.src = 'data:image/jpeg;base64,' + b64; prev.style.display = 'block'; };
+    if (SR.miniCache[id]) mostra(SR.miniCache[id]);
+    else srColFoto(id).doc('mini').get().then(function (d) { if (d.exists) { SR.miniCache[id] = d.data().base64; mostra(SR.miniCache[id]); } })
+      .catch(function (err) { srLog('Miniatura in modifica: ' + err.message, 'warn'); });
+  }
+  srEl('banner-modifica').innerHTML = '<div class="domanda">✏️ Stai modificando <b>' + srEsc(m.numeroMovimento) + '</b> del ' + srDataIt(m.dataDocumento) + '.' +
+    (blocc ? '<br>Già ' + (m.rimborso ? 'rimborsata' : 'abbinata all\'estratto') + ': importo e pagamento non si cambiano (se sono sbagliati: Annulla e reinserisci).' : '') +
+    ' Una nuova foto sostituisce quella attuale.<div class="chips"><button class="chip" onclick="srNuova()">Annulla modifica</button></div></div>';
+  srEl('btn-salva').innerHTML = '💾 Salva modifiche';
+  srGoTab('nuova');
+  srRenderForm();
+  window.scrollTo(0, 0);
+}
+function srSalvaModifica() {
+  srDaCampi();
+  var s = SR.s, esito = srEl('esito-salva');
+  var orig = srTrovaMov(SR.modificaId);
+  if (!orig) { esito.innerHTML = '<div class="errore">Spesa da modificare non trovata: ricarica la pagina.</div>'; return; }
+  var mancano = srValidaForm(s);
+  if (mancano.length) { esito.innerHTML = '<div class="errore">Manca: ' + mancano.join(', ') + '.</div>'; return; }
+  var blocc = srBloccata(orig);
+  var t = srCostruisciMovimento(s); // modello dei campi derivati (conto, stato, ...) — id e date di creazione NON usati
+  var nuovo = JSON.parse(JSON.stringify(orig));
+  ['categoriaCodice', 'centroCostoCodice', 'dataDocumento', 'annoEsercizio', 'note', 'natura', 'documento'].forEach(function (k) { nuovo[k] = t[k]; });
+  if (!blocc) {
+    nuovo.tipoMovimento = t.tipoMovimento; nuovo.importoEur = t.importoEur;
+    if (t.mezzoPagamento !== srMezzoDi(orig)) {
+      ['contoFinanziarioId', 'stato', 'dataPagamento', 'metodoPagamento', 'daRiconciliare', 'riconciliaSu', 'anticipatoDa', 'mezzoPagamento'].forEach(function (k) { nuovo[k] = t[k]; });
+    } else if (nuovo.stato === 'PAGATO' && !nuovo.anticipatoDa) {
+      nuovo.dataPagamento = t.dataDocumento;
+    }
+    if (nuovo.contoFinanziarioId == null && nuovo.stato === 'PAGATO') { esito.innerHTML = '<div class="errore">Manca il conto per il pagamento scelto (vedi avviso in alto).</div>'; return; }
+  }
+  var campi = {};
+  ['tipoMovimento', 'importoEur', 'categoriaCodice', 'centroCostoCodice', 'dataDocumento', 'note', 'natura', 'documento', 'mezzoPagamento', 'stato', 'contoFinanziarioId'].forEach(function (k) {
+    if (JSON.stringify(orig[k] == null ? null : orig[k]) !== JSON.stringify(nuovo[k] == null ? null : nuovo[k])) campi[k] = { da: orig[k] == null ? null : orig[k], a: nuovo[k] == null ? null : nuovo[k] };
+  });
+  if (SR.foto) campi.foto = { da: orig.fotoDocId ? 'presente' : null, a: 'nuova' };
+  if (!Object.keys(campi).length) { esito.innerHTML = '<div class="domanda">Nessuna modifica da salvare.</div>'; return; }
+  var annoVecchio = parseInt(orig.annoEsercizio, 10), annoNuovo = parseInt(nuovo.annoEsercizio, 10);
+  SR.salvataggioInCorso = true; srEl('btn-salva').disabled = true;
+  esito.innerHTML = '<div class="domanda">Salvataggio modifiche…</div>';
+  srAnnoCaricato(annoNuovo).then(function (movAnno) {
+    if (annoNuovo !== annoVecchio) {
+      campi.numeroMovimento = { da: orig.numeroMovimento, a: null };
+      nuovo.numeroMovimento = ecoNextNumeroMovimento(movAnno, annoNuovo);
+      campi.numeroMovimento.a = nuovo.numeroMovimento;
+    }
+    var adesso = new Date().toISOString();
+    nuovo.updatedAt = adesso; nuovo.updatedBy = SR.utente;
+    nuovo.modifiche = (orig.modifiche || []).concat([{ il: adesso, da: SR.utente, campi: campi }]);
+    var v = ecoValidaMovimento(nuovo, SR.config, {});
+    if (!v.valido) throw new Error('Movimento non valido: ' + v.errori.join(', '));
+    var b = _db.batch();
+    if (SR.foto) {
+      nuovo.fotoDocId = 'foto'; if (!nuovo.documento) nuovo.documento = 'SCONTRINO';
+      b.set(srColFoto(nuovo.id).doc('foto'), { mimeType: 'image/jpeg', base64: SR.foto.full.base64, kb: SR.foto.full.kb, caricatoIl: adesso, caricatoDa: SR.utente });
+      b.set(srColFoto(nuovo.id).doc('mini'), { mimeType: 'image/jpeg', base64: SR.foto.mini.base64, kb: SR.foto.mini.kb });
+    }
+    b.set(srColMov().doc(nuovo.id), nuovo);
+    return b.commit();
+  }).then(function () {
+    if (annoNuovo !== annoVecchio && SR.movAnno[annoVecchio]) SR.movAnno[annoVecchio] = SR.movAnno[annoVecchio].filter(function (x) { return x.id !== nuovo.id; });
+    if (!nuovo.anticipatoDa) SR.anticipi = SR.anticipi.filter(function (x) { return x.id !== nuovo.id; });
+    Object.keys(orig).forEach(function (k) { if (!(k in nuovo)) delete orig[k]; });
+    Object.assign(orig, nuovo);
+    srRegistraInCache(orig);
+    if (SR.foto) SR.miniCache[nuovo.id] = SR.foto.mini.base64;
+    if (campi.categoriaCodice || campi.centroCostoCodice) srImparaESalva({ parole: srParoleContenuto(nuovo.note || ''), categoria: s.categoria, centro: s.centro, natura: s.natura });
+    srLog('Modificato ' + nuovo.numeroMovimento + ': ' + Object.keys(campi).join(', '), 'ok');
+    var msg = '✅ Modificato ' + srEsc(nuovo.numeroMovimento) + ': ' + Object.keys(campi).map(function (k) { return { dataDocumento: 'data', importoEur: 'importo', categoriaCodice: 'voce', centroCostoCodice: 'centro', mezzoPagamento: 'pagamento', note: 'descrizione', natura: 'natura', documento: 'documento', foto: 'foto', numeroMovimento: 'numero (cambio anno)', tipoMovimento: 'tipo', stato: 'stato', contoFinanziarioId: 'conto' }[k] || k; }).join(', ');
+    srNuova();
+    srEl('esito-salva').innerHTML = '<div class="ok-msg">' + msg + '</div>';
+    srAggiornaBadgeCassa();
+  }).catch(function (err) {
+    srLog('Modifica fallita: ' + (err && err.message || err), 'err');
+    esito.innerHTML = '<div class="errore">Modifica NON salvata: ' + srEsc(err && err.message || err) + '</div>';
+  }).then(function () { SR.salvataggioInCorso = false; srEl('btn-salva').disabled = false; });
+}
+
 function srAnnullabile(m) {
   return m.stato !== 'ANNULLATO' && /^(SPESA_RAPIDA|CONTA_CASSA|GIROCONTO_RAPIDO)$/.test(m.origine || '') && !m.rimborso && !m.riconciliatoIl;
 }

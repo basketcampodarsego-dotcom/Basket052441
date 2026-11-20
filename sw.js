@@ -2,10 +2,11 @@
 // Versione: 20260321_1057
 // Si aggiorna automaticamente ad ogni nuova build
 
-var CACHE_NAME = 'basket052441-20260818_1730';
+var CACHE_NAME = 'basket052441-20261120_1000'; // 20/11/2026: basket-core v1.4 + bk-sync.js
 var CACHE_URLS = [
   './basket052441.html',
   './basket-core.js',
+  './bk-sync.js',
 ];
 
 // Install: precacha i file

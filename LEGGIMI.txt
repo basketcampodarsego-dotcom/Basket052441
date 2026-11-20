@@ -1,31 +1,36 @@
-BK-546 · 12/11/2026 · Spese rapide v0.1 + abbinamento negli import
+BK-546 · 20/11/2026 11:00 · DITTAFONO CHE COMANDA IL GESTIONALE (UN SOLO CARICAMENTO)
+Sostituisce tutti gli zip precedenti non caricati (BK546_dittafono_import_v0.2.zip compreso).
 
-CARICARE SU GITHUB (Basket052441, cartella principale) TUTTI questi file:
-  NUOVI
-    spese-rapide.html            pagina (v0.1)
-    spese-rapide.js              logica pagina (v0.1)
-    spese-rapide-voce.js         lettura della frase (v0.1)
-  AGGIORNATI
-    economia-import-banca.js     v0.9 -> v1.0  (abbinamento spese gia' registrate)
-    economia-import-banca-ui.js  v0.9 -> v1.0
-    economia-import-carta.js     v0.1 -> v0.2
-    index-strumenti.html         + voce "Spese rapide"
-Gestionale e admin restano v7.03 / v9.64 (non cambiano).
+CARICARE SU GITHUB (Basket052441, cartella principale) questi 10 file, TUTTI INSIEME:
+  basket052441.html        v7.03 -> v7.04  gestionale
+  basket052441-admin.html  v9.64 -> v9.66  admin
+  basket-core.js           v1.3  -> v1.4   salvataggio protetto + colonne tabulato
+  bk-sync.js               NUOVO v0.1      protezione salvataggi (unione modifiche)
+  sw.js                    cache 20261120_1000 (fa caricare il nuovo basket-core)
+  report-residenti.js      NUOVO v0.1
+  spese-rapide.html        v0.1 -> v0.5    BK dittafono
+  spese-rapide.js          v0.1 -> v0.5
+  dittafono.js             NUOVO v0.3
+  dittafono-gestionale.js  NUOVO v0.1
+NON caricare file .json con dati di atleti.
 
-DOPO IL CARICAMENTO (circa 10 minuti di attesa):
-1. Apri sul telefono, in Chrome:
-   https://basketcampodarsego-dotcom.github.io/Basket052441/spese-rapide.html
-2. Menu ⋮ -> "Aggiungi a schermata Home": da quel momento e' un'icona.
-3. Primo avvio: se compare un riquadro rosso (centri Palestra/Societa' o
-   conto Cassa mancanti) tocca il pulsante per crearli.
-4. Scheda Cassa -> "Conta cassa": conta i contanti della societa', diventa
-   la base di partenza.
+DOPO IL CARICAMENTO: chiudi e riapri gestionale e dittafono sul telefono (due volte
+se la versione mostrata non e' ancora v7.04 / v0.5).
 
-USO: Foto -> Parla ("benzina 45 euro Eni carta") -> controlla il riepilogo -> Salva.
-CONTROLLO: scheda Elenco -> periodo -> confronto Palestra/Societa' -> Stampa.
-
-Verifiche eseguite (output reale in chat): 20/20 frasi di prova lette bene;
-E2E headless con database simulato (salvataggio, foto, apprendimento,
-anticipo, rimborso, conta cassa, giroconto, annullamento, errore di
-scrittura, stampa); abbinamento import su 6 casi + reimport senza doppioni;
-smoke gestionale/admin/pagina: 0 errori JS, nessuna funzione duplicata.
+COSA C'E' DI NUOVO
+1. Salvataggi protetti: gestionale, admin e dittafono possono scrivere insieme;
+   le modifiche si uniscono atleta per atleta. Se lo stesso dato e' cambiato da due
+   parti nello stesso momento, compare un avviso (niente si perde in silenzio).
+2. Dittafono -> Note:
+   - Pagamento atleta: "✅ Registra pagamento" -> scheda atleta + entrata in
+     Economia (Quote, Societa'; contanti = cassa). Doppioni bloccati.
+   - Dato/Nota atleta: "✅ Aggiorna scheda" -> proposta campo per campo
+     (nascita, comune, certificato, documenti) oppure "📎 Aggiungi alle note
+     dell'atleta" (codici fiscali e telefoni oscurati).
+3. Dittafono -> Detta: le DOMANDE rispondono subito, con Stampa e CSV:
+   "chi ha il certificato scaduto?", "certificati in scadenza?", "chi non ha
+   pagato?", "documenti mancanti?", "cassa", "residenti?", "spese del mese",
+   "situazione Rossi".
+4. Gestionale: in scheda atleta le caselle Documenti consegnati.
+   Tabulato (gestionale e admin): colonne Stato cert., Comune, Documenti,
+   Pagato stagione + pulsante CSV.

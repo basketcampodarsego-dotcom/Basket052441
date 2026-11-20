@@ -4,7 +4,11 @@
 // Contiene SOLO le funzioni verificate identiche in entrambi i moduli
 // (confronto automatico byte-per-byte, 17/08/2026).
 // Variabili come DB, DB_KEY, BUILD_VERSION restano locali a ciascun modulo.
-// Versione: v1.3 — Build 18/08/2026 17:30 (fix: _catMultiplaAtleta/
+// Versione: v1.4 — Build 20/11/2026 10:00 (saveDB protetto: salva in
+// transazione solo le sezioni cambiate e UNISCE le modifiche fatte nel
+// frattempo da altre pagine, es. dittafono -> bk-sync.js. Conflitti sullo
+// stesso elemento segnalati, mai sovrascritti in silenzio.)
+// v1.3 — Build 18/08/2026 17:30 (fix: _catMultiplaAtleta/
 // _catAtletaPerAnno usavano .find() e prendevano solo la PRIMA iscrizione
 // dell'anno; con due iscrizioni nello stesso anno — es. una FIP vuota e
 // una CSI compilata come righe separate — la categoria compilata veniva
@@ -776,21 +780,53 @@ function saveDB(){
     if(_fbDirty[sez]!==h)_fbDirty[sez]=h;
   });
   if(_saveTimer)clearTimeout(_saveTimer);
-  _saveTimer=setTimeout(function(){
-    syncStatus(true);
-    var col=_db.collection("basket052441");
-    var batch=_db.batch();
-    _FB_SEZIONI.forEach(function(sez){
-      batch.set(col.doc(sez),{v:JSON.stringify(DB[sez]||[]),ts:new Date().toISOString()});
-    });
-    batch.commit().then(function(){
-      syncStatus(false);
-      console.log("[FB] Salvato (sezioni separate)"); diag("saveDB: salvato su Firebase","ok");
-    }).catch(function(e){
-      syncStatus(false);
-      console.error("[FB] Errore salvataggio batch:",e);
-    });
-  },1500);
+  _saveTimer=setTimeout(_saveDBOra,1500);
+}
+// v1.4: salvataggio protetto (bk-sync.js). Ritorna Promise (mai rifiutata: errori nel diag/toast).
+function _saveDBOra(){
+  var cambiate={};
+  _FB_SEZIONI.forEach(function(sez){
+    var val=DB[sez]||(sez==='pagamenti'?{}:[]);
+    if(typeof BK_BASI==='undefined'||JSON.stringify(val)!==BK_BASI[sez])cambiate[sez]=val;
+  });
+  if(!Object.keys(cambiate).length){ if(typeof diag==='function')diag('saveDB: niente di nuovo da salvare','ok'); return Promise.resolve(null); }
+  if(typeof bkSalvaSezioni!=='function'){
+    var msg0='saveDB: bk-sync.js non caricato, salvataggio NON eseguito (aggiornare i file)';
+    console.error('[FB] '+msg0); if(typeof diag==='function')diag(msg0,'err'); if(typeof toast==='function')toast('Dati NON salvati: manca bk-sync.js','err');
+    return Promise.resolve(null);
+  }
+  syncStatus(true);
+  var autore='';
+  try{ autore=(firebase.auth().currentUser||{}).email||''; }catch(ex){ console.warn('[FB] utente non letto: '+ex.message); }
+  return bkSalvaSezioni(_db,cambiate,(typeof BUILD_VERSION!=='undefined'?BUILD_VERSION+' ':'')+autore).then(function(es){
+    syncStatus(false);
+    if(es.unite.length){
+      es.unite.forEach(function(sez){ DB[sez]=es.valori[sez]; });
+      localStorage.setItem(DB_KEY,JSON.stringify(DB));
+      if(typeof buildSearchIndex==='function')buildSearchIndex();
+      if(typeof window._bkDopoUnione==='function')window._bkDopoUnione(es.unite);
+      else{ // ridisegna la pagina aperta del gestionale con i dati uniti
+        var pa=document.querySelector('.page.active');
+        if(pa&&g('tb-title')){ try{ goPage(pa.id.replace('page-','')); }catch(ex){ if(typeof diag==='function')diag('ridisegno dopo unione fallito: '+ex.message,'warn'); } }
+      }
+    }
+    var conf=Object.keys(es.conflitti);
+    console.log('[FB] Salvato: '+(es.scritte.join(', ')||'nessuna sezione')+(es.unite.length?' (unite: '+es.unite.join(', ')+')':''));
+    if(typeof diag==='function')diag('saveDB: salvato '+(es.scritte.join(', ')||'-')+(es.unite.length?' — unite con modifiche di altre pagine: '+es.unite.join(', '):''),'ok');
+    if(conf.length){
+      var righe=conf.map(function(s){return s+': '+es.conflitti[s].join(', ');}).join('\n');
+      var msg='Alcuni dati erano stati cambiati nello stesso momento da un\'altra pagina (es. dittafono).\nHo tenuto la versione già salvata per:\n'+righe+'\n\nControlla e, se serve, ripeti la tua modifica.';
+      if(typeof diag==='function')diag('saveDB: conflitti '+righe.replace(/\n/g,' | '),'warn');
+      alert(msg);
+    }
+    return es;
+  }).catch(function(e){
+    syncStatus(false);
+    console.error("[FB] Errore salvataggio:",e);
+    if(typeof diag==='function')diag('saveDB: NON salvato su Firebase — '+(e&&e.message||e),'err');
+    if(typeof toast==='function')toast('Dati NON salvati sul cloud: '+(e&&e.message||e),'err');
+    return null;
+  });
 }
 
 function doLogin() {
@@ -946,3 +982,43 @@ function _comuneAtleta(a){
   return c;
 }
 function _residenzaMancante(a){ return !_comuneAtleta(a); }
+
+// ── v1.4 (20/11/2026): colonne nuove del Tabulato Tesserati + CSV ──
+// Stato certificato come nel foglio atleti: MANCA / SCADUTO / IN SCADENZA (entro 30 gg) / OK
+function _statoCertificato(cs, oggiISO){
+  if(!cs)return 'MANCA';
+  var s=String(cs).slice(0,10);
+  if(/^\d{2}\/\d{2}\/\d{4}$/.test(s))s=s.slice(6)+'-'+s.slice(3,5)+'-'+s.slice(0,2);
+  var o=oggiISO||_isoLocale(new Date());
+  if(s<o)return 'SCADUTO';
+  var p=o.split('-').map(Number);
+  return s<=_isoLocale(new Date(p[0],p[1]-1,p[2]+30))?'IN SCADENZA':'OK';
+}
+function _isoLocale(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function _tabValoreExtra(a,k,stag,annoSolare){
+  if(k==='statoCs')return _statoCertificato(a.cs);
+  if(k==='comune')return _comuneAtleta(a);
+  if(k==='doc'){var d=a.docConsegnati||{};return ['modulo','identita','tessera'].map(function(x){return d[x]==='SI'?'S':d[x]==='NO'?'N':'?';}).join('/');}
+  if(k==='tot'){
+    var da,fino;
+    if(annoSolare){da=annoSolare+'-01-01';fino=annoSolare+'-12-31';}
+    else if(stag){var y=parseInt(String(stag).slice(0,4),10);da=y+'-09-01';fino=(y+1)+'-08-31';}
+    var t=(DB.pagamenti[a.id]||[]).filter(function(p){return p.data&&(!da||(p.data>=da&&p.data<=fino));}).reduce(function(s,p){return s+(+p.importo||0);},0);
+    return '€'+t.toFixed(2);
+  }
+  return '';
+}
+function esportaTabulatoCSV(){ window._tabSoloCSV=true; stampaTabulatoTesserati(); window._tabSoloCSV=false; }
+function _tabScaricaCSV(COLS,lista,valFn,nome){
+  var cols=COLS.filter(function(c){return c.k!=='spunta';});
+  var pulisci=function(v){return String(v==null?'':v).replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').trim();};
+  var q=function(v){v=pulisci(v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  var righe=[cols.map(function(c){return q(c.h);}).join(';')];
+  lista.forEach(function(a,i){righe.push(cols.map(function(c){return q(c.k==='n'?i+1:valFn(a,c.k));}).join(';'));});
+  var el=document.createElement('a');
+  el.href=URL.createObjectURL(new Blob(['﻿'+righe.join('\r\n')],{type:'text/csv;charset=utf-8'}));
+  el.download=nome.replace(/[^\w-]+/g,'_')+'.csv';
+  document.body.appendChild(el);el.click();
+  setTimeout(function(){URL.revokeObjectURL(el.href);el.remove();},1000);
+  if(typeof diag==='function')diag('Tabulato CSV: '+lista.length+' righe','ok');
+}
