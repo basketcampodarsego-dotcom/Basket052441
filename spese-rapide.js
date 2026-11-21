@@ -1,6 +1,12 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.14 · 20/11/2026 15:45 · BK
+// VERSIONE: v0.15 · 21/11/2026 04:00 · BK
+// v0.15: MOVIMENTI IN MEMORIA SUL TELEFONO (21/11/2026: "Quota exceeded" di Firebase,
+//   limite gratuito di letture esaurito). Prima: a ogni apertura 4 letture complete
+//   (anno, anno precedente, tutta la cassa, anticipi). Ora: i movimenti stanno nel
+//   telefono (IndexedDB); a ogni apertura si leggono SOLO quelli modificati dopo l'ultima
+//   volta (updatedAt, con 2 giorni di margine per orologi sfasati). Ricarica completa
+//   automatica ogni 7 giorni o a mano (🔧 -> Ricarica tutto). Senza IndexedDB: come prima.
 // v0.14: solo allineamento versione (note "Per BK", rileggi appunti, export per BK).
 // v0.13: i movimenti importati da CSV (origine IMPORT_CSV_SPESE) si possono annullare da 📋 Elenco.
 // v0.12: solo allineamento versione (import file anche da Download su Android).
@@ -53,7 +59,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.14 · 20/11/2026 15:45';
+var SR_BUILD = 'v0.15 · 21/11/2026 04:00';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
@@ -184,7 +190,11 @@ function srCaricaTutto() {
       SR.diz = srLeggiJson(r[2], { parole: {} }, 'speseRapideConfig');
       if (!SR.diz.parole) SR.diz.parole = {};
       srLog('Config: ' + SR.config.categorie.length + ' categorie, ' + SR.config.centriCosto.length + ' centri, ' + SR.conti.length + ' conti', 'ok');
-      return Promise.all([srCaricaAnno(anno), srCaricaAnno(anno - 1), srCaricaCassa(), srCaricaAnticipi()]);
+      return srCaricaMovimenti().catch(function (err) { // v0.15
+        srLog('Memoria locale dei movimenti non usabile (' + err.message + '): carico dal database come prima', 'warn');
+        SR.movCompleti = false;
+        return Promise.all([srCaricaAnno(anno), srCaricaAnno(anno - 1), srCaricaCassa(), srCaricaAnticipi()]);
+      });
     })
     .then(function () {
       srControllaConfig();
@@ -223,7 +233,71 @@ function srCaricaAnticipi() {
     return arr;
   });
 }
-function srAnnoCaricato(anno) { return SR.movAnno[anno] ? Promise.resolve(SR.movAnno[anno]) : srCaricaAnno(anno); }
+function srAnnoCaricato(anno) {
+  if (SR.movAnno[anno]) return Promise.resolve(SR.movAnno[anno]);
+  if (SR.movCompleti) { SR.movAnno[anno] = []; return Promise.resolve(SR.movAnno[anno]); } // v0.15: tutti gia' in memoria
+  return srCaricaAnno(anno);
+}
+// ── v0.15: MEMORIA LOCALE DEI MOVIMENTI (IndexedDB) ──
+var SR_CACHE_DB = 'bk-cache', SR_CACHE_KEY = 'movimenti-v1', SR_GIORNI_RICARICA = 7, SR_MARGINE_MS = 2 * 86400000;
+function srIdb() {
+  return new Promise(function (res, rej) {
+    if (!window.indexedDB) return rej(new Error('IndexedDB assente'));
+    var r = indexedDB.open(SR_CACHE_DB, 1);
+    r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+    r.onsuccess = function () { res(r.result); };
+    r.onerror = function () { rej(r.error || new Error('apertura IndexedDB fallita')); };
+  });
+}
+function srIdbOp(modo, fn) {
+  return srIdb().then(function (db) {
+    return new Promise(function (res, rej) {
+      var q = fn(db.transaction('kv', modo).objectStore('kv'));
+      q.onsuccess = function () { res(q.result); }; q.onerror = function () { rej(q.error || new Error('IndexedDB')); };
+    });
+  });
+}
+function srCaricaMovimenti(forza) {
+  return srIdbOp('readonly', function (st) { return st.get(SR_CACHE_KEY); })
+    .catch(function (err) { srLog('Memoria locale illeggibile: ' + err.message + ' (ricarico tutto)', 'warn'); return null; })
+    .then(function (c) {
+      var vecchia = !c || !c.docs || !c.completaIl || (Date.now() - Date.parse(c.completaIl)) > SR_GIORNI_RICARICA * 86400000;
+      if (forza || vecchia) {
+        return srColMov().get().then(function (snap) {
+          var docs = {}, max = '';
+          snap.forEach(function (d) { var m = d.data(); docs[d.id] = m; if (String(m.updatedAt || '') > max) max = String(m.updatedAt || ''); });
+          return { completaIl: new Date().toISOString(), ultimo: max, docs: docs, letti: snap.size, tipo: 'caricamento completo' };
+        });
+      }
+      var da = new Date(Date.parse(c.ultimo || c.completaIl) - SR_MARGINE_MS).toISOString();
+      return srColMov().where('updatedAt', '>', da).get().then(function (snap) {
+        snap.forEach(function (d) { var m = d.data(); c.docs[d.id] = m; if (String(m.updatedAt || '') > String(c.ultimo || '')) c.ultimo = String(m.updatedAt); });
+        c.letti = snap.size; c.tipo = 'solo modifiche dal ' + srDataIt(da.slice(0, 10)); return c;
+      });
+    })
+    .then(function (c) {
+      SR.movTutti = c.docs; SR.movCompleti = true;
+      srDistribuisciMovimenti();
+      var n = Object.keys(c.docs).length, letti = c.letti; delete c.letti; var tipo = c.tipo; delete c.tipo;
+      srLog('Movimenti: ' + n + ' in memoria, ' + letti + ' letti dal database (' + tipo + ')', 'ok');
+      return srIdbOp('readwrite', function (st) { return st.put(c, SR_CACHE_KEY); })
+        .catch(function (err) { srLog('Memoria locale non salvata: ' + err.message + ' (alla prossima apertura ricarico tutto)', 'warn'); });
+    });
+}
+function srDistribuisciMovimenti() {
+  var cassa = srConto('CASSA'); SR.movAnno = {}; SR.cassaMov = []; SR.anticipi = [];
+  Object.keys(SR.movTutti || {}).forEach(function (id) {
+    var m = SR.movTutti[id], a = m.annoEsercizio;
+    if (a != null) (SR.movAnno[a] = SR.movAnno[a] || []).push(m);
+    if (cassa && m.contoFinanziarioId === cassa.id) SR.cassaMov.push(m);
+    if (m.anticipatoDa === 'Alberto') SR.anticipi.push(m);
+  });
+}
+function srRicaricaTutto() {
+  if (!confirm('Ricarico tutti i movimenti dal database? Serve solo se pensi che qualcosa non sia aggiornato (consuma letture).')) return;
+  srCaricaMovimenti(true).then(function () { srAggiornaBadgeCassa(); srElencoAggiorna(); srLog('Ricarica completa fatta', 'ok'); })
+    .catch(function (err) { srLog('Ricarica completa fallita: ' + err.message, 'err'); alert('Ricarica non riuscita: ' + err.message); });
+}
 
 // ── CONFIG: conti, centri, categorie ──
 function srConto(tipo) { return (SR.conti || []).find(function (c) { return c.tipo === tipo && c.attivo !== false; }) || null; }
@@ -691,6 +765,7 @@ function srSalva() {
   }).then(function () { SR.salvataggioInCorso = false; srEl('btn-salva').disabled = false; });
 }
 function srRegistraInCache(m) {
+  if (SR.movTutti) SR.movTutti[m.id] = m; // v0.15
   var arr = SR.movAnno[m.annoEsercizio] || (SR.movAnno[m.annoEsercizio] = []);
   var i = arr.findIndex(function (x) { return x.id === m.id; });
   if (i >= 0) arr[i] = m; else arr.push(m);
