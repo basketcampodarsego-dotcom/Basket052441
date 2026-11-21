@@ -1,6 +1,17 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-gestionale.js — ASD Basket Campodarsego
-// VERSIONE: v0.7 · 20/11/2026 15:00 · BK
+// VERSIONE: v0.8 · 21/11/2026 02:30 · BK
+// v0.8: RICEVUTA del singolo pagamento come quella del gestionale (Alberto 21/11/2026):
+//   chi paga (genitore se detraibile, come nel gestionale) con residenza, via e CF,
+//   causale per categoria, atleta con luogo/data di nascita e CF, frase della detrazione
+//   solo per i pagamenti detraibili (quote con bonifico/POS). Registro: detraibile vero.
+//   "ricevuta detraibile Rossi 2026" -> PROSPETTO annuale che NON e' una ricevuta (non
+//   numerato, non nel registro): pagamenti dell'anno con il numero della ricevuta di ognuno.
+//   "stampa ricevute detraibili 2026": TUTTE le ricevute detraibili dell'anno in un PDF
+//   (gia' emesse -> stesso numero; nuove -> numero nuovo nel registro). Esclusi, con
+//   elenco e link alla scheda, i pagamenti con dati mancanti o non validi.
+//   Regola Alberto: per la detrazione serve il CF del genitore O dell'atleta -> come il
+//   gestionale, CF del genitore e in mancanza quello dell'atleta; avviso solo se mancano entrambi.
 // v0.7: (screenshot Alberto 20/11/2026: "Residenti" salvato come appunto) le parole
 //   singole o frasi brevi senza numeri ("residenti", "cassa", "affitti", "documenti
 //   mancanti") contano come domanda. "residenti" mostra anche l'elenco con i nomi;
@@ -57,7 +68,7 @@
 //   report-residenti.js (rrCalcola, facoltativo).
 // ════════════════════════════════════════════════════════
 
-var DFG_VERSIONE = 'v0.7 · 20/11/2026 15:00';
+var DFG_VERSIONE = 'v0.8 · 21/11/2026 02:30';
 var DFG = { atl: [], pag: {}, all: [], pres: [], caricato: false, risposta: null, presStato: {} };
 var DFG_TIPI_PAG = ['Quota (1a rata)', 'Quota (2a rata)', 'Saldo quota', 'Quota annuale', 'Assicurazione', 'Divisa', 'Altro'];
 var DFG_METODI = { Contanti: 'CONTANTI_CASSA', Bonifico: 'BONIFICO', POS: 'BONIFICO' };
@@ -218,8 +229,7 @@ function dfgAnagrafica(a, oggi) {
   if (min ? !(v(a.tutCog) && v(a.tutNom)) : (!v(a.cog) || !v(a.nom))) nd.push(min ? 'nome genitore' : 'nome');
   if (!res || !dfgComune(a)) nd.push('indirizzo');
   var d = nd.slice();
-  if (min && !v(a.tutCf || a.cfTut)) d.push('CF genitore');
-  if (!v(a.cf)) d.push('CF atleta');
+  if (!v(a.tutCf || a.cfTut) && !v(a.cf)) d.push('CF atleta o genitore'); // basta uno dei due
   return { tess: t, det: d, nodet: nd };
 }
 // v0.7: LEGENDA. [Cosa vuoi fare, Esempio da dire/scrivere, Cosa succede]
@@ -237,7 +247,8 @@ var DFG_LEGENDA = [
   ['Documenti', 'documenti mancanti', 'moduli non consegnati'],
   ['Presenze', 'presenze di novembre · presenze pulcini', 'statistica presenze'],
   ['Affitti palestra', 'situazione affitti', 'dovuto, versato, residuo per utente'],
-  ['Ricevuta detraibile', 'ricevuta detraibile Rossi 2026', 'PDF dei pagamenti detraibili'],
+  ['Tutte le ricevute dell\'anno', 'stampa ricevute detraibili 2026', 'PDF unico + elenco dei pagamenti esclusi per dati mancanti'],
+  ['Prospetto annuale', 'prospetto Rossi 2026 · ricevuta detraibile Rossi 2026', 'PDF riepilogativo (NON è una ricevuta) con il n. di ricevuta di ogni pagamento'],
   ['Questa legenda', 'comandi · aiuto', ''],
   ['— NOTE (si salvano, poi confermi in 📥 Note) —', '', ''],
   ['Spesa', 'comprato palloni 45 euro contanti', '➡️ Registra spesa in Economia'],
@@ -338,7 +349,8 @@ function dfgLinkScheda(id) { return 'basket052441.html?atleta=' + encodeURICompo
 function dfgRiconosciDomanda(testo, atleti) {
   var t = String(testo || '').toLowerCase().trim();
   // v0.4: comando "ricevuta detraibile / riepilogo pagamenti <atleta> <anno>" (anche senza punto di domanda)
-  if (/ricevut\w*\s+(\w+\s+)?detraibil|riepilogo\s+(annuale|anno|dei pagamenti|pagament)|per (la )?detrazione|detraibil\w*\s+(delle|dei|per)/.test(t)) {
+  if (/\b(stampa|stampami|genera|tutte)\b[^?]*ricevut/.test(t) && !dfTrovaAtleti(testo, atleti || []).length) { var ya = t.match(/\b(20\d{2})\b/); return { tipo: 'RICEVUTE_ANNO', anno: ya ? ya[1] : null }; } // v0.8
+  if (/\bprospett\w*|ricevut\w*\s+(\w+\s+)?detraibil|riepilogo\s+(annuale|anno|dei pagamenti|pagament)|per (la )?detrazione|detraibil\w*\s+(delle|dei|per)/.test(t)) {
     var ay = t.match(/\b(20\d{2})\b/);
     return { tipo: 'RIEPILOGO_DET', atleti: dfTrovaAtleti(testo, atleti || []), anno: ay ? ay[1] : null };
   }
@@ -407,6 +419,14 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
       }).filter(Boolean);
       return { titolo: 'Quote da saldare', sotto: 'Stagione ' + st.chiave + ' · ' + r3.length + ' atleti · totale ' + srEuro(tot3), colonne: ['Atleta', 'Categoria', 'Dovuta', 'Pagata', 'Residuo'], righe: r3,
         link: link3, linkTesto: '💬', nota: 'Regole: Pulcini 200 €, altri minibasket e Special 340 €, fratello minore -20%, basket amatori 20 €, volley amatori Max Music = contributo di squadra (no quota individuale); quota scritta in scheda se diversa.' + (daDec.length ? ' Quota da decidere: ' + daDec.join(', ') + '.' : '') + ' 💬 = messaggio WhatsApp pronto al genitore (serve il telefono in scheda).' };
+    }
+    case 'RICEVUTE_ANNO': { // v0.8
+      var annoR = q.anno || oggi.slice(0, 4), LR = dfgListaRicevuteAnno(atleti, pag, annoR), linkR = [];
+      var rR = LR.ko.map(function (x) { linkR.push(dfgLinkScheda(x.a.id)); return [dfgNomeAtl(x.a), srDataIt(x.p.data) + ' · ' + srEuro(+x.p.importo || 0), x.manca.join(', ')]; });
+      return { titolo: 'Ricevute detraibili ' + annoR, sotto: (LR.ok.length + LR.ko.length) + ' pagamenti detraibili · ' + LR.ok.length + ' stampabili · ' + LR.ko.length + ' esclusi (elenco sotto)',
+        colonne: ['Atleta', 'Pagamento', 'Manca / da correggere'], righe: rR, link: linkR, linkTesto: '✏️', fratelli: dfgFratelliDaVerificare(atleti),
+        nota: 'Detraibili: quote pagate con bonifico o POS, atleti 5-18 anni. ✏️ apre la scheda: corretti i dati, richiedi "stampa ricevute detraibili ' + annoR + '" e verranno incluse.',
+        azione: LR.ok.length ? { tipo: 'RICEVUTE_ANNO', anno: annoR, n: LR.ok.length } : null };
     }
     case 'COMANDI': // v0.7
       return { titolo: '❓ Comandi del dittafono', sotto: 'Detta o scrivi, poi 💾 Salva nota. Le domande non hanno bisogno del punto di domanda.', colonne: ['Cosa vuoi fare', 'Esempio', 'Cosa succede'], righe: DFG_LEGENDA.map(function (r) { return r.slice(); }),
@@ -491,18 +511,18 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
     }
     case 'RIEPILOGO_DET': {
       var anno = q.anno || oggi.slice(0, 4);
-      if (!q.atleti || !q.atleti.length) return { titolo: 'Riepilogo detraibile ' + anno, colonne: [], righe: [], nota: 'Dimmi di quale atleta (es. "ricevuta detraibile Rossi Luca ' + anno + '").' };
-      if (q.atleti.length > 1) return { titolo: 'Riepilogo detraibile ' + anno, colonne: ['Atleta'], righe: q.atleti.map(function (x) { return [x.nome]; }), nota: 'Più atleti con questo nome: ripeti con nome e cognome.' };
+      if (!q.atleti || !q.atleti.length) return { titolo: 'Pagamenti ' + anno, colonne: [], righe: [], nota: 'Dimmi di quale atleta (es. "ricevuta detraibile Rossi Luca ' + anno + '").' };
+      if (q.atleti.length > 1) return { titolo: 'Pagamenti ' + anno, colonne: ['Atleta'], righe: q.atleti.map(function (x) { return [x.nome]; }), nota: 'Più atleti con questo nome: ripeti con nome e cognome.' };
       var a8 = (atleti || []).find(function (y) { return y.id === q.atleti[0].id; });
-      if (!a8) return { titolo: 'Riepilogo detraibile ' + anno, colonne: [], righe: [], nota: 'Atleta non trovato in anagrafica.' };
+      if (!a8) return { titolo: 'Pagamenti ' + anno, colonne: [], righe: [], nota: 'Atleta non trovato in anagrafica.' };
       var pa = dfgPagamentiAnno(pag, a8.id, anno);
       var r8 = pa.tutti.map(function (p) { var d = dfgDetraibile(p); return [srDataIt(p.data), p.tipo || '—', p.metodo || '—', srEuro(p.importo), d === 'SI' ? 'sì' : 'no – ' + dfgMotivoNonDet(p)]; });
       var eta = dfgEta(a8, anno), avvisi = [];
       if (eta !== null && (eta < 5 || eta > 18)) avvisi.push('Attenzione: nel ' + anno + ' l\'atleta ha ' + eta + ' anni (detrazione per figli 5–18 anni).');
       if (pa.no.some(function (p) { return dfgDetraibile(p) === 'DA_VERIFICARE'; })) avvisi.push('Ci sono pagamenti con tipo da verificare: correggili nel gestionale se sono quote.');
       if (!pa.si.length) avvisi.push('Nessun pagamento detraibile nel ' + anno + ': il riepilogo non si può preparare.');
-      return { titolo: 'Riepilogo detraibile ' + anno + ' – ' + dfgNomeAtl(a8), sotto: 'Detraibile ' + srEuro(pa.totSi) + (pa.totNo ? ' · non detraibile ' + srEuro(pa.totNo) : ''),
-        colonne: ['Data', 'Tipo', 'Metodo', 'Importo', 'Detraibile'], righe: r8, nota: avvisi.join(' '), azione: pa.si.length ? { tipo: 'RIEPILOGO_DET', atletaId: a8.id, anno: anno } : null };
+      return { titolo: 'Pagamenti ' + anno + ' – ' + dfgNomeAtl(a8), sotto: 'Detraibile ' + srEuro(pa.totSi) + (pa.totNo ? ' · non detraibile ' + srEuro(pa.totNo) : ''),
+        colonne: ['Data', 'Tipo', 'Metodo', 'Importo', 'Detraibile'], righe: r8, nota: avvisi.join(' '), azione: pa.tutti.length ? { tipo: 'RIEPILOGO_DET', atletaId: a8.id, anno: anno } : null };
     }
     case 'PRESENZE_STAT': {
       var cats = q.cats && q.cats.length && q.cats[0] !== 'Tutti' ? q.cats : null;
@@ -771,8 +791,8 @@ function dfgProvaDomanda(testo) {
   prep.then(function () {
     var r = dfgRispondi(q, DFG.atl, DFG.pag, oggi, extra);
     r.domanda = testo; DFG.risposta = r;
-    out.innerHTML = dfgHtmlRisposta(r, false) + (r.azione && r.azione.tipo === 'RIEPILOGO_DET' && typeof dpRiepilogoPDF === 'function'
-      ? '<div style="margin-top:8px"><button class="btn-gold btn-sm" onclick="dfgPreparaRiepilogo(' + r.azione.atletaId + ',\'' + r.azione.anno + '\')">📄 Prepara riepilogo detraibile ' + r.azione.anno + '</button></div><div id="dfg-riep-pdf"></div>'
+    out.innerHTML = dfgHtmlRisposta(r, false) + (r.azione && r.azione.tipo === 'RICEVUTE_ANNO' ? '<div style="margin-top:8px"><button class="btn-gold btn-sm" onclick="dfgGeneraRicevuteAnno(\'' + r.azione.anno + '\')">🖨️ Genera ' + r.azione.n + ' ricevute ' + r.azione.anno + ' (PDF unico)</button></div><div id="dfg-ricanno-pdf"></div>' : '') + (r.azione && r.azione.tipo === 'RIEPILOGO_DET' && typeof dpProspettoPDF === 'function'
+      ? '<div style="margin-top:8px"><button class="btn-gold btn-sm" onclick="dfgPreparaRiepilogo(' + r.azione.atletaId + ',\'' + r.azione.anno + '\')">📄 Prospetto pagamenti ' + r.azione.anno + ' (non è una ricevuta)</button></div><div id="dfg-riep-pdf"></div>'
       : (r.righe.length ? '<div style="margin-top:8px"><button class="btn-gray btn-sm" onclick="dfgStampa()">🖨️ Stampa</button> <button class="btn-gray btn-sm" onclick="dfgCSV()">⬇️ CSV</button></div>' : ''));
     srLog('Domanda: "' + testo + '" → ' + r.titolo + ' (' + r.righe.length + ' righe)', 'ok');
   }).catch(function (err) { srLog('Risposta non calcolata: ' + err.message, 'err'); out.innerHTML = '<div class="errore">Risposta non calcolata: ' + srEsc(err.message) + '</div>'; });
@@ -847,6 +867,32 @@ function dfgPagante(a) {
   var tut = ((a.tutCog || '') + ' ' + (a.tutNom || '')).trim() || (a.gen || '').trim();
   return tut || dfgNomeAtl(a);
 }
+// v0.8: dati fiscali come _buildRicevutaHTML del gestionale.
+// det=true -> intestata al genitore (se c'e'), indirizzo del genitore o in mancanza dell'atleta; det=false -> atleta.
+function dfgDatiPagante(a, det) {
+  var j = function (v, n) { return ((v || '') + (n ? ' ' + n : '')).trim(); }, c = function (co, pr) { return ((co || '') + (pr ? ' (' + pr + ')' : '')).trim(); };
+  var tut = ((a.tutCog || '') + ' ' + (a.tutNom || '')).trim() || String(a.gen || '').trim();
+  if (det && !tut) { // v0.8: detraibile = paga il tutore; senza tutore NON si usano nome e CF dell'atleta
+    return { nome: '', cf: '', via: j(a.tutVia, a.tutNr) || String(a.indTut || '') || j(a.indVia, a.indNr) || String(a.ind || ''), comune: c(a.tutComune, a.tutProv) || c(a.indComune, a.indProv) };
+  }
+  if (det && tut) {
+    var p = { nome: tut.toUpperCase(), cf: String(a.tutCf || a.cfTut || '').toUpperCase(), via: j(a.tutVia, a.tutNr), comune: c(a.tutComune, a.tutProv) };
+    if (!p.via && !p.comune && a.indTut) p.via = String(a.indTut);
+    if (!p.via && !p.comune) { p.via = j(a.indVia, a.indNr) || String(a.ind || ''); p.comune = c(a.indComune, a.indProv); }
+    return p;
+  }
+  var q = { nome: dfgNomeAtl(a).toUpperCase(), cf: String(a.cf || '').toUpperCase(), via: j(a.indVia, a.indNr) || String(a.ind || ''), comune: c(a.indComune, a.indProv) };
+  // come il gestionale (_buildRicevutaHTML): non detraibile -> solo indirizzo dell'atleta
+  return q;
+}
+function dfgDatiAtletaRic(a) {
+  return { nome: dfgNomeAtl(a).toUpperCase(), natoA: ((a.natoA || '') + (a.natoProv ? ' (' + a.natoProv + ')' : '')).toUpperCase(), dn: a.dn ? (String(a.dn).indexOf('-') > 0 ? srDataIt(a.dn) : a.dn) : '', cf: String(a.cf || '').toUpperCase() };
+}
+function dfgCausaleAtleta(a, data) {
+  var stag = dfgStagioneAtleti(DFG.atl, data), cats = dfgCategorie(a, stag.chiave);
+  if (!cats.length) cats = dfgCategorie(a, dfgStagioneAtleti(DFG.atl, String(Number(String(data).slice(0, 4)) - 1) + '-12-31').chiave);
+  return 'QUOTA ATTIVITA\' SPORTIVA ' + (DFG_CAUSALI_CAT[cats[0]] || 'BASKET');
+}
 function dfgPreparaRicevuta(id) {
   var n = dfTrova(id), el = n && dfgPannello(id);
   if (!n || !el) return;
@@ -854,6 +900,7 @@ function dfgPreparaRicevuta(id) {
   if (!lp) { el.innerHTML = '<div class="errore">Questa nota non ha un pagamento registrato dal dittafono.</div>'; return; }
   if (typeof dpRicevutaPDF !== 'function') { el.innerHTML = '<div class="errore">Modulo ricevute non caricato: aggiorna i file.</div>'; return; }
   var a = dfgAtleta(lp.atletaId) || { cog: lp.nome, nom: '' };
+  var det = dfgDetraibile({ tipo: lp.tipoPag, metodo: lp.metodo }) === 'SI'; // v0.8
   var ref = _db.collection('basket052441').doc('ricevute'), adesso = new Date().toISOString(), oggi = srOggi(), numero, nuova = false, copia = null;
   el.innerHTML = '<div class="domanda">Preparo la ricevuta…</div>';
   _db.runTransaction(function (tx) {
@@ -864,7 +911,7 @@ function dfgPreparaRicevuta(id) {
       var anno = oggi.slice(0, 4), max = 0;
       arr.forEach(function (r) { if (r.numero && String(r.numero).indexOf(anno + '-') === 0) { var k = parseInt(String(r.numero).split('-')[1], 10) || 0; if (k > max) max = k; } });
       numero = anno + '-' + String(max + 1).padStart(3, '0'); nuova = true;
-      arr.push({ numero: numero, atletaId: lp.atletaId, atleta: dfgNomeAtl(a), importo: lp.importo, data: lp.data, tipo: lp.tipoPag || 'Pagamento', detraibile: false, emessa: adesso, origine: 'dittafono', notaId: id });
+      arr.push({ numero: numero, atletaId: lp.atletaId, atleta: dfgNomeAtl(a), importo: lp.importo, data: lp.data, tipo: lp.tipoPag || 'Pagamento', detraibile: det, emessa: adesso, origine: 'dittafono', notaId: id });
       copia = JSON.parse(JSON.stringify(n));
       copia.collegamenti = (n.collegamenti || []).concat([{ tipo: 'RICEVUTA', numero: numero, il: adesso }]);
       copia.storia = (n.storia || []).concat([{ il: adesso, da: SR.utente, azione: 'ricevuta ' + numero }]);
@@ -875,10 +922,16 @@ function dfgPreparaRicevuta(id) {
     if (copia) Object.assign(n, copia);
     return dpCaricaImmagini();
   }).then(function () {
-    var st = dfgStagione(lp.data || oggi).nome;
-    var doc = dpRicevutaPDF({ numero: numero, dataEmissione: oggi, pagante: dfgPagante(a), atleta: dfgNomeAtl(a), importo: lp.importo, dataPagamento: lp.data, metodo: lp.metodo, causale: dpCausale(lp.tipoPag, st) });
+    // v0.8: stesso impianto della ricevuta del gestionale
+    var pagante = dfgDatiPagante(a, det), atl = dfgDatiAtletaRic(a), dataP = lp.data || oggi;
+    var doc = dpRiepilogoPDF({ titolo: 'RICEVUTA N. ' + numero, numero: numero, anno: dataP.slice(0, 4), dataEmissione: oggi, detraibile: det,
+      pagamenti: [{ data: dataP, importo: lp.importo, metodo: lp.metodo }], totale: lp.importo, nonDetraibili: 0, pagante: pagante,
+      causale: lp.tipoPag === 'Assicurazione' ? 'TESSERAMENTO E ASSICURAZIONE' : lp.tipoPag === 'Divisa' ? 'DIVISA SOCIALE' : dfgCausaleAtleta(a, dataP) + (lp.tipoPag ? ' – ' + String(lp.tipoPag).toUpperCase() : ''), atleta: atl });
+    var mancano = [!pagante.cf && !atl.cf && 'codice fiscale (del genitore o dell\'atleta)', !pagante.via && !pagante.comune && 'indirizzo', !atl.dn && 'data di nascita'].filter(Boolean);
     var nome = 'Ricevuta_' + numero + '_' + String(a.cog || '').replace(/[^A-Za-z]+/g, '') + '.pdf';
     dpMostraAzioni('dfg-pan-' + id, doc, nome, 'Ricevuta n. ' + numero + ' – ' + DP_SOCIETA.nome);
+    var pan = document.getElementById('dfg-pan-' + id);
+    if (pan) pan.insertAdjacentHTML('afterbegin', '<div class="' + (mancano.length ? 'errore' : 'domanda') + '">' + (det ? 'Ricevuta DETRAIBILE (intestata a chi paga).' : 'Ricevuta NON detraibile.') + (mancano.length ? ' Manca: ' + mancano.join(', ') + ' – completa la scheda nel gestionale e ristampala (stesso numero).' : '') + '</div>');
     srLog('Ricevuta ' + numero + (nuova ? ' emessa' : ' ristampata') + ' per ' + dfgNomeAtl(a), 'ok');
   }).catch(function (err) {
     srLog('Ricevuta non preparata: ' + err.message, 'err');
@@ -888,41 +941,88 @@ function dfgPreparaRicevuta(id) {
 
 // Riepilogo annuale detraibile: registro ricevute come "Ricevuta anno" del gestionale (tipo "Riepilogo anno AAAA")
 var DFG_CAUSALI_CAT = { Pulcini: 'MINIBASKET', Scoiattoli: 'MINIBASKET', Aquilotti: 'MINIBASKET', Esordienti: 'MINIBASKET', Special: 'SPECIAL OLYMPICS', AmaBasket: 'BASKET', AmaVolley: 'PALLAVOLO' };
+// v0.8: controllo dati per una ricevuta DETRAIBILE (tutore che paga + atleta 5-18 anni)
+var DFG_RE_CF = /^[A-Z]{6}[0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{2}[A-Z][0-9LMNPQRSTUV]{3}[A-Z]$/;
+function dfgControlloRicevutaDet(a, anno) {
+  var p = dfgDatiPagante(a, true), atl = dfgDatiAtletaRic(a), m = [];
+  if (!p.nome) m.push('nome tutore');
+  if (!p.cf) m.push('CF tutore'); else if (!DFG_RE_CF.test(p.cf)) m.push('CF tutore non valido');
+  if (p.cf && atl.cf && p.cf === atl.cf) m.push('CF tutore uguale al CF atleta');
+  if (!p.via && !p.comune) m.push('indirizzo');
+  if (!a.cog || !a.nom) m.push('nome atleta');
+  if (!atl.dn) m.push('data di nascita atleta');
+  if (!atl.cf) m.push('CF atleta'); else if (!DFG_RE_CF.test(atl.cf)) m.push('CF atleta non valido');
+  var e = dfgEta(a, anno); if (e !== null && (e > 18 || e < 5)) m.push('età ' + e + ' anni (detrazione solo 5-18)');
+  return m;
+}
+// Pagamenti detraibili dell'anno divisi in stampabili ed esclusi
+function dfgListaRicevuteAnno(atleti, pag, anno) {
+  var ok = [], ko = [];
+  (atleti || []).filter(function (a) { return a && a.cog; }).sort(function (x, y) { return dfgNomeAtl(x).localeCompare(dfgNomeAtl(y)); }).forEach(function (a) {
+    var pa = dfgPagamentiAnno(pag, a.id, anno); if (!pa.si.length) return;
+    var m = dfgControlloRicevutaDet(a, anno);
+    pa.si.forEach(function (p) { (m.length ? ko : ok).push({ a: a, p: p, manca: m }); });
+  });
+  return { ok: ok, ko: ko };
+}
+function dfgGeneraRicevuteAnno(anno) {
+  var out = document.getElementById('dfg-ricanno-pdf');
+  var L = dfgListaRicevuteAnno(DFG.atl, DFG.pag, anno);
+  if (!L.ok.length) { out.innerHTML = '<div class="errore">Nessuna ricevuta stampabile.</div>'; return; }
+  if (!confirm('Genero ' + L.ok.length + ' ricevute detraibili ' + anno + ' in un unico PDF?\\nQuelle già emesse mantengono il loro numero; le altre prendono un numero nuovo nel registro.')) return;
+  var ref = _db.collection('basket052441').doc('ricevute'), adesso = new Date().toISOString(), oggi = srOggi(), nuove = 0, rist = 0, numeri = [];
+  out.innerHTML = '<div class="domanda">Preparo ' + L.ok.length + ' ricevute…</div>';
+  _db.runTransaction(function (tx) {
+    return tx.get(ref).then(function (d) {
+      var arr = d.exists && d.data().v ? JSON.parse(d.data().v) : [];
+      var annoN = oggi.slice(0, 4), max = 0; nuove = 0; rist = 0; numeri = [];
+      arr.forEach(function (r) { if (r.numero && String(r.numero).indexOf(annoN + '-') === 0) { var k = parseInt(String(r.numero).split('-')[1], 10) || 0; if (k > max) max = k; } });
+      L.ok.forEach(function (x) {
+        var n = dfgRicevutaDelPagamento(arr, x.a.id, x.p);
+        if (n) { rist++; numeri.push(n); return; }
+        max++; n = annoN + '-' + String(max).padStart(3, '0'); nuove++; numeri.push(n);
+        arr.push({ numero: n, atletaId: x.a.id, atleta: dfgNomeAtl(x.a), importo: +x.p.importo || 0, data: String(x.p.data).slice(0, 10), tipo: x.p.tipo || 'Quota', detraibile: true, emessa: adesso, origine: 'dittafono-ricevute-anno' });
+      });
+      if (nuove) tx.set(ref, { v: JSON.stringify(arr), ts: adesso, da: 'dittafono ' + SR.utente });
+    });
+  }).then(function () { return dpCaricaImmagini(); }).then(function () {
+    var doc = null;
+    L.ok.forEach(function (x, i) {
+      var dataP = String(x.p.data).slice(0, 10);
+      doc = dpRiepilogoPDF({ doc: doc, titolo: 'RICEVUTA N. ' + numeri[i], numero: numeri[i], anno: dataP.slice(0, 4), dataEmissione: oggi, detraibile: true,
+        pagamenti: [{ data: dataP, importo: x.p.importo, metodo: x.p.metodo }], totale: +x.p.importo || 0, nonDetraibili: 0, pagante: dfgDatiPagante(x.a, true),
+        causale: dfgCausaleAtleta(x.a, dataP) + (x.p.tipo ? ' – ' + String(x.p.tipo).toUpperCase() : ''), atleta: dfgDatiAtletaRic(x.a) });
+    });
+    dpMostraAzioni('dfg-ricanno-pdf', doc, 'Ricevute_detraibili_' + anno + '.pdf', 'Ricevute detraibili ' + anno + ' – ' + DP_SOCIETA.nome);
+    out.insertAdjacentHTML('afterbegin', '<div class="domanda">' + L.ok.length + ' ricevute in un PDF (una per pagina): ' + nuove + ' nuove, ' + rist + ' già emesse ristampate con lo stesso numero.' + (L.ko.length ? ' Escluse ' + L.ko.length + ': vedi elenco sopra.' : '') + '</div>');
+    srLog('Ricevute detraibili ' + anno + ': ' + L.ok.length + ' (' + nuove + ' nuove, ' + rist + ' ristampe), escluse ' + L.ko.length, 'ok');
+  }).catch(function (err) { srLog('Ricevute ' + anno + ' non generate: ' + err.message, 'err'); out.innerHTML = '<div class="errore">Ricevute non generate: ' + srEsc(err.message) + '</div>'; });
+}
+// Ricevuta singola gia' emessa per un pagamento (stesso atleta, data e importo; esclusi i riepiloghi annuali)
+function dfgRicevutaDelPagamento(ricevute, aid, p) {
+  var r = (ricevute || []).find(function (x) { return x.atletaId === aid && !/^riepilogo/i.test(x.tipo || '') && String(x.data || '').slice(0, 10) === String(p.data || '').slice(0, 10) && Math.abs((+x.importo || 0) - (+p.importo || 0)) < 0.005; });
+  return r ? String(r.numero) : '';
+}
 function dfgPreparaRiepilogo(aid, anno) {
   var out = document.getElementById('dfg-riep-pdf'), a = dfgAtleta(aid);
   if (!a) { out.innerHTML = '<div class="errore">Atleta non trovato.</div>'; return; }
   var pa = dfgPagamentiAnno(DFG.pag, aid, anno);
-  if (!pa.si.length) { out.innerHTML = '<div class="errore">Nessun pagamento detraibile nel ' + srEsc(anno) + '.</div>'; return; }
-  var ref = _db.collection('basket052441').doc('ricevute'), adesso = new Date().toISOString(), tipoReg = 'Riepilogo anno ' + anno, numero, nuova = false;
-  out.innerHTML = '<div class="domanda">Preparo il riepilogo…</div>';
-  _db.runTransaction(function (tx) {
-    return tx.get(ref).then(function (d) {
-      var arr = d.exists && d.data().v ? JSON.parse(d.data().v) : [];
-      var gia = arr.find(function (r) { return r.atletaId === aid && r.tipo === tipoReg; });
-      if (gia) { numero = gia.numero; return; }
-      var annoN = srOggi().slice(0, 4), max = 0;
-      arr.forEach(function (r) { if (r.numero && String(r.numero).indexOf(annoN + '-') === 0) { var k = parseInt(String(r.numero).split('-')[1], 10) || 0; if (k > max) max = k; } });
-      numero = annoN + '-' + String(max + 1).padStart(3, '0'); nuova = true;
-      arr.push({ numero: numero, atletaId: aid, atleta: dfgNomeAtl(a), importo: pa.totSi, data: pa.si[0].data, tipo: tipoReg, detraibile: true, emessa: adesso, origine: 'dittafono' });
-      tx.set(ref, { v: JSON.stringify(arr), ts: adesso, da: 'dittafono ' + SR.utente });
-    });
-  }).then(function () { return dpCaricaImmagini(); }).then(function () {
-    var stag = dfgStagioneAtleti(DFG.atl, anno + '-12-31'), stagPrec = dfgStagioneAtleti(DFG.atl, anno + '-06-30');
-    var cats = dfgCategorie(a, stag.chiave); if (!cats.length) cats = dfgCategorie(a, stagPrec.chiave);
-    var causale = 'QUOTA ATTIVITA\' SPORTIVA ' + (DFG_CAUSALI_CAT[cats[0]] || 'BASKET');
-    var tut = ((a.tutCog || '') + ' ' + (a.tutNom || '')).trim();
-    var pagante = tut ? { nome: tut, cf: a.tutCf || a.cfTut || '', via: ((a.tutVia || '') + (a.tutNr ? ' ' + a.tutNr : '')).trim(), comune: ((a.tutComune || '') + (a.tutProv ? ' (' + a.tutProv + ')' : '')).trim() }
-      : { nome: dfgNomeAtl(a), cf: a.cf || '', via: ((a.indVia || '') + (a.indNr ? ' ' + a.indNr : '')).trim(), comune: ((a.indComune || '') + (a.indProv ? ' (' + a.indProv + ')' : '')).trim() };
-    if (tut && !pagante.via && !pagante.comune) { pagante.via = ((a.indVia || '') + (a.indNr ? ' ' + a.indNr : '')).trim(); pagante.comune = ((a.indComune || '') + (a.indProv ? ' (' + a.indProv + ')' : '')).trim(); }
-    var doc = dpRiepilogoPDF({ numero: numero, anno: anno, dataEmissione: srOggi(), pagamenti: pa.si, totale: pa.totSi, nonDetraibili: pa.totNo, pagante: pagante, causale: causale,
-      atleta: { nome: dfgNomeAtl(a).toUpperCase(), natoA: ((a.natoA || '') + (a.natoProv ? ' (' + a.natoProv + ')' : '')).toUpperCase(), dn: a.dn ? (String(a.dn).indexOf('-') > 0 ? srDataIt(a.dn) : a.dn) : '', cf: String(a.cf || '').toUpperCase() } });
-    var annoNasc = String(a.dn || '').match(/\d{4}/); 
-    var nome = (annoNasc ? annoNasc[0] : '0000') + '_' + String(a.cog || '').replace(/[^A-Za-z0-9]+/g, '_').toUpperCase() + '_' + String(a.nom || '').replace(/[^A-Za-z0-9]+/g, '_').toUpperCase() + '_' + anno + '.pdf';
-    var mancano = [!pagante.cf && 'codice fiscale di chi paga', !a.cf && 'codice fiscale dell\'atleta'].filter(Boolean);
-    dpMostraAzioni('dfg-riep-pdf', doc, nome, 'Riepilogo pagamenti ' + anno + ' per la detrazione – ' + dfgNomeAtl(a));
-    if (mancano.length) document.getElementById('dfg-riep-pdf').insertAdjacentHTML('afterbegin', '<div class="errore">Manca: ' + mancano.join(', ') + '. Senza, il riepilogo non vale per la detrazione: completa la scheda nel gestionale e rifallo (stesso numero).</div>');
-    srLog('Riepilogo detraibile ' + anno + ' ' + numero + (nuova ? ' emesso' : ' ristampato') + ' per ' + dfgNomeAtl(a) + ': ' + pa.totSi + ' €', 'ok');
-  }).catch(function (err) { srLog('Riepilogo non preparato: ' + err.message, 'err'); out.innerHTML = '<div class="errore">Riepilogo non preparato: ' + srEsc(err.message) + '</div>'; });
+  if (!pa.tutti.length) { out.innerHTML = '<div class="errore">Nessun pagamento nel ' + srEsc(anno) + '.</div>'; return; }
+  out.innerHTML = '<div class="domanda">Preparo il prospetto…</div>';
+  _db.collection('basket052441').doc('ricevute').get().then(function (d) {
+    var ric = d.exists && d.data().v ? JSON.parse(d.data().v) : [];
+    return dpCaricaImmagini().then(function () { return ric; });
+  }).then(function (ric) {
+    var righe = pa.tutti.map(function (p) { return { data: p.data, importo: p.importo, metodo: p.metodo, tipo: p.tipo, detraibile: dfgDetraibile(p) === 'SI', ricevuta: dfgRicevutaDelPagamento(ric, aid, p) }; });
+    var senza = righe.filter(function (x) { return x.detraibile && !x.ricevuta; });
+    var doc = dpProspettoPDF({ anno: anno, dataEmissione: srOggi(), atleta: dfgDatiAtletaRic(a), pagante: dfgDatiPagante(a, true), righe: righe, totDet: pa.totSi, totNoDet: pa.totNo });
+    var annoNasc = String(a.dn || '').match(/\d{4}/);
+    var nome = 'Prospetto_' + anno + '_' + String(a.cog || '').replace(/[^A-Za-z0-9]+/g, '_').toUpperCase() + '_' + String(a.nom || '').replace(/[^A-Za-z0-9]+/g, '_').toUpperCase() + '.pdf';
+    dpMostraAzioni('dfg-riep-pdf', doc, nome, 'Prospetto pagamenti ' + anno + ' – ' + dfgNomeAtl(a));
+    document.getElementById('dfg-riep-pdf').insertAdjacentHTML('afterbegin', '<div class="' + (senza.length ? 'errore' : 'domanda') + '">Prospetto riepilogativo: NON è una ricevuta, non prende numero.' +
+      (senza.length ? ' Pagamenti detraibili senza ricevuta: ' + senza.map(function (x) { return srDataIt(x.data) + ' ' + srEuro(x.importo); }).join(', ') + ' – falla dal gestionale (o dal dittafono se il pagamento è stato dettato).' : ' Tutti i pagamenti detraibili hanno la loro ricevuta.') + '</div>');
+    srLog('Prospetto ' + anno + ' per ' + dfgNomeAtl(a) + ': ' + righe.length + ' pagamenti, ' + senza.length + ' detraibili senza ricevuta', senza.length ? 'warn' : 'ok');
+  }).catch(function (err) { srLog('Prospetto non preparato: ' + err.message, 'err'); out.innerHTML = '<div class="errore">Prospetto non preparato: ' + srEsc(err.message) + '</div>'; });
 }
 
 // ════════ PRESENZE (v0.2) ════════
@@ -1071,4 +1171,4 @@ function dfgConfermaPresenze(id) {
 }
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { dfgQuotaDovuta: dfgQuotaDovuta, dfgQuotaPagata: dfgQuotaPagata, dfgDatiMancanti: dfgDatiMancanti, dfgDetraibile: dfgDetraibile, dfgPagamentiAnno: dfgPagamentiAnno, dfgEstraiPresenze: dfgEstraiPresenze, dfgAllenamentoEsistente: dfgAllenamentoEsistente, dfgCategorieDette: dfgCategorieDette, dfgDate: dfgDate, dfgEstraiDati: dfgEstraiDati, dfgEstraiMetodo: dfgEstraiMetodo, dfgEstraiTipoPag: dfgEstraiTipoPag,
-  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgAnagrafica: dfgAnagrafica, DFG_LEGENDA: DFG_LEGENDA, dfgFratelliDaVerificare: dfgFratelliDaVerificare, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };
+  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgAnagrafica: dfgAnagrafica, dfgListaRicevuteAnno: dfgListaRicevuteAnno, dfgControlloRicevutaDet: dfgControlloRicevutaDet, DFG_LEGENDA: DFG_LEGENDA, dfgFratelliDaVerificare: dfgFratelliDaVerificare, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };

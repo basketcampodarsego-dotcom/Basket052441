@@ -2,7 +2,7 @@
 // Versione: 20260321_1057
 // Si aggiorna automaticamente ad ogni nuova build
 
-var CACHE_NAME = 'basket052441-20261120_1800'; // 20/11/2026: basket-core v1.6
+var CACHE_NAME = 'basket052441-20261121_0300'; // 21/11/2026: rilascio unico (gestionale v7.08)
 var CACHE_URLS = [
   './basket052441.html',
   './basket-core.js',

@@ -1,4 +1,5 @@
-<!-- basket052441-admin.html | v9.68 · 20/11/2026 14:45 -->
+<!-- basket052441-admin.html | v9.69 · 21/11/2026 02:40 -->
+<!-- v9.69: ricevute detraibili: CF e nome di chi paga SOLO dal tutore (mai quelli dell'atleta); se mancano restano vuoti + avviso -->
 <!-- v9.68: scheda "🎤 Dittafono" che apre spese-rapide.html -->
 <!-- v9.67: Tabulato, rate per stagione (set-ago) e non per anno solare -->
 <!-- v9.66: salvataggi protetti (bk-sync.js), Tabulato con Stato cert./Comune/Documenti/Pagato + CSV -->
@@ -160,7 +161,7 @@
   <div style="text-align:center;margin-bottom:20px;">
     <div style="font-size:28px;font-weight:bold;color:#c8a84b">&#9881;&#65039; Admin DB</div>
     <div style="font-size:13px;color:#6a8a9a;margin-top:4px">Basket052441 &mdash; Accesso riservato</div>
-    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.68 · 20/11/2026 14:45 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
+    <div style="font-size:10px;color:#3a5070;margin-top:4px">Build v9.69 · 21/11/2026 02:40 <button onclick="_diagToggle()" style="background:none;border:none;color:#3a5070;cursor:pointer;font-size:12px;padding:2px 6px;min-height:44px;min-width:44px">🔧</button></div>
   </div>
   <div class="card">
     <label>Email</label>
@@ -179,7 +180,7 @@
 <div class="topbar">
   <div>
     <div class="topbar-title">⚙️ Admin · Basket 052441</div>
-    <div class="topbar-sub">Build v9.68 · 20/11/2026 14:45</div>
+    <div class="topbar-sub">Build v9.69 · 21/11/2026 02:40</div>
   </div>
   <div class="topbar-right">
     <span id="status-dot"></span>
@@ -764,7 +765,7 @@ function _cacheInit(){
   _CACHE.stagioni=Array.from(annate).sort().reverse();
 }
 
-var BUILD_VERSION = "v9.68 · 20/11/2026 14:45";
+var BUILD_VERSION = "v9.69 · 21/11/2026 02:40";
 var BUILD_DATE = "21/03/2026";
 var _fbApp=null,_db=null,_fbReady=false,_saveTimer=null;
 var _FB_SEZIONI = ["atleti","pagamenti","allenamenti","presenze","ricevute","listar"];
@@ -1513,8 +1514,8 @@ function buildRicevutaDoc(a, pagsAnno, det, annoForzato){
   var _addr=_parseIndirizzo(_indRaw);
   var addrVia=_addr.via||""; var addrResid=_addr.comune||"";
   if(!addrResid&&addrVia&&addrVia.indexOf(",")>-1){var _lc=addrVia.lastIndexOf(",");addrResid=addrVia.substring(_lc+1).trim();addrVia=addrVia.substring(0,_lc).trim();}
-  var nomeFisc=det?(((a.tutCog||"")+" "+(a.tutNom||"")).trim()||(a.gen||"")||(a.cog+" "+a.nom)):(a.cog+" "+a.nom);
-  var cfFisc=det?(a.tutCf||a.cfTut||a.cf):a.cf;
+  var nomeFisc=det?(((a.tutCog||"")+" "+(a.tutNom||"")).trim()||(a.gen||"")):(a.cog+" "+a.nom); // v9.69
+  var cfFisc=det?(a.tutCf||a.cfTut||""):a.cf; if(det&&!cfFisc) diag("Ricevuta detraibile "+a.cog+" "+a.nom+": manca il CF del tutore (lasciato vuoto)","warn"); // v9.69
   var cats={Pulcini:"MINIBASKET",Scoiattoli:"MINIBASKET",Aquilotti:"MINIBASKET",Esordienti:"MINIBASKET",Special:"SPECIAL OLYMPICS",AmaBasket:"BASKET",AmaVolley:"PALLAVOLO",Dirigente:"ATTIVITA\' DIRIGENZIALE",Volontario:"ATTIVITA\' VOLONTARIATO"};
   // Categoria dell'atleta nell'annata sportiva corrispondente all'anno solare della ricevuta
   var annoSolareRic=anno||(new Date().getFullYear().toString());
@@ -2112,8 +2113,8 @@ function _generaRicevutaPDF(doc,a,pagsAnno,det,annoForzato){
 
   var totale=pagsAnno.reduce(function(s,p){return s+(+p.importo||0);},0);
   var anno=annoForzato||pagsAnno[0].data.substring(0,4);
-  var cfFisc=det?(a.tutCf||a.cfTut||a.cf):a.cf;
-  var nomeFisc=det?((a.tutCog||"")+" "+(a.tutNom||"")).trim()||(a.gen||"")||(a.cog+" "+a.nom):(a.cog+" "+a.nom);
+  var cfFisc=det?(a.tutCf||a.cfTut||""):a.cf; if(det&&!cfFisc) diag("Ricevuta detraibile "+a.cog+" "+a.nom+": manca il CF del tutore (lasciato vuoto)","warn"); // v9.69
+  var nomeFisc=det?(((a.tutCog||"")+" "+(a.tutNom||"")).trim()||(a.gen||"")):(a.cog+" "+a.nom); // v9.69
   var _indRaw;
   if(det){
     if(a.tutVia||a.tutComune){

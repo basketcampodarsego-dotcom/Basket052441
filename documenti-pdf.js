@@ -1,6 +1,15 @@
 // ════════════════════════════════════════════════════════
 // FILE: documenti-pdf.js — ASD Basket Campodarsego
-// VERSIONE: v0.2 · 20/11/2026 15:00 · BK
+// VERSIONE: v0.3 · 21/11/2026 02:30 · BK
+// v0.3: (Alberto 21/11/2026: "mancano codice fiscale del ragazzo, indirizzo...")
+//   la ricevuta del singolo pagamento ha ora lo STESSO impianto della ricevuta del
+//   gestionale: chi paga con residenza, via e CF; causale; atleta con luogo e data di
+//   nascita e CF; frase della detrazione solo se il pagamento e' detraibile.
+//   dpRiepilogoPDF accetta titolo e detraibile (r.titolo, r.detraibile !== false).
+//   PROSPETTO ANNUALE (dpProspettoPDF): NON e' una ricevuta (Alberto 21/11/2026: una
+//   ricevuta per ogni pagamento + un riepilogo che non sia una ricevuta). Elenca i
+//   pagamenti dell'anno con il numero della ricevuta di ciascuno; niente "si attesta di
+//   aver ricevuto", niente dichiarazione di detrazione, niente numero nel registro.
 // v0.2: RIEPILOGO PAGAMENTI ANNO per la detrazione (stesso impianto di "Ricevuta anno"
 //   del gestionale): solo pagamenti detraibili, codici fiscali di chi paga e dell'atleta.
 // v0.1 (richiesta Alberto 20/11/2026): documenti PDF pronti da mandare.
@@ -16,7 +25,7 @@
 // Dipende da: jsPDF 2.5.1, spese-rapide.js (srEsc, srEuro, srDataIt, srOggi, srLog).
 // ════════════════════════════════════════════════════════
 
-var DP_VERSIONE = 'v0.2 · 20/11/2026 15:00';
+var DP_VERSIONE = 'v0.3 · 21/11/2026 02:30';
 var DP_SOCIETA = {
   nome: 'A.S.D. BASKET CAMPODARSEGO',
   righe: ['Via Pioga 254 - 35011 CAMPODARSEGO (PD)', 'C.F. 92201430284 – P.IVA 04322580285', 'Segreteria Tel. 389.4759392', 'basketcampodarsego@gmail.com | basketcampodarsego@pec.it'],
@@ -122,8 +131,9 @@ function dpRicevutaPDF(r) {
 // ── 1b) RIEPILOGO ANNUALE DETRAIBILE ──
 // r = { numero, anno, dataEmissione, pagamenti:[{data, importo}], totale, nonDetraibili, pagante:{nome,cf,via,comune}, causale, atleta:{nome,natoA,dn,cf} }
 function dpRiepilogoPDF(r) {
-  var doc = dpJsPDF();
-  var y = dpIntestazione(doc, 'RIEPILOGO PAGAMENTI ANNO ' + r.anno, 'N. ' + r.numero + ' · Campodarsego, ' + srDataIt(r.dataEmissione));
+  var doc = r.doc || dpJsPDF(); if (r.doc) doc.addPage(); // v0.3: piu' ricevute nello stesso PDF
+  var det = r.detraibile !== false; // v0.3
+  var y = dpIntestazione(doc, r.titolo || ('RIEPILOGO PAGAMENTI ANNO ' + r.anno), 'N. ' + r.numero + ' · Campodarsego, ' + srDataIt(r.dataEmissione));
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
   doc.text('Con la presente si attesta di aver ricevuto la somma di', 20, y); y += 7;
   r.pagamenti.forEach(function (p, i) {
@@ -148,13 +158,41 @@ function dpRiepilogoPDF(r) {
   y = dpRiga(doc, y, 'Il', r.atleta.dn);
   y = dpRiga(doc, y, 'Codice Fiscale', r.atleta.cf); y += 5;
   doc.setFontSize(9);
-  ['Altresì si dichiara che per tale somma si ha diritto ad usufruire di una detrazione d\'imposta IRPEF pari al 19% dell\'importo pagato fino ad un massimo di Euro 210,00 su base annua e complessivo per ciascuna persona che effettua il pagamento, ai sensi dell\'art. 15, co 1, lett i-quinques, DPR 917/1986 e relativo decreto di attuazione.',
-    'Prestazione sportiva dilettantistica non soggetta ad IVA per mancanza dei presupposti di cui all\'art 4, DPR 633/1972.',
-    'Riepilogo esente da imposta di bollo ai sensi della Tabella art 7, ultimo comma, allegata al DPR 642/1972.']
+  (det ? ['Altresì si dichiara che per tale somma si ha diritto ad usufruire di una detrazione d\'imposta IRPEF pari al 19% dell\'importo pagato fino ad un massimo di Euro 210,00 su base annua e complessivo per ciascuna persona che effettua il pagamento, ai sensi dell\'art. 15, co 1, lett i-quinques, DPR 917/1986 e relativo decreto di attuazione.',
+    ] : []).concat(['Prestazione sportiva dilettantistica non soggetta ad IVA per mancanza dei presupposti di cui all\'art 4, DPR 633/1972.',
+    (r.titolo ? 'Ricevuta' : 'Riepilogo') + ' esente da imposta di bollo ai sensi della Tabella art 7, ultimo comma, allegata al DPR 642/1972.'])
     .concat(r.nonDetraibili ? ['Non compresi nel presente riepilogo, perché non detraibili, altri versamenti dell\'anno per Euro ' + Number(r.nonDetraibili).toFixed(2).replace('.', ',') + ' (tesseramento e assicurazione, divisa, contanti).'] : [])
     .forEach(function (t) { var l = doc.splitTextToSize(t, 170); doc.text(l, 20, y); y += l.length * 4.2 + 1.5; });
   if (y > 238) { dpPiede(doc); doc.addPage(); y = 20; } // firma (26 mm) prima del piede a 268
   dpFirmaEPiede(doc, y + 4);
+  return doc;
+}
+
+// ── 1c) PROSPETTO ANNUALE (non e' una ricevuta) ──
+// r = { anno, dataEmissione, atleta:{nome,natoA,dn,cf}, pagante:{nome,cf}, righe:[{data, importo, metodo, tipo, ricevuta, detraibile}], totDet, totNoDet }
+function dpProspettoPDF(r) {
+  var doc = dpJsPDF();
+  var y = dpIntestazione(doc, 'PROSPETTO PAGAMENTI ANNO ' + r.anno, 'Documento riepilogativo · Campodarsego, ' + srDataIt(r.dataEmissione));
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  var avv = doc.splitTextToSize('NON È UNA RICEVUTA. Per la detrazione fiscale valgono le singole ricevute indicate nella colonna "Ricevuta n.", ciascuna con i dati richiesti dalla normativa.', 170);
+  doc.text(avv, 20, y); y += avv.length * 4.6 + 4;
+  y = dpRiga(doc, y, 'Atleta', r.atleta.nome + (r.atleta.dn ? '  (nato il ' + r.atleta.dn + ')' : ''));
+  y = dpRiga(doc, y, 'Genitore / tutore', r.pagante.nome || '—'); y += 4;
+  var cols = [{ h: 'Data', w: 22 }, { h: 'Tipo', w: 44 }, { h: 'Metodo', w: 26 }, { h: 'Importo', w: 24 }, { h: 'Detraibile', w: 22 }, { h: 'Ricevuta n.', w: 32 }];
+  doc.setFillColor(235, 235, 235); doc.rect(20, y, 170, 7, 'F'); doc.setFontSize(9);
+  var x = 20; cols.forEach(function (c) { doc.text(c.h, x + 1, y + 4.8); x += c.w; }); y += 7;
+  doc.setFont('helvetica', 'normal');
+  r.righe.forEach(function (p) {
+    if (y > 240) { dpPiede(doc); doc.addPage(); y = 20; }
+    var v = [srDataIt(p.data), String(p.tipo || ''), String(p.metodo || '').toLowerCase(), Number(p.importo || 0).toFixed(2).replace('.', ','), p.detraibile ? 'sì' : 'no', p.ricevuta || 'non emessa'];
+    x = 20; v.forEach(function (t, i) { doc.text(doc.splitTextToSize(t, cols[i].w - 2)[0] || '', x + 1, y + 4.5); x += cols[i].w; });
+    y += 6.5; doc.setDrawColor(210); doc.line(20, y, 190, y);
+  });
+  y += 6; doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
+  doc.text('Totale pagamenti detraibili: Euro ' + Number(r.totDet || 0).toFixed(2).replace('.', ','), 20, y); y += 6;
+  doc.setFont('helvetica', 'normal');
+  if (r.totNoDet) { doc.text('Altri pagamenti non detraibili: Euro ' + Number(r.totNoDet).toFixed(2).replace('.', ','), 20, y); y += 6; }
+  dpPiede(doc);
   return doc;
 }
 
