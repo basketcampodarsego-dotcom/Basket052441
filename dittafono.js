@@ -1,6 +1,13 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono.js — ASD Basket Campodarsego
-// VERSIONE: v0.9 · 20/11/2026 13:55 · BK
+// VERSIONE: v0.10 · 20/11/2026 15:45 · BK
+// v0.10: APPRENDIMENTO TRA VERSIONI (richiesta Alberto 20/11/2026):
+//   - nota che inizia con "BK", "per BK", "istruzione", "sviluppo", "prossima versione"
+//     -> tipo 🛠️ Per BK, stato "Per BK" (non entra in "Da elaborare");
+//   - "🔄 Rileggi appunti": dopo un aggiornamento rilegge gli appunti con le regole nuove
+//     (diventano spese, pagamenti, domande...; quelli ancora non capiti restano appunti);
+//   - "📤 Per BK": file di testo con istruzioni + appunti non capiti (CF, telefoni e
+//     documenti oscurati) da passare a BK per la versione successiva.
 // v0.9: su Android i CSV scaricati restavano grigi (non selezionabili): il campo file
 //   accetta qualunque file e il tipo (CSV/JSON) si riconosce dal nome o dal contenuto.
 // v0.8: "Importa dati da file" accetta anche un CSV di spese (es. dalla chat palestra) ->
@@ -53,9 +60,11 @@ var DF_TIPI = {
   DATO_ATLETA: { l: '🪪 Dato atleta', c: '#3a9bd5' },
   NOTA_ATLETA: { l: '📝 Nota su atleta', c: '#7a8fa8' },
   APPUNTO: { l: '📌 Appunto', c: '#7a8fa8' },
-  PALESTRA: { l: '🏟️ Palestra', c: '#c8a84b' } // v0.6
+  PALESTRA: { l: '🏟️ Palestra', c: '#c8a84b' }, // v0.6
+  PER_BK: { l: '🛠️ Per BK (sviluppo)', c: '#c86bd5' } // v0.10
 };
-var DF_STATI = { NUOVA: 'Da elaborare', ELABORATA: 'Elaborata', APPUNTO: 'Appunto', SCARTATA: 'Scartata' };
+var DF_STATI = { NUOVA: 'Da elaborare', ELABORATA: 'Elaborata', APPUNTO: 'Appunto', SCARTATA: 'Scartata', SVILUPPO: 'Per BK' };
+var DF_RE_PER_BK = /^\s*(per\s+bk|bk|istruzion\w*|sviluppo|nota per (lo )?sviluppo|(per la |nella )?prossima versione)\b[\s:,.-]*/i; // v0.10
 var DF_CODA_KEY = 'bk_dittafono_coda_v1';
 var DF_FORMATO_IMPORT = 'BK-DITTAFONO-NOTE';
 var DF = { note: [], atleti: [], filtro: 'NUOVA', ultimaId: null, foto: null, caricato: false };
@@ -110,6 +119,7 @@ var DF_RE_DATO = /\b(certificat\w*|maglia|cellular\w*|telefon\w*|numero|iscritt\
 // Classificazione della nota. Ritorna { tipo, atleti, importo }
 function dfClassifica(testo, atleti) {
   var t = dfNorm(testo);
+  if (DF_RE_PER_BK.test(String(testo || ''))) return { tipo: 'PER_BK', atleti: [], importo: null }; // v0.10
   var trov = dfTrovaAtleti(testo, atleti);
   // le date ("15 marzo", "15/03/2027") non sono importi
   var senzaDate = String(testo || '').replace(/\b\d{1,2}\s+(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)(\s+\d{4})?\b/gi, ' ')
@@ -187,7 +197,7 @@ function dfSalva(testo) {
   var cl = dfClassifica(testo, DF.atleti);
   if (typeof paClassificaNota === 'function' && typeof PA !== 'undefined' && PA.conf && paClassificaNota(testo, PA.conf.utenti, cl.atleti) === 'PALESTRA') { cl.tipo = 'PALESTRA'; cl.importo = null; } // v0.6
   var adesso = new Date().toISOString();
-  var nota = { id: ecoNewId('NOTA'), testo: testo, creataIl: adesso, creataDa: SR.utente, stato: 'NUOVA', tipo: cl.tipo, importo: cl.importo,
+  var nota = { id: ecoNewId('NOTA'), testo: testo, creataIl: adesso, creataDa: SR.utente, stato: cl.tipo === 'PER_BK' ? 'SVILUPPO' : 'NUOVA', tipo: cl.tipo, importo: cl.importo,
     atleti: cl.atleti, foto: !!DF.foto, collegamenti: [], storia: [{ il: adesso, da: SR.utente, azione: 'creata' }] };
   var foto = DF.foto;
   DF.foto = null; dfMostraFoto(null);
@@ -322,6 +332,54 @@ function dfRenderNote() {
   dfAggiornaContatore();
 }
 
+// ════════ v0.10: RILEGGI APPUNTI / ESPORTA PER BK ════════
+// Proposta di riclassificazione di un appunto con le regole attuali (funzione pura).
+function dfRiclassifica(n, atleti, eDomanda) {
+  if (!n || n.tipo !== 'APPUNTO' || !(n.stato === 'NUOVA' || n.stato === 'APPUNTO') || !n.testo) return null;
+  if (eDomanda && eDomanda(n.testo)) return { stato: 'ELABORATA', tipo: 'APPUNTO', azione: 'riletta: era una domanda (ora riconosciuta)' };
+  var cl = dfClassifica(n.testo, atleti);
+  if (cl.tipo === 'APPUNTO') return null;
+  return { stato: cl.tipo === 'PER_BK' ? 'SVILUPPO' : 'NUOVA', tipo: cl.tipo, importo: cl.importo, atleti: cl.atleti, azione: 'riletta con le regole ' + (typeof SR_BUILD !== 'undefined' ? SR_BUILD : '') + ': ' + cl.tipo };
+}
+function dfRileggiAppunti() {
+  var eDom = typeof dfgRiconosciDomanda === 'function' ? function (t) { return !!dfgRiconosciDomanda(t, DF.atleti); } : null;
+  var prop = DF.note.map(function (n) { return { n: n, r: dfRiclassifica(n, DF.atleti, eDom) }; }).filter(function (x) { return x.r; });
+  var tot = DF.note.filter(function (n) { return n.tipo === 'APPUNTO' && (n.stato === 'NUOVA' || n.stato === 'APPUNTO'); }).length;
+  if (!prop.length) { alert('Riletti ' + tot + ' appunti: nessuno è stato capito meglio con le regole attuali.'); srLog('Rileggi appunti: ' + tot + ' riletti, 0 cambiati', 'ok'); return; }
+  var dom = prop.filter(function (x) { return x.r.stato === 'ELABORATA'; }).length;
+  if (!confirm('Riletti ' + tot + ' appunti con le regole nuove:\n' + (prop.length - dom) + ' diventano note da elaborare (spese, pagamenti, dati...)\n' + dom + ' erano domande (le chiudo)\nGli altri restano appunti. Procedo?')) return;
+  var b = _db.batch(), adesso = new Date().toISOString(), copie = [];
+  prop.forEach(function (x) {
+    var c = JSON.parse(JSON.stringify(x.n)); var az = x.r.azione; delete x.r.azione; Object.assign(c, x.r);
+    c.storia = (x.n.storia || []).concat([{ il: adesso, da: SR.utente, azione: az }]);
+    b.set(dfCol().doc(c.id), c); copie.push([x.n, c]);
+  });
+  b.commit().then(function () {
+    copie.forEach(function (p) { Object.assign(p[0], p[1]); });
+    srLog('Rileggi appunti: ' + copie.length + ' note riclassificate', 'ok'); dfRenderNote();
+  }).catch(function (err) { srLog('Rileggi appunti NON salvato: ' + err.message, 'err'); alert('Non salvato: ' + err.message); });
+}
+// Testo da passare a BK (puro): istruzioni + appunti non capiti, dati personali oscurati.
+function dfTestoPerBK(note, build, oggi) {
+  var osc = typeof dfgOscura === 'function' ? dfgOscura : function (x) { return String(x || ''); };
+  var it = function (iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('it-IT'); };
+  var ist = note.filter(function (n) { return n.tipo === 'PER_BK' && n.stato !== 'SCARTATA'; });
+  var nc = note.filter(function (n) { return n.tipo === 'APPUNTO' && (n.stato === 'NUOVA' || n.stato === 'APPUNTO') && n.testo; });
+  var riga = function (n) { return '- ' + it(n.creataIl) + ': ' + osc(n.testo).replace(DF_RE_PER_BK, '').replace(/\s+/g, ' ').trim(); };
+  return 'BK DITTAFONO — PER LA PROSSIMA VERSIONE\nVersione in uso: ' + (build || '?') + ' · esportato il ' + oggi + '\n\n' +
+    'ISTRUZIONI E INFORMAZIONI DETTATE (' + ist.length + ')\n' + (ist.map(riga).join('\n') || '- nessuna') + '\n\n' +
+    'NOTE NON CAPITE / APPUNTI (' + nc.length + ')\n' + (nc.map(riga).join('\n') || '- nessuna') + '\n';
+}
+function dfEsportaPerBK() {
+  var oggi = typeof srOggi === 'function' ? srOggi() : new Date().toISOString().slice(0, 10);
+  var txt = dfTestoPerBK(DF.note, typeof SR_BUILD !== 'undefined' ? SR_BUILD : '', oggi);
+  try {
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain;charset=utf-8' }));
+    a.download = 'BK_dittafono_per_BK_' + oggi + '.txt'; document.body.appendChild(a); a.click(); a.remove();
+    srLog('Esportato file per BK', 'ok');
+  } catch (err) { srLog('Export per BK non riuscito: ' + err.message, 'err'); alert('File non creato: ' + err.message); }
+}
+
 // ════════ ELABORAZIONE ════════
 function dfAggiornaNota(n, modifiche, azione) {
   var copia = JSON.parse(JSON.stringify(n));
@@ -454,4 +512,4 @@ function dfImportaFile(inp) {
   };
   r.readAsText(f);
 }
-if (typeof module !== 'undefined') { module.exports.dfNorm = dfNorm; module.exports.dfIdImport = dfIdImport; module.exports.dfNoteDaImport = dfNoteDaImport; }
+if (typeof module !== 'undefined') { module.exports.dfNorm = dfNorm; module.exports.dfIdImport = dfIdImport; module.exports.dfNoteDaImport = dfNoteDaImport; module.exports.dfRiclassifica = dfRiclassifica; module.exports.dfTestoPerBK = dfTestoPerBK; }

@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.13 · 20/11/2026 15:00 · BK
+// VERSIONE: v0.14 · 20/11/2026 15:45 · BK
+// v0.14: solo allineamento versione (note "Per BK", rileggi appunti, export per BK).
 // v0.13: i movimenti importati da CSV (origine IMPORT_CSV_SPESE) si possono annullare da 📋 Elenco.
 // v0.12: solo allineamento versione (import file anche da Download su Android).
 // v0.11: solo allineamento versione (import CSV di spese).
@@ -52,7 +53,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.13 · 20/11/2026 15:00';
+var SR_BUILD = 'v0.14 · 20/11/2026 15:45';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {

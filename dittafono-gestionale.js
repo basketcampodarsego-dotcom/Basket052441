@@ -9,6 +9,7 @@
 //   cognome sembrano fratelli e solo uno ha i dati del genitore, CHIEDE se e' lo stesso
 //   genitore (osservazione Alberto: Zuanon Gabriele e Nicolo'): Si' -> copia i dati del
 //   genitore (e l'indirizzo se manca) solo nei campi vuoti; No -> non lo chiede piu'.
+//   "comandi" / "aiuto" / "legenda": LEGENDA dei comandi (anche pulsante ❓ Comandi).
 //   "non residenti" solo i non residenti; "comune mancante"/"residenza non compilata" chi non ha il comune.
 // v0.6: QUOTE dovute/pagate/residuo con le regole di Alberto (Pulcini 200, altri
 //   minibasket e Special 340, fratello minore -20%, basket amatori 20; quota dal
@@ -221,6 +222,33 @@ function dfgAnagrafica(a, oggi) {
   if (!v(a.cf)) d.push('CF atleta');
   return { tess: t, det: d, nodet: nd };
 }
+// v0.7: LEGENDA. [Cosa vuoi fare, Esempio da dire/scrivere, Cosa succede]
+var DFG_LEGENDA = [
+  ['— DOMANDE (risposta subito, non si salva niente) —', '', ''],
+  ['Residenti (Comune)', 'residenti · solo residenti · non residenti', '% per categoria + elenco'],
+  ['Comune mancante', 'comune mancante', 'chi non ha la residenza'],
+  ['Anagrafica incompleta', 'anagrafica incompleta', 'cosa manca per tesseramento e ricevute'],
+  ['Schede da completare', 'dati da completare', 'elenco con link alla scheda'],
+  ['Certificati', 'chi ha il certificato scaduto?', 'scaduti / in scadenza'],
+  ['Quote', 'chi non ha pagato?', 'dovuto, pagato, residuo + WhatsApp'],
+  ['Un atleta', 'situazione Rossi', 'scheda, pagamenti, certificato'],
+  ['Cassa', 'cassa', 'saldo contanti'],
+  ['Spese', 'spese del mese · spese della settimana · spese dell\'anno', 'elenco e totale'],
+  ['Documenti', 'documenti mancanti', 'moduli non consegnati'],
+  ['Presenze', 'presenze di novembre · presenze pulcini', 'statistica presenze'],
+  ['Affitti palestra', 'situazione affitti', 'dovuto, versato, residuo per utente'],
+  ['Ricevuta detraibile', 'ricevuta detraibile Rossi 2026', 'PDF dei pagamenti detraibili'],
+  ['Questa legenda', 'comandi · aiuto', ''],
+  ['— NOTE (si salvano, poi confermi in 📥 Note) —', '', ''],
+  ['Spesa', 'comprato palloni 45 euro contanti', '➡️ Registra spesa in Economia'],
+  ['Incasso', 'incassati 50 euro dal torneo', '➡️ Registra incasso'],
+  ['Pagamento atleta', 'Rossi Luca ha pagato 20 euro assicurazione in contanti', '✅ Registra pagamento + 🧾 ricevuta PDF'],
+  ['Dato atleta', 'Rossi Luca certificato scade il 10/09/2027', '✅ Aggiorna scheda'],
+  ['Presenze', 'presenze pulcini: presenti Rossi, Bianchi, assenti Verdi', '✅ Registra presenze'],
+  ['Palestra', '26 e 27 dicembre niente attività · CDS salta lunedì, ha avvisato', '📅 Registra in palestra'],
+  ['Istruzione per BK', 'BK: nella ricevuta aggiungi il codice FIP', '🛠️ Per BK (va nella prossima versione)'],
+  ['Appunto', 'qualsiasi altra cosa', '📌 resta come appunto']
+];
 var DFG_CAMPI_TUT = ['tutCog', 'tutNom', 'tutCf', 'cfTut', 'tutDn', 'tutNatoA', 'tutNatoProv', 'tutVia', 'tutNr', 'tutCap', 'tutComune', 'tutProv', 'tutCell1', 'tutCell2', 'tutEmail', 'indTut'];
 var DFG_CAMPI_IND = ['indVia', 'indNr', 'indCap', 'indComune', 'indProv'];
 // Coppie da verificare: stesso cognome, uno con genitore (nome+cognome), l'altro con dati del genitore mancanti.
@@ -314,6 +342,7 @@ function dfgRiconosciDomanda(testo, atleti) {
     var ay = t.match(/\b(20\d{2})\b/);
     return { tipo: 'RIEPILOGO_DET', atleti: dfTrovaAtleti(testo, atleti || []), anno: ay ? ay[1] : null };
   }
+  if (/^(comandi|aiuto|legenda|help|cosa posso (dire|chiedere)|cosa sai fare)\b/.test(t)) return { tipo: 'COMANDI' }; // v0.7
   var domanda = /\?\s*$/.test(t) || /^(chi|quanti|quante|quanto|quali|quale|elenco|lista|mostra|dimmi|situazione|scheda|stampa|tabulato)\b/.test(t);
   // v0.7: comando breve (max 4 parole, niente numeri) su un argomento noto = domanda
   if (!domanda && t.split(/\s+/).length <= 4 && !/\d/.test(t) && /anagraf|residen|\bcomune\b|\bcassa\b|affitt|certificat|document|complet|presenz|spese|quote|morosi|solleciti/.test(t)) domanda = true;
@@ -379,6 +408,9 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
       return { titolo: 'Quote da saldare', sotto: 'Stagione ' + st.chiave + ' · ' + r3.length + ' atleti · totale ' + srEuro(tot3), colonne: ['Atleta', 'Categoria', 'Dovuta', 'Pagata', 'Residuo'], righe: r3,
         link: link3, linkTesto: '💬', nota: 'Regole: Pulcini 200 €, altri minibasket e Special 340 €, fratello minore -20%, basket amatori 20 €, volley amatori Max Music = contributo di squadra (no quota individuale); quota scritta in scheda se diversa.' + (daDec.length ? ' Quota da decidere: ' + daDec.join(', ') + '.' : '') + ' 💬 = messaggio WhatsApp pronto al genitore (serve il telefono in scheda).' };
     }
+    case 'COMANDI': // v0.7
+      return { titolo: '❓ Comandi del dittafono', sotto: 'Detta o scrivi, poi 💾 Salva nota. Le domande non hanno bisogno del punto di domanda.', colonne: ['Cosa vuoi fare', 'Esempio', 'Cosa succede'], righe: DFG_LEGENDA.map(function (r) { return r.slice(); }),
+        nota: 'I nomi degli atleti si dicono COGNOME e nome. I dati personali (CF, indirizzi) si inseriscono da tastiera nella scheda del gestionale.' };
     case 'ANAGRAFICA': { // v0.7
       var link7 = [], nT = 0, nD = 0, nN = 0;
       var r7 = ord(atletiVeri.slice()).map(function (a) {
@@ -726,7 +758,7 @@ function dfgProvaDomanda(testo) {
   var q = dfgRiconosciDomanda(testo, DF.atleti);
   if (!q) return false;
   var out = document.getElementById('dfg-risposta');
-  if (!DFG.caricato) { out.innerHTML = '<div class="errore">Dati del gestionale non ancora caricati: riprova tra poco.</div>'; return true; }
+  if (!DFG.caricato && q.tipo !== 'COMANDI') { out.innerHTML = '<div class="errore">Dati del gestionale non ancora caricati: riprova tra poco.</div>'; return true; }
   var oggi = srOggi(), extra = {};
   var prep = Promise.resolve();
   if (q.tipo === 'CASSA') {
@@ -1039,4 +1071,4 @@ function dfgConfermaPresenze(id) {
 }
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { dfgQuotaDovuta: dfgQuotaDovuta, dfgQuotaPagata: dfgQuotaPagata, dfgDatiMancanti: dfgDatiMancanti, dfgDetraibile: dfgDetraibile, dfgPagamentiAnno: dfgPagamentiAnno, dfgEstraiPresenze: dfgEstraiPresenze, dfgAllenamentoEsistente: dfgAllenamentoEsistente, dfgCategorieDette: dfgCategorieDette, dfgDate: dfgDate, dfgEstraiDati: dfgEstraiDati, dfgEstraiMetodo: dfgEstraiMetodo, dfgEstraiTipoPag: dfgEstraiTipoPag,
-  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgAnagrafica: dfgAnagrafica, dfgFratelliDaVerificare: dfgFratelliDaVerificare, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };
+  dfgOscura: dfgOscura, dfgStatoCert: dfgStatoCert, dfgStagione: dfgStagione, dfgRiconosciDomanda: dfgRiconosciDomanda, dfgAnagrafica: dfgAnagrafica, DFG_LEGENDA: DFG_LEGENDA, dfgFratelliDaVerificare: dfgFratelliDaVerificare, dfgRispondi: dfgRispondi, dfgScadenzaDaEmissione: dfgScadenzaDaEmissione, dfgProposta: dfgProposta };
