@@ -1,6 +1,10 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v1.0 · 12/11/2026 10:30 · BK
+// VERSIONE: v1.1 · 25/11/2026 07:30 · BK
+// v1.1: filtro "Solo da decidere" (possibili duplicati, da verificare, senza
+//   categoria, pagamenti forse gia' presenti) attivo di default; per ogni possibile
+//   duplicato mostra il movimento gia' in Economia con cui coincide; per i pagamenti
+//   atleta mostra il pagamento simile gia' in scheda. Legenda in testa all'elenco.
 // v1.0: righe abbinate a spese gia' registrate da spese-rapide.html
 //   (economia-import-banca.js v1.0): badge "GIA' REGISTRATA", spunta
 //   "abbina" attiva di default, nessun nuovo movimento. Alla conferma la
@@ -398,6 +402,9 @@ function ecoImportEsc(s) {
   });
 }
 
+var ecoImportFiltro = null; // v1.1: 'DECIDERE' | 'TUTTE' (null = scelta automatica)
+function ecoImportDaDecidere(e) { return !e.duplicato && !e.riconcilia && (e.possibileDuplicato || e.verifica || !e.categoriaCodice || !!e.pagamentoSimile); }
+function ecoImportSetFiltro(f) { ecoImportFiltro = f; ecoImportRenderTabella(); }
 function ecoImportRenderTabella() {
   var out = document.getElementById('eco-import-esito');
   if (!out) { console.error('ecoImportRenderTabella: #eco-import-esito non trovato nel DOM'); return; }
@@ -425,8 +432,24 @@ function ecoImportRenderTabella() {
     '<span style="color:#e03545">' + senzaCat + ' senza categoria (scegli la categoria: la riga si seleziona da sola)</span>' +
     (daAbbinare ? '<span style="color:#3a9bd5">' + daAbbinare + ' gi\u00e0 registrate con foto: verranno abbinate, non importate</span>' : '') + '</div>';
 
+  // v1.1: filtro + legenda
+  var nDec = elenco.filter(ecoImportDaDecidere).length;
+  var filtro = ecoImportFiltro || (nDec ? 'DECIDERE' : 'TUTTE');
+  h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0">' +
+    '<button class="btn ' + (filtro === 'DECIDERE' ? 'btn-gold' : 'btn-gray') + '" style="font-size:12px;padding:6px 10px" onclick="ecoImportSetFiltro(\'DECIDERE\')">Solo da decidere (' + nDec + ')</button>' +
+    '<button class="btn ' + (filtro === 'TUTTE' ? 'btn-gold' : 'btn-gray') + '" style="font-size:12px;padding:6px 10px" onclick="ecoImportSetFiltro(\'TUTTE\')">Tutte (' + elenco.length + ')</button></div>' +
+    '<details style="font-size:12px;margin-bottom:6px"><summary style="cursor:pointer;color:var(--gold)">Cosa fare con ogni etichetta</summary><div style="padding:6px 0;line-height:1.5">' +
+    '<b style="color:#4aaa6a">NUOVO</b>: non c\'e\' in Economia → si importa (se ha la categoria).<br>' +
+    '<b style="color:#e03545">senza categoria</b>: scegli la categoria → la riga si spunta da sola.<br>' +
+    '<b style="color:#888">GIÀ PRESENTE</b>: gia\' registrato con lo stesso riferimento → niente.<br>' +
+    '<b style="color:#c88a4b">POSSIBILE DUPLICATO</b>: c\'e\' gia\' un movimento con stessa data e importo (vedi "Già in Economia") → se e\' lo stesso lascia SENZA spunta; se e\' un altro, spunta.<br>' +
+    '<b style="color:#c8a84b">VERIFICA</b>: decidi tu (es. bonifici del Comune) → nel dubbio lascia senza spunta.<br>' +
+    '<b style="color:#3a9bd5">GIÀ REGISTRATA</b>: spesa gia\' inserita con foto/dittafono → lascia "Abbina", non crea doppioni.<br>' +
+    '<b>Pagamento atleta</b>: NUOVO PAGAMENTO = lo aggiunge alla scheda; GIÀ PRESENTE = niente; FORSE GIÀ PRESENTE = c\'e\' un pagamento uguale in un giorno vicino → se e\' lo stesso, lascia senza spunta.' +
+    '</div></details>';
   h += '<div style="max-height:50vh;overflow-y:auto">';
   elenco.forEach(function (e, i) {
+    if (filtro === 'DECIDERE' && !ecoImportDaDecidere(e)) return; // v1.1
     var badge = e.riconcilia ? '<span class="badge" style="background:#3a9bd522;color:#3a9bd5">GI\u00c0 REGISTRATA (' + ecoImportEsc(e.criterioDedup) + ')</span>'
       : e.duplicato ? '<span class="badge" style="background:#55555522;color:#888">GI\u00c0 PRESENTE (' + ecoImportEsc(e.criterioDedup) + ')</span>'
       : e.possibileDuplicato ? '<span class="badge" style="background:#c88a4b22;color:#c88a4b">POSSIBILE DUPLICATO \u2014 verifica</span>'
@@ -438,6 +461,7 @@ function ecoImportRenderTabella() {
       if (e.atleta) {
         var badgePag = e.pagamentoGiaPresente
           ? '<span class="badge" style="background:#55555522;color:#888">PAGAMENTO GI\u00c0 PRESENTE</span>'
+          : e.pagamentoSimile ? '<span class="badge" style="background:#c88a4b22;color:#c88a4b">FORSE GI\u00c0 PRESENTE: pagamento del ' + ecoImportEsc(String(e.pagamentoSimile.data).split('-').reverse().join('/')) + (e.pagamentoSimile.tipo ? ' (' + ecoImportEsc(e.pagamentoSimile.tipo) + ')' : '') + '</span>'
           : '<span class="badge" style="background:#4aaa6a22;color:#4aaa6a">NUOVO PAGAMENTO</span>';
         rigaAtleta = '<div style="display:flex;align-items:center;gap:8px;padding-left:26px;margin-top:4px">' +
           '<input type="checkbox" id="eco-imp-pag-' + i + '" ' + (e.pagamentoSelezionato ? 'checked' : '') + ' onchange="ecoImportElencoCorrente[' + i + '].pagamentoSelezionato=this.checked">' +
@@ -456,6 +480,7 @@ function ecoImportRenderTabella() {
       badge + '</div>' +
       '<div style="font-size:11px;color:var(--muted);padding-left:26px">Movimento Economia \u2014 ' + ecoImportEsc(e.descrizione.substring(0, 160)) + (e.descrizione.length > 160 ? '\u2026' : '') + '</div>' +
       (e.notaCategoria ? '<div style="font-size:11px;color:#c8a84b;padding-left:26px">' + ecoImportEsc(e.notaCategoria) + '</div>' : '') +
+      (e.duplicatoDi ? '<div style="font-size:11px;color:#c88a4b;padding-left:26px">Già in Economia: n. ' + ecoImportEsc(e.duplicatoDi.numero) + ' del ' + ecoImportEsc(String(e.duplicatoDi.data || '').split('-').reverse().join('/')) + ' \u20ac' + e.duplicatoDi.importo.toFixed(2) + (e.duplicatoDi.descrizione ? ' \u2014 ' + ecoImportEsc(e.duplicatoDi.descrizione) : '') + (e.duplicatoDi.categoria ? ' [' + ecoImportEsc(e.duplicatoDi.categoria) + ']' : '') + '<br>→ se è lo stesso lascia senza spunta</div>' : '') + // v1.1
       '<div style="padding-left:26px"><select onchange="ecoImportOnCategoria(' + i + ', this.value)">' +
       optionsCategorie.replace('value="' + ecoImportEsc(e.categoriaCodice || '') + '"', 'value="' + ecoImportEsc(e.categoriaCodice || '') + '" selected') +
       '</select></div>' +
@@ -518,7 +543,7 @@ function ecoImportApplicaAbbinamenti(righe) {
 function ecoImportSelTutti(v) {
   ecoImportElencoCorrente.forEach(function (e, i) {
     e.selezionato = v ? (!e.duplicato && !e.possibileDuplicato && !e.verifica && !!e.categoriaCodice) : false; // v0.9
-    e.pagamentoSelezionato = v ? (!!e.atleta && !e.pagamentoGiaPresente) : false;
+    e.pagamentoSelezionato = v ? (!!e.atleta && !e.pagamentoGiaPresente && !e.pagamentoSimile) : false; // v1.1
     var cb = document.getElementById('eco-imp-sel-' + i);
     if (cb) cb.checked = e.selezionato;
     var cbPag = document.getElementById('eco-imp-pag-' + i);

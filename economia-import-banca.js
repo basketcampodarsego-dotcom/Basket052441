@@ -1,6 +1,17 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca.js — ASD Basket Campodarsego
-// VERSIONE: v1.0 · 12/11/2026 10:30 · BK
+// VERSIONE: v1.1 · 25/11/2026 07:30 · BK
+// v1.1: (Alberto 25/11/2026: "non so cosa devo fare con questa schermata")
+//   - riga POSSIBILE DUPLICATO: porta con se' il movimento gia' in Economia con cui
+//     coincide (duplicatoDi: numero, data, importo, descrizione, categoria);
+//   - pagamento atleta: oltre allo stesso giorno, cerca un pagamento con lo STESSO
+//     importo entro 10 giorni (pagamentoSimile, es. inserito a mano con la data del
+//     giorno in cui l'hai visto): non pre-selezionato, da decidere.
+//   - stessa data + stesso importo + STESSA DESCRIZIONE dell'estratto gia' importato
+//     (descrizioneEstratto) = GIA' PRESENTE, non proposto (Alberto: "se la descrizione
+//     e' identica non me lo devi neanche proporre"). Ogni movimento esistente "assorbe"
+//     una sola riga: due commissioni identiche nello stesso giorno, di cui una sola gia'
+//     importata, lasciano proposta l'altra.
 // v1.0: abbinamento con le spese gia' registrate da spese-rapide.html
 //   (richiesta Alberto 12/11/2026). Una spesa pagata con bonifico o carta
 //   Tasca registrata al momento (con foto) resta "daRiconciliare": quando
@@ -341,7 +352,8 @@ function ecoImportTrovaDaRiconciliare(mov, movimentiEsistenti, fonte, giaAbbinat
   return null;
 }
 
-function ecoImportEDuplicato(mov, movimentiEsistenti) {
+function _ecoImportNormDesc(x) { return String(x || '').toUpperCase().replace(/\s+/g, ' ').trim().slice(0, 200); } // v1.1
+function ecoImportEDuplicato(mov, movimentiEsistenti, usati) {
   if (mov.riferimento) {
     var perRif = (movimentiEsistenti || []).find(function (m) {
       return m.riferimentoBancario && m.riferimentoBancario === mov.riferimento.valore;
@@ -374,6 +386,17 @@ function ecoImportEDuplicato(mov, movimentiEsistenti) {
   // duplicato certo rischierebbe di scartare soldi veri. Chi chiama
   // questa funzione decide come mostrarlo (mai auto-selezionato per
   // l'import, ma nemmeno etichettato come "gia' presente" con sicurezza).
+  // v1.1: stessa data+importo+descrizione dell'estratto = gia' presente (un esistente per riga)
+  var nd = _ecoImportNormDesc(mov.descrizione);
+  if (nd) {
+    var uguale = (movimentiEsistenti || []).find(function (m) {
+      var k = m.id || m._k; if (usati && k && usati[k]) return false;
+      var dm = _ecoImportNormDesc(m.descrizioneEstratto); if (!dm || dm !== nd) return false;
+      var stessaData = m.dataDocumento === ecoImportISOData(mov.dataContabile) || m.dataDocumento === ecoImportISOData(mov.dataValuta) || m.dataContabileEstratto === ecoImportISOData(mov.dataContabile);
+      return stessaData && Math.abs((+m.importoEur || 0) - Math.abs(mov.importo)) < 0.01;
+    });
+    if (uguale) { if (usati && (uguale.id || uguale._k)) usati[uguale.id || uguale._k] = true; return { duplicato: true, criterio: 'stessa descrizione', certezza: 'alta', esistente: uguale }; }
+  }
   if (perDataImporto) return { duplicato: false, possibileDuplicato: true, criterio: 'data+importo', certezza: 'bassa', esistente: perDataImporto };
   return { duplicato: false, possibileDuplicato: false };
 }
@@ -438,6 +461,15 @@ function ecoImportTrovaAtleta(descUp) {
 
 // ── Dedup pagamento — stessa regola gia' in uso in bancaImporta()
 // (data ISO + importo, tolleranza 1 centesimo) ──
+// v1.1: pagamento con lo stesso importo entro N giorni (non lo stesso giorno). Ritorna il pagamento o null.
+function ecoImportPagamentoSimile(atletaId, dataISO, importo, giorni) {
+  if (typeof DB === 'undefined' || !DB.pagamenti || !dataISO) return null;
+  var t = Date.parse(dataISO), lim = (giorni || 10) * 86400000;
+  return (DB.pagamenti[atletaId] || []).find(function (p) {
+    if (!p.data || p.data === dataISO || Math.abs((+p.importo || 0) - importo) >= 0.01) return false;
+    var d = Date.parse(p.data); return !isNaN(d) && Math.abs(d - t) <= lim;
+  }) || null;
+}
 function ecoImportPagamentoGiaPresente(atletaId, dataISO, importo) {
   if (typeof DB === 'undefined' || !DB.pagamenti) return false;
   var pags = DB.pagamenti[atletaId] || [];
@@ -490,12 +522,13 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
   // v1.0: spese gia' prenotate da righe di QUESTO lotto (una spesa si abbina a una riga sola)
   var riservati = {};
   (giaInLavorazione || []).forEach(function (e) { (e.riconcilia || []).forEach(function (id) { riservati[id] = true; }); });
-  var accumulatore = (giaInLavorazione || []).map(function (e) {
-    return { dataDocumento: ecoImportISOData(e.dataContabile), importoEur: Math.abs(e.importo), riferimentoBancario: e.riferimento ? e.riferimento.valore : null };
+  var usatiDesc = {}; // v1.1
+  var accumulatore = (giaInLavorazione || []).map(function (e, k) {
+    return { _k: 'L' + k, descrizioneEstratto: e.descrizione, dataDocumento: ecoImportISOData(e.dataContabile), importoEur: Math.abs(e.importo), riferimentoBancario: e.riferimento ? e.riferimento.valore : null };
   });
   var elenco = righe.map(function (r) {
     var riferimento = ecoImportEstraiRiferimento(r.descrizione);
-    var dedup = ecoImportEDuplicato({ dataContabile: r.dataContabile, dataValuta: r.dataValuta, importo: r.importo, riferimento: riferimento }, ecoMovimenti.concat(accumulatore));
+    var dedup = ecoImportEDuplicato({ dataContabile: r.dataContabile, dataValuta: r.dataValuta, importo: r.importo, riferimento: riferimento, descrizione: r.descrizione }, ecoMovimenti.concat(accumulatore), usatiDesc);
     var abbina = dedup.duplicato ? null : ecoImportTrovaDaRiconciliare(r, ecoMovimenti, 'BANCA', riservati);
     if (abbina) {
       abbina.movimenti.forEach(function (m) { riservati[m.id] = true; });
@@ -505,12 +538,13 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
 
     // Abbinamento atleta — solo per righe in entrata (importo>0)
     var atletaInfo = { atleta: null, fonteTrovato: '', motivoFallback: '' };
-    var pagamentoGiaPresente = false;
+    var pagamentoGiaPresente = false, pagamentoSimile = null; // v1.1
     var pagamentoDataISO = ecoImportISOData(r.dataContabile);
     if (r.importo > 0) {
       atletaInfo = ecoImportTrovaAtleta(r.descrizione.toUpperCase());
       if (atletaInfo.atleta) {
         pagamentoGiaPresente = ecoImportPagamentoGiaPresente(atletaInfo.atleta.id, pagamentoDataISO, r.importo);
+        if (!pagamentoGiaPresente) pagamentoSimile = ecoImportPagamentoSimile(atletaInfo.atleta.id, pagamentoDataISO, r.importo, 10); // v1.1
         // Se c'e' un atleta abbinato, la categoria suggerita per il lato
         // Economia e' sempre QUOTE (se esiste nella tabella) — coerente
         // col fatto che questo movimento e' una quota, non altro.
@@ -530,6 +564,7 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
       riferimento: riferimento,
       duplicato: dedup.duplicato,
       possibileDuplicato: !!dedup.possibileDuplicato,
+      duplicatoDi: dedup.possibileDuplicato && dedup.esistente ? { numero: dedup.esistente.numeroMovimento || dedup.esistente.id, data: dedup.esistente.dataDocumento, importo: +dedup.esistente.importoEur || 0, descrizione: String(dedup.esistente.descrizione || dedup.esistente.fornitore || dedup.esistente.note || '').slice(0, 100), categoria: dedup.esistente.categoriaCodice || '', origine: dedup.esistente.origine || '' } : null, // v1.1
       criterioDedup: dedup.criterio,
       categoriaCodice: suggerimento.categoriaCodice,
       verifica: suggerimento.verifica,
@@ -540,7 +575,8 @@ function ecoImportPreparaElenco(txt, giaInLavorazione) {
       atletaFonteTrovato: atletaInfo.fonteTrovato,
       atletaMotivoFallback: atletaInfo.motivoFallback,
       pagamentoGiaPresente: pagamentoGiaPresente,
-      pagamentoSelezionato: !!atletaInfo.atleta && !pagamentoGiaPresente && !abbina,
+      pagamentoSimile: pagamentoSimile ? { data: pagamentoSimile.data, tipo: pagamentoSimile.tipo || '', metodo: pagamentoSimile.metodo || '' } : null, // v1.1
+      pagamentoSelezionato: !!atletaInfo.atleta && !pagamentoGiaPresente && !pagamentoSimile && !abbina,
       // v1.0: abbinamento a spese registrate in anticipo
       riconcilia: abbina ? abbina.movimenti.map(function (m) { return m.id; }) : null,
       riconciliaTipo: abbina ? abbina.tipo : null,
