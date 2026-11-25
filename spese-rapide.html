@@ -1,4 +1,4 @@
-<!-- spese-rapide.html | v0.15 · 21/11/2026 04:00 · BK -->
+<!-- spese-rapide.html | v0.16 · 25/11/2026 08:45 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -146,10 +146,12 @@
     <textarea id="df-testo" rows="3" placeholder="…oppure scrivi qui. Scrivi &quot;comandi&quot; per la legenda. Puoi chiedere: &quot;chi ha il certificato scaduto?&quot;, &quot;chi non ha pagato?&quot;, &quot;cassa&quot;, &quot;situazione Rossi&quot;"></textarea>
     <div style="display:flex;gap:8px;margin-bottom:8px">
       <button class="btn-gray" style="flex:1" onclick="document.getElementById('df-foto-cam').click()">📷 Foto</button>
+      <button class="btn-gray" style="flex:1" onclick="document.getElementById('df-foto-file').click()">🖼️ Galleria</button>
       <button class="btn-blue" style="flex:1" onclick="dfSalvaDaCampo()">💾 Salva nota</button>
     </div>
     <button class="btn-gray btn-sm" style="margin-bottom:8px" onclick="dfgProvaDomanda('comandi')">❓ Comandi</button>
     <input type="file" id="df-foto-cam" accept="image/*" capture="environment" style="display:none" onchange="dfFotoScelta(this)">
+    <input type="file" id="df-foto-file" accept="image/*" style="display:none" onchange="dfFotoScelta(this)">
     <img id="df-foto-prev" alt="foto" style="max-width:100%;max-height:200px;border-radius:8px;display:none;margin:4px auto;border:1px solid var(--border)">
     <div id="df-esito"></div>
     <div id="dfg-risposta"></div>

@@ -1,6 +1,8 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.15 · 21/11/2026 04:00 · BK
+// VERSIONE: v0.16 · 25/11/2026 08:45 · BK
+// v0.16: 🎤 Detta: pulsante 🖼️ Galleria per allegare alla nota una foto gia' fatta
+//   (prima solo la fotocamera; nella scheda ➕ Spesa la galleria c'era gia').
 // v0.15: MOVIMENTI IN MEMORIA SUL TELEFONO (21/11/2026: "Quota exceeded" di Firebase,
 //   limite gratuito di letture esaurito). Prima: a ogni apertura 4 letture complete
 //   (anno, anno precedente, tutta la cassa, anticipi). Ora: i movimenti stanno nel
@@ -59,7 +61,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.15 · 21/11/2026 04:00';
+var SR_BUILD = 'v0.16 · 25/11/2026 08:45';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
