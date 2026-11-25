@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.16 · 25/11/2026 08:45 · BK
+// VERSIONE: v0.17 · 25/11/2026 10:15 · BK
+// v0.17: ↩️ Rimb.: dopo "Registra rimborso" il modulo PDF si prepara da solo; elenco
+//   "Rimborsi registrati" con 📄 Modulo per ciascuno; modulo e nota spese su PIU' MESI
+//   (dal mese ... al mese ...).
 // v0.16: 🎤 Detta: pulsante 🖼️ Galleria per allegare alla nota una foto gia' fatta
 //   (prima solo la fotocamera; nella scheda ➕ Spesa la galleria c'era gia').
 // v0.15: MOVIMENTI IN MEMORIA SUL TELEFONO (21/11/2026: "Quota exceeded" di Firebase,
@@ -61,7 +64,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.16 · 25/11/2026 08:45';
+var SR_BUILD = 'v0.17 · 25/11/2026 10:15';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
@@ -1223,6 +1226,17 @@ function srRenderRimborsi() {
       '<div class="mov-desc">' + srEsc(SR_MEZZI[m.mezzoPagamento] ? SR_MEZZI[m.mezzoPagamento].breve : '') + ' · ' + srEsc(m.note || '') + '</div></div></label>';
   }).join('') : '<div class="empty">Nessuna spesa da rimborsare.</div>';
   srEl('nota-mese').value = srEl('nota-mese').value || srOggi().slice(0, 7);
+  // v0.17: rimborsi gia' registrati (gruppi), piu' recenti prima
+  var gr = {};
+  SR.anticipi.forEach(function (m) { if (m.rimborso && m.rimborso.gruppoId && m.stato !== 'ANNULLATO') { var g = gr[m.rimborso.gruppoId] = gr[m.rimborso.gruppoId] || { g: m.rimborso, n: 0, tot: 0, date: [] }; g.n++; g.tot += Number(m.importoEur) || 0; g.date.push(m.dataDocumento || ''); } });
+  var gl = Object.keys(gr).map(function (k) { return gr[k]; }).sort(function (a, b) { return String(b.g.data).localeCompare(String(a.g.data)); });
+  var box = srEl('rimb-fatti');
+  if (box) box.innerHTML = gl.length ? gl.slice(0, 30).map(function (x) {
+    var d = x.date.filter(Boolean).sort();
+    return '<div class="mov"><div class="mov-body"><div class="mov-top"><span>Rimborso del ' + srDataIt(x.g.data) + ' · ' + (x.g.modo === 'BONIFICO' ? '🏦 bonifico' : '💶 contanti') + '</span><span>' + srEuro(srR2(x.tot)) + '</span></div>' +
+      '<div class="mov-desc">' + x.n + ' spese' + (d.length ? ' dal ' + srDataIt(d[0]) + ' al ' + srDataIt(d[d.length - 1]) : '') + '</div>' +
+      '<button class="btn-blue btn-sm" style="margin-top:4px" onclick="dpModuloRimborso({gruppoId:\'' + x.g.gruppoId + '\'},\'rimb-pdf-fatti\')">📄 Modulo</button></div></div>';
+  }).join('') : '<div class="empty">Nessun rimborso registrato.</div>';
 }
 function srRimborsa() {
   var scelti = srAnticipiAperti().filter(function (m) { return SR.rimbSel[m.id]; });
@@ -1255,18 +1269,21 @@ function srRimborsa() {
     srLog('Rimborso ' + gruppo.gruppoId + ' registrato: ' + totale + ' € (' + copie.length + ' spese, ' + gruppo.modo + ')', 'ok');
     esito.innerHTML = '<div class="ok-msg">✅ Rimborso di ' + srEuro(totale) + ' registrato.' + (gruppo.modo === 'BONIFICO' ? ' Fai il bonifico di ESATTAMENTE ' + srEuro(totale) + ': l\'import dell\'estratto lo riconoscerà.' : '') + '</div>';
     srAggiornaBadgeCassa(); srRenderRimborsi();
+    if (typeof dpModuloRimborso === 'function') dpModuloRimborso({ gruppoId: gruppo.gruppoId }, 'rimb-pdf-fatti'); // v0.17: modulo subito pronto
   }).catch(function (err) { srLog('Rimborso fallito: ' + err.message, 'err'); esito.innerHTML = '<div class="errore">Non registrato: ' + srEsc(err.message) + '</div>'; });
 }
 function srStampaNotaSpese() {
-  var mese = srEl('nota-mese').value;
+  var mese = srEl('nota-mese').value, meseA = (srEl('nota-mese-a') && srEl('nota-mese-a').value) || mese; // v0.17
   if (!mese) { alert('Scegli il mese.'); return; }
-  var lista = SR.anticipi.filter(function (m) { return m.stato !== 'ANNULLATO' && (m.dataDocumento || '').slice(0, 7) === mese; })
+  if (meseA < mese) { var tt = mese; mese = meseA; meseA = tt; }
+  var lista = SR.anticipi.filter(function (m) { var ym = (m.dataDocumento || '').slice(0, 7); return m.stato !== 'ANNULLATO' && ym >= mese && ym <= meseA; })
     .sort(function (a, b) { return (a.dataDocumento || '').localeCompare(b.dataDocumento || ''); });
-  if (!lista.length) { alert('Nessuna spesa anticipata in questo mese.'); return; }
+  if (!lista.length) { alert('Nessuna spesa anticipata nel periodo scelto.'); return; }
   var tot = lista.reduce(function (s, m) { return s + (Number(m.importoEur) || 0); }, 0);
   var daRimb = lista.filter(function (m) { return m.stato === 'DA_PAGARE'; }).reduce(function (s, m) { return s + (Number(m.importoEur) || 0); }, 0);
   var p = mese.split('-');
   var nomeMese = new Date(+p[0], +p[1] - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  if (meseA !== mese) { var q = meseA.split('-'); nomeMese = 'da ' + nomeMese + ' a ' + new Date(+q[0], +q[1] - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }); }
   var corpo = '<h1>Nota spese — ' + srEsc(nomeMese) + '</h1><div class="sub">Spese sostenute per conto di ASD Basket Campodarsego da Alberto (presidente), con documento allegato in archivio.</div>' +
     '<table><tr><th>Data</th><th>Voce</th><th>Centro</th><th>Pagato con</th><th>Descrizione</th><th>Doc.</th><th>Stato</th><th class="n">Importo</th></tr>' +
     lista.map(function (m) {

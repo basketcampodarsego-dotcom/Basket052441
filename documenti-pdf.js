@@ -1,6 +1,10 @@
 // ════════════════════════════════════════════════════════
 // FILE: documenti-pdf.js — ASD Basket Campodarsego
-// VERSIONE: v0.3 · 21/11/2026 02:30 · BK
+// VERSIONE: v0.4 · 25/11/2026 10:15 · BK
+// v0.4: (Alberto 25/11/2026: "registrato il rimborso, ma non mi genera il PDF su piu' mesi")
+//   modulo di rimborso anche per: rimborso GIA' REGISTRATO (gruppo, qualsiasi mese) e
+//   PERIODO di piu' mesi (dal mese ... al mese ...). Prima: solo spese ancora aperte
+//   selezionate o un solo mese.
 // v0.3: (Alberto 21/11/2026: "mancano codice fiscale del ragazzo, indirizzo...")
 //   la ricevuta del singolo pagamento ha ora lo STESSO impianto della ricevuta del
 //   gestionale: chi paga con residenza, via e CF; causale; atleta con luogo e data di
@@ -25,7 +29,7 @@
 // Dipende da: jsPDF 2.5.1, spese-rapide.js (srEsc, srEuro, srDataIt, srOggi, srLog).
 // ════════════════════════════════════════════════════════
 
-var DP_VERSIONE = 'v0.3 · 21/11/2026 02:30';
+var DP_VERSIONE = 'v0.4 · 25/11/2026 10:15';
 var DP_SOCIETA = {
   nome: 'A.S.D. BASKET CAMPODARSEGO',
   righe: ['Via Pioga 254 - 35011 CAMPODARSEGO (PD)', 'C.F. 92201430284 – P.IVA 04322580285', 'Segreteria Tel. 389.4759392', 'basketcampodarsego@gmail.com | basketcampodarsego@pec.it'],
@@ -274,25 +278,39 @@ function dpMostraAzioni(elId, doc, nome, testo) {
 function dpInviaUltimo() { if (!DP.ultimo) return; dpCondividi(DP.ultimo.doc, DP.ultimo.nome, DP.ultimo.testo); }
 function dpScaricaUltimo() { if (!DP.ultimo) return; dpScarica(DP.ultimo.doc, DP.ultimo.nome); }
 
-// ── modulo di rimborso dalla pagina Rimborsi: 'SEL' = spese selezionate, 'MESE' = anticipi del mese scelto ──
-function dpModuloRimborso(quali) {
-  var out = 'rimb-pdf', el = document.getElementById(out), lista, periodo = '';
+// ── modulo di rimborso dalla pagina Rimborsi ──
+// quali: 'SEL' = spese aperte selezionate; 'MESE' = anticipi dal mese al mese scelti; {gruppoId} = rimborso gia' registrato
+function dpNomeMese(ym) { var p = String(ym).split('-'); return new Date(+p[0], +p[1] - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }); }
+function dpPeriodoDi(lista) {
+  var mesi = lista.map(function (m) { return String(m.dataDocumento || '').slice(0, 7); }).filter(Boolean).sort();
+  if (!mesi.length) return '';
+  return mesi[0] === mesi[mesi.length - 1] ? dpNomeMese(mesi[0]) : 'da ' + dpNomeMese(mesi[0]) + ' a ' + dpNomeMese(mesi[mesi.length - 1]);
+}
+function dpModuloRimborso(quali, outId) {
+  var out = outId || 'rimb-pdf', el = document.getElementById(out), lista, periodo = '', modo = SR.rimbModo, gruppo = null;
   if (quali === 'SEL') lista = srAnticipiAperti().filter(function (m) { return SR.rimbSel[m.id]; });
-  else {
-    var mese = document.getElementById('nota-mese').value;
-    if (!mese) { el.innerHTML = '<div class="errore">Scegli il mese.</div>'; return; }
-    lista = SR.anticipi.filter(function (m) { return m.stato !== 'ANNULLATO' && (m.dataDocumento || '').slice(0, 7) === mese; });
-    var p = mese.split('-'); periodo = new Date(+p[0], +p[1] - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
-  }
-  if (!lista.length) { el.innerHTML = '<div class="errore">' + (quali === 'SEL' ? 'Seleziona almeno una spesa da rimborsare.' : 'Nessuna spesa anticipata in quel mese.') + '</div>'; return; }
+  else if (quali === 'MESE') {
+    var da = document.getElementById('nota-mese').value, aEl = document.getElementById('nota-mese-a'), a = (aEl && aEl.value) || da;
+    if (!da) { el.innerHTML = '<div class="errore">Scegli il mese.</div>'; return; }
+    if (a < da) { var t = da; da = a; a = t; }
+    lista = SR.anticipi.filter(function (m) { var ym = (m.dataDocumento || '').slice(0, 7); return m.stato !== 'ANNULLATO' && ym >= da && ym <= a; });
+    periodo = da === a ? dpNomeMese(da) : 'da ' + dpNomeMese(da) + ' a ' + dpNomeMese(a);
+  } else if (quali && quali.gruppoId) {
+    lista = SR.anticipi.filter(function (m) { return m.stato !== 'ANNULLATO' && m.rimborso && m.rimborso.gruppoId === quali.gruppoId; });
+    gruppo = lista.length ? lista[0].rimborso : null; if (gruppo) modo = gruppo.modo;
+    periodo = dpPeriodoDi(lista);
+  } else { srLog('Modulo rimborso: richiesta non riconosciuta', 'err'); return; }
+  if (!el) { srLog('Modulo rimborso: area ' + out + ' assente', 'err'); return; }
+  if (!lista.length) { el.innerHTML = '<div class="errore">' + (quali === 'SEL' ? 'Seleziona almeno una spesa da rimborsare (quelle già rimborsate sono in "Rimborsi registrati").' : quali === 'MESE' ? 'Nessuna spesa anticipata nel periodo scelto.' : 'Rimborso non trovato.') + '</div>'; return; }
+  if (quali === 'SEL') periodo = dpPeriodoDi(lista);
   lista = lista.slice().sort(function (a, b) { return (a.dataDocumento || '').localeCompare(b.dataDocumento || ''); });
   el.innerHTML = '<div class="domanda">Preparo il modulo…</div>';
   dpCaricaImmagini().then(function () {
-    var r = dpRimborsoPDF({ data: srOggi(), richiedente: DP_SOCIETA.presidente, ruolo: 'presidente', periodo: periodo, modo: SR.rimbModo,
+    var r = dpRimborsoPDF({ data: gruppo ? gruppo.data : srOggi(), richiedente: DP_SOCIETA.presidente, ruolo: 'presidente', periodo: periodo, modo: modo,
       spese: lista.map(function (m) { var c = srCentroDi(m); return { data: m.dataDocumento, voce: srNomeCategoria(m.categoriaCodice), descrizione: m.note || '', centro: c === 'PALESTRA' ? 'Palestra' : c === 'SPORT' ? 'Società' : '', documento: (typeof SR_DOCUMENTI !== 'undefined' && SR_DOCUMENTI[m.documento]) || '', importo: m.importoEur }; }) });
-    var nome = 'Rimborso_spese_' + (periodo ? periodo.replace(/\s+/g, '_') : srOggi()) + '.pdf';
+    var nome = 'Rimborso_spese_' + (gruppo ? gruppo.data : (periodo || srOggi())).replace(/\s+/g, '_') + '.pdf';
     dpMostraAzioni(out, r.doc, nome, 'Richiesta di rimborso spese: ' + lista.length + ' spese, totale ' + srEuro(r.totale));
-    srLog('Modulo rimborso pronto: ' + lista.length + ' spese, ' + r.totale + ' €', 'ok');
+    srLog('Modulo rimborso pronto: ' + lista.length + ' spese, ' + r.totale + ' € (' + (periodo || 'periodo n.d.') + ')', 'ok');
   }).catch(function (err) { srLog('Modulo rimborso non creato: ' + err.message, 'err'); el.innerHTML = '<div class="errore">Modulo non creato: ' + srEsc(err.message) + '</div>'; });
 }
 

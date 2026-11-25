@@ -1,4 +1,4 @@
-<!-- spese-rapide.html | v0.16 · 25/11/2026 08:45 · BK -->
+<!-- spese-rapide.html | v0.17 · 25/11/2026 10:15 · BK -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -307,11 +307,17 @@
       <button class="btn-blue btn-block" style="margin-top:8px" onclick="dpModuloRimborso('SEL')">📄 Modulo di rimborso delle selezionate (PDF)</button>
     </div>
     <div class="card">
+      <div class="card-title">📄 Rimborsi registrati</div>
+      <div class="card-desc">Rimborsi già fatti: il modulo PDF di ciascuno, con tutte le sue spese (anche di mesi diversi).</div>
+      <div id="rimb-pdf-fatti"></div>
+      <div id="rimb-fatti"></div>
+    </div>
+    <div class="card">
       <div class="card-title">🖨️ Nota spese</div>
-      <div class="card-desc">Elenco degli anticipi di un mese con totale, da stampare o salvare in PDF.</div>
-      <input type="month" id="nota-mese">
+      <div class="card-desc">Anticipi di un periodo (uno o più mesi) con totale, da stampare o salvare in PDF.</div>
+      <div style="display:flex;gap:8px"><div style="flex:1"><label>Dal mese</label><input type="month" id="nota-mese"></div><div style="flex:1"><label>Al mese (facoltativo)</label><input type="month" id="nota-mese-a"></div></div>
       <button class="btn-blue btn-block" onclick="srStampaNotaSpese()">Stampa nota spese</button>
-      <button class="btn-blue btn-block" style="margin-top:8px" onclick="dpModuloRimborso('MESE')">📄 Modulo di rimborso del mese (PDF)</button>
+      <button class="btn-blue btn-block" style="margin-top:8px" onclick="dpModuloRimborso('MESE')">📄 Modulo di rimborso del periodo (PDF)</button>
       <div id="rimb-pdf"></div>
     </div>
   </div>
