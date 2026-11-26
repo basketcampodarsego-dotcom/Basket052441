@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-gestionale.js — ASD Basket Campodarsego
-// VERSIONE: v0.10 · 26/11/2026 14:15 · BK
+// VERSIONE: v0.11 · 26/11/2026 15:30 · BK
+// v0.11: (BK_ListaModifiche punto 9) quando i dati dettati sono GIA' tutti nella scheda, pulsante
+//   "✔️ Gia' nella scheda": la nota passa a Elaborata (collegata all'atleta), senza scrivere sulla
+//   scheda. Prima l'unica uscita era "Scarta". Con piu' atleti resta da elaborare finche' mancano gli altri.
 // v0.10: (BK_ListaModifiche punti 7-8, Alberto 26/11/2026)
 //   - Pannello "Aggiorna scheda": al posto di "Nessun dato di scheda riconosciuto (o gia' uguale)" tre
 //     messaggi distinti: dato GIA' PRESENTE (elencato, "non serve aggiornare"), NESSUN DATO trovato nella
@@ -85,7 +88,7 @@
 //   report-residenti.js (rrCalcola, facoltativo).
 // ════════════════════════════════════════════════════════
 
-var DFG_VERSIONE = 'v0.10 · 26/11/2026 14:15';
+var DFG_VERSIONE = 'v0.11 · 26/11/2026 15:30';
 var DFG = { atl: [], pag: {}, all: [], pres: [], caricato: false, risposta: null, presStato: {} };
 var DFG_TIPI_PAG = ['Quota (1a rata)', 'Quota (2a rata)', 'Saldo quota', 'Quota annuale', 'Assicurazione', 'Divisa', 'Altro'];
 var DFG_METODI = { Contanti: 'CONTANTI_CASSA', Bonifico: 'BONIFICO', POS: 'BONIFICO' };
@@ -647,6 +650,18 @@ function dfgPannello(id) {
   else if (el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
   return el;
 }
+// v0.11: dati gia' presenti -> nota Elaborata senza toccare la scheda
+function dfgGiaInScheda(id) {
+  var n = dfTrova(id); if (!n) return;
+  var sel = document.getElementById('dfg-atl-' + id), a = sel ? dfgAtleta(parseInt(sel.value, 10)) : null;
+  if (!a) { alert('Scegli l\'atleta.'); return; }
+  var coll = (n.collegamenti || []).concat([{ tipo: 'ATLETA', atletaId: a.id, nome: dfgNomeAtl(a), campi: [], giaPresente: true, il: new Date().toISOString() }]);
+  var multi = dfgAtletiNota(n), fatti = coll.filter(function (c) { return c.tipo === 'ATLETA'; }).map(function (c) { return c.atletaId; });
+  var stato = multi.length > 1 && multi.some(function (x) { return fatti.indexOf(x.id) < 0; }) ? n.stato : 'ELABORATA';
+  dfAggiornaNota(n, { stato: stato, collegamenti: coll }, 'dati gia\' presenti nella scheda di ' + dfgNomeAtl(a)).then(function () {
+    if (stato !== 'ELABORATA') dfgApriDati(id); else dfgChiudi(id);
+  }).catch(function () {});
+}
 function dfgChiudi(id) { var el = document.getElementById('dfg-pan-' + id); if (el) el.innerHTML = ''; }
 function dfgApriPagamento(id) {
   var n = dfTrova(id), el = n && dfgPannello(id);
@@ -817,7 +832,8 @@ function dfgRenderProposta(id) {
   }).join('') + '</div>';
   if (pr.errori && pr.errori.length) testa += '<div class="errore" style="font-size:12px">⚠️ Scartato: ' + pr.errori.map(srEsc).join('<br>⚠️ Scartato: ') + '</div>';
   if (pr.avvisi && pr.avvisi.length) testa += '<div style="font-size:12px;color:var(--warn);margin:4px 0">ℹ️ ' + pr.avvisi.map(srEsc).join('<br>ℹ️ ') + '</div>';
-  if (pr.uguali && pr.uguali.length) testa += '<div style="font-size:12px;color:#2e9e5b;margin:4px 0">✔️ Già presente nella scheda di ' + srEsc(dfgNomeAtl(a)) + ': ' + pr.uguali.map(srEsc).join(', ') + (pr.length ? '' : '. Non serve aggiornare.') + '</div>';
+  if (pr.uguali && pr.uguali.length) testa += '<div style="font-size:12px;color:#2e9e5b;margin:4px 0">✔️ Già presente nella scheda di ' + srEsc(dfgNomeAtl(a)) + ': ' + pr.uguali.map(srEsc).join(', ') + (pr.length ? '' : '. Non serve aggiornare.') + '</div>' +
+    (pr.length ? '' : '<button class="btn-gold btn-sm" onclick="dfgGiaInScheda(\'' + id + '\')">✔️ Già nella scheda</button> ');
   var vuoto = (pr.uguali && pr.uguali.length) ? '' : (pr.errori && pr.errori.length) ? '<div style="font-size:12px;color:var(--muted);margin:6px 0">Nessun altro dato valido da inserire.</div>'
     : '<div style="font-size:12px;color:var(--muted);margin:6px 0">Non ho trovato dati da inserire in questa frase. Esempi: "residente a Borgoricco", "nato il 24/01/2017", "certificato scade il 10/09/2027", "ha consegnato la tessera sanitaria" (legenda: comandi).</div>';
   el.innerHTML = testa + (pr.length ? '<div style="margin:8px 0;font-size:13px">' + pr.map(function (r, i) {

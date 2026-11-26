@@ -4,7 +4,8 @@
 // Contiene SOLO le funzioni verificate identiche in entrambi i moduli
 // (confronto automatico byte-per-byte, 17/08/2026).
 // Variabili come DB, DB_KEY, BUILD_VERSION restano locali a ciascun modulo.
-// Versione: v1.7 — Build 26/11/2026 13:30 (_cmpAtl: ordine alfabetico cognome+nome, regola Alberto 26/11/2026)
+// Versione: v1.8 — Build 26/11/2026 15:30 (import CSI/FIP: abbinamento anche per nome+nascita, Unisci doppioni)
+// Precedente: v1.7 — Build 26/11/2026 13:30 (_cmpAtl: ordine alfabetico cognome+nome, regola Alberto 26/11/2026)
 // Precedente: v1.6 — Build 20/11/2026 18:00 (_inStagione per il Tabulato: le rate di
 // gennaio-agosto ora contano nella stagione giusta.)
 // v1.5 — Build 20/11/2026 15:30 (_pagDetraibile: regola di Alberto
@@ -483,7 +484,7 @@ function _parsaStatinoFIPTxt(txt){
           var r3=cons.concat(vow).slice(0,3).join('');
           if(r3===cf3){cog=cTest;nom=parti.slice(k).join(' ');break;}
         }
-        var atEsistente=DB.atleti.find(function(a){return a.cf&&a.cf.toUpperCase()===cf;});
+        var atEsistente=_trovaAtletaImport(cf,cog,nom,dn).a; // v1.8: anche per nome+nascita
         risultati.push({cf:cf,cog:cog,nom:nom,dn:dn,sesso:sesso,fascia:fascia,atleta:atEsistente||null});
       }
     }
@@ -537,7 +538,7 @@ function _importaGruppoStatino(risultati, annoStr, oggi){
     }else if(r.cf&&r.cog){
       var newA={
         id:nextId(DB.atleti),
-        cog:r.cog, nom:r.nom||'', sex:r.sesso||'M', dn:r.dn||'',
+        cog:_nomeProprio(r.cog), nom:_nomeProprio(r.nom||''), sex:r.sesso||'M', dn:r.dn||'',
         natoA:'', natoProv:'', cf:r.cf, naz:r.naz||'Italia',
         cit:'Italiana', docTipo:'', docNum:'',
         indVia:'', indNr:'', indCap:'', indComune:'', indProv:'',
@@ -601,6 +602,8 @@ function confermaImportaStatino(){
       // Atleta esistente: aggiorna/aggiunge iscrizione per la stagione dello statino
       var a=DB.atleti.find(function(x){return x.id===r.atleta.id;});
       if(!a)return;
+      if(!a.cf&&r.cf)a.cf=r.cf; // v1.8: abbinato per nome+nascita: completa il CF
+      if(!a.dn&&r.dn)a.dn=r.dn;
       if(!a.iscrizioni)a.iscrizioni=[];
       var isc=a.iscrizioni.find(function(i){return i.anno===annoStr;});
       if(isc){
@@ -618,7 +621,7 @@ function confermaImportaStatino(){
       var catFip=r.fascia==='Under'?'Esordienti':'Aquilotti';
       var newA={
         id:nextId(DB.atleti),
-        cog:r.cog, nom:r.nom||'', sex:r.sesso||'M', dn:r.dn||'',
+        cog:_nomeProprio(r.cog), nom:_nomeProprio(r.nom||''), sex:r.sesso||'M', dn:r.dn||'',
         natoA:'', natoProv:'', cf:r.cf, naz:r.naz||'Italia',
         cit:'Italiana', docTipo:'', docNum:'',
         indVia:'', indNr:'', indCap:'', indComune:'', indProv:'',
@@ -659,7 +662,7 @@ function _mostraPreviewCsi(){
   h+='<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)">Stato</th></tr></thead><tbody>';
   da.forEach(function(x){
     var st=x.esistente
-      ?'<span style="color:#4aaa6a;font-size:10px">&#10003; '+esc(x.esistente.cog)+' '+esc(x.esistente.nom)+'</span>'
+      ?'<span style="color:#4aaa6a;font-size:10px">&#10003; '+esc(x.esistente.cog)+' '+esc(x.esistente.nom)+'</span>'+(x.come==='nome'?' <span style="color:var(--warn);font-size:10px">(stesso nome e nascita, CF mancante in anagrafica: viene aggiunto)</span>':'')
       :'<span style="color:var(--gold);font-size:10px">&#43; NUOVO</span>';
     var catLabel=x.attivita==='PCA'?'AmaBasket':x.attivita==='PVO'?'AmaVolley':(x.attivita&&x.attivita!=='__QUAL__')?x.attivita:(x.qualifiche?x.attivita:'—');
     h+='<tr><td style="padding:3px 6px;font-family:monospace;font-size:10px">'+esc(x.cf)+'</td>';
@@ -710,6 +713,8 @@ function confermaImportaCsi(){
       if(!a.tutEmail&&x.email){a.tutEmail=x.email;changed=true;}
       if(!a.ind&&x.indFull){a.ind=x.indFull;changed=true;}
       if(x.cs&&a.cs!==x.cs){a.cs=x.cs;changed=true;}
+      if(!a.cf&&x.cf){a.cf=x.cf;changed=true;} // v1.8: abbinato per nome+nascita: completa il CF
+      if(!a.dn&&x.dn){a.dn=x.dn;changed=true;}
       // Aggiorna iscrizione per l'annata specifica — NON toccare a.cat
       if(!a.iscrizioni)a.iscrizioni=[];
       var isc=a.iscrizioni.find(function(i){return i.anno===annoStr;});
@@ -729,7 +734,7 @@ function confermaImportaCsi(){
       var maxId=DB.atleti.reduce(function(m,a){return Math.max(m,a.id||0);},0)+1;
       var indP=_parseIndirizzo(x.indFull);
       DB.atleti.push({
-        id:maxId,cog:x.cog,nom:x.nom,sex:x.sex,dn:x.dn,cf:x.cf,
+        id:maxId,cog:_nomeProprio(x.cog),nom:_nomeProprio(x.nom),sex:x.sex,dn:x.dn,cf:x.cf, // v1.8: "Rossi Luca", non maiuscolo
         natoA:'',natoProv:'',cit:'Italiana',naz:'Italia',
         docTipo:'',docNum:'',
         indVia:indP.via,indNr:'',indCap:'',indComune:indP.comune,indProv:'',
@@ -1096,4 +1101,104 @@ function bkPdfTabella(titolo, sotto, cols, righe, nome){
   for(var p=1;p<=n;p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(110);doc.text('Pagina '+p+' di '+n,W-M,H-4,{align:'right'});}
   doc.save(String(nome||'tabella').replace(/[^\w.-]+/g,'_').replace(/(\.pdf)?$/i,'.pdf'));
   return true;
+}
+
+// ── v1.8 (26/11/2026): ABBINAMENTO ATLETI NEGLI IMPORT (causa doppioni "ROSSI LUCA" / "Rossi Luca":
+// prima si cercava SOLO per codice fiscale, chi in anagrafica non aveva il CF veniva ricreato).
+function _compNome(x){return String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'');}
+function _isoData(d){d=String(d||'').trim();var m=d.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);if(m)return m[3]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[1]).slice(-2);m=d.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[0]:'';}
+// "ROSSI LUCA" -> "Rossi Luca" (anche "DE ROSSI", "D'ANGELO")
+function _nomeProprio(x){return String(x||'').toLowerCase().replace(/(^|[\s'’-])([a-zà-ÿ])/g,function(t,p,c){return p+c.toUpperCase();});}
+// Ritorna {a: atleta|null, come: 'cf'|'nome'|''}. Per nome: cognome+nome uguali (maiuscole, accenti, spazi ignorati,
+// anche invertiti) E data di nascita uguale; se in anagrafica mancano sia CF sia data, basta il nome.
+// Un atleta con CF DIVERSO non viene mai abbinato per nome (omonimo).
+function _trovaAtletaImport(cf,cog,nom,dn){
+  cf=String(cf||'').toUpperCase().trim();
+  if(cf){var a=(DB.atleti||[]).find(function(x){return(x.cf||'').toUpperCase().trim()===cf;});if(a)return{a:a,come:'cf'};}
+  var n1=_compNome(cog)+'|'+_compNome(nom), n2=_compNome(nom)+'|'+_compNome(cog), d=_isoData(dn);
+  var cand=(DB.atleti||[]).filter(function(x){
+    var k=_compNome(x.cog)+'|'+_compNome(x.nom);
+    if(k!==n1&&k!==n2)return false;
+    var xcf=(x.cf||'').toUpperCase().trim();
+    if(xcf&&cf&&xcf!==cf)return false;
+    var xd=_isoData(x.dn);
+    return (d&&xd)?d===xd:(!xcf&&!xd);
+  });
+  return cand.length===1?{a:cand[0],come:'nome'}:{a:null,come:''};
+}
+
+// ── v1.8: UNISCI DOPPIONI. Coppie = stesso CF, oppure stesso cognome+nome con stessa data di nascita (o data mancante
+// in uno dei due) e CF non in conflitto. Si tiene la scheda "principale" (piu' vecchia = id minore) e le si
+// aggiungono: campi vuoti presi dal doppione, iscrizioni (fed unite), documenti, ricevute e presenze. Poi il doppione viene
+// tolto. Se ENTRAMBE le schede hanno pagamenti la coppia resta da unire a mano (movimenti Economia collegati all'id).
+function _trovaDoppioni(){
+  var L=(DB.atleti||[]).filter(Boolean), gruppi={}, out=[], visti={};
+  L.forEach(function(a){var k=_compNome(a.cog)+'|'+_compNome(a.nom);(gruppi[k]=gruppi[k]||[]).push(a);});
+  var nPag=function(x){return ((DB.pagamenti||{})[x.id]||[]).length;};
+  var porta=function(a,b,motivo){var key=Math.min(a.id,b.id)+'-'+Math.max(a.id,b.id);if(visti[key])return;visti[key]=1;
+    // principale = chi ha pagamenti (i movimenti di Economia restano collegati), altrimenti la scheda piu' vecchia
+    var p=nPag(a)!==nPag(b)?(nPag(a)>nPag(b)?a:b):(a.id<b.id?a:b), d=p===a?b:a;
+    out.push({p:p,d:d,motivo:motivo,bloccato:nPag(d)>0?'entrambe le schede hanno pagamenti: unire a mano':''});};
+  var perCf={};L.forEach(function(a){var c=(a.cf||'').toUpperCase().trim();if(c)(perCf[c]=perCf[c]||[]).push(a);});
+  Object.keys(perCf).forEach(function(c){var g=perCf[c];for(var i=1;i<g.length;i++)porta(g[0],g[i],'stesso codice fiscale');});
+  Object.keys(gruppi).forEach(function(k){var g=gruppi[k];if(g.length<2)return;
+    for(var i=0;i<g.length;i++)for(var j=i+1;j<g.length;j++){var a=g[i],b=g[j];
+      var ca=(a.cf||'').toUpperCase().trim(),cb=(b.cf||'').toUpperCase().trim();if(ca&&cb&&ca!==cb)continue;
+      var da=_isoData(a.dn),db=_isoData(b.dn);if(da&&db&&da!==db)continue;
+      porta(a,b,da&&db?'stesso nome e data di nascita':'stesso nome (data mancante in una scheda)');}});
+  return out.sort(function(x,y){return _cmpAtl(x.p,y.p);});
+}
+function _uniscicAtleti(p,d){
+  var vuoto=function(v){return v===undefined||v===null||v===''||(typeof v==='object'&&!Array.isArray(v)&&!Object.keys(v).length);};
+  Object.keys(d).forEach(function(k){
+    if(k==='id'||k==='iscrizioni'||k==='docConsegnati'||k==='note')return;
+    if(vuoto(p[k])&&!vuoto(d[k]))p[k]=d[k];
+  });
+  if(/^[A-ZÀ-Ý' -]+$/.test(p.cog||'')&&!/^[A-ZÀ-Ý' -]+$/.test(d.cog||'')){p.cog=d.cog;p.nom=d.nom;} // tiene la grafia "Rossi Luca"
+  p.iscrizioni=p.iscrizioni||[];
+  (d.iscrizioni||[]).forEach(function(i){
+    var e=p.iscrizioni.find(function(x){return x.anno===i.anno;});
+    if(!e){p.iscrizioni.push(JSON.parse(JSON.stringify(i)));return;}
+    var f1=(e.fed||'').split('+').filter(Boolean),f2=(i.fed||'').split('+').filter(Boolean);
+    f2.forEach(function(f){if(f1.indexOf(f)<0)f1.push(f);});e.fed=f1.join('+');
+    ['cat1','cat2','dataIscr','dataIscrizione','attivita'].forEach(function(k){if(!e[k]&&i[k])e[k]=i[k];});
+  });
+  if(d.docConsegnati){p.docConsegnati=p.docConsegnati||{};Object.keys(d.docConsegnati).forEach(function(k){if(d.docConsegnati[k]==='SI'||!p.docConsegnati[k])p.docConsegnati[k]=d.docConsegnati[k];});}
+  if(d.note&&String(p.note||'').indexOf(d.note)<0)p.note=(p.note?p.note+'\n':'')+d.note;
+  if(d.cs&&(!p.cs||_isoData(d.cs)>_isoData(p.cs)))p.cs=d.cs; // certificato: tiene la scadenza piu' lontana
+  if(((DB.pagamenti||{})[d.id]||[]).length)throw new Error('il doppione ha pagamenti: unire a mano');
+  if(DB.pagamenti)delete DB.pagamenti[d.id];
+  (DB.ricevute||[]).forEach(function(x){if(x.atletaId===d.id)x.atletaId=p.id;});
+  (DB.presenze||[]).forEach(function(x){if(x.aid===d.id)x.aid=p.id;});
+  DB.atleti=DB.atleti.filter(function(x){return x.id!==d.id;});
+  if(typeof _arricchisciAtleta==='function')_arricchisciAtleta(p);
+}
+// ── v1.8: pannello "Unisci doppioni" (admin)
+function udApri(){
+  var box=g('ud-box'); if(!box)return;
+  if(!DB||!DB.atleti){box.innerHTML='<div style="color:var(--muted)">DB non caricato.</div>';return;}
+  var L=_trovaDoppioni(); window._udCoppie=L;
+  if(!L.length){box.innerHTML='<div style="color:#4aaa6a;font-size:13px">&#10003; Nessun doppione trovato.</div>';return;}
+  var det=function(a){var n=((DB.pagamenti||{})[a.id]||[]).length;return esc(a.cog+' '+a.nom)+' <span style="color:var(--muted);font-size:10px">id '+a.id+' · CF '+esc(a.cf||'—')+' · nato '+esc(a.dn||'—')+' · '+n+' pag. · '+(a.iscrizioni||[]).length+' iscr.</span>';};
+  var h='<div style="font-size:12px;margin-bottom:6px">'+L.length+' coppie. Si tiene la prima scheda e le si aggiungono i dati della seconda, che viene tolta.</div>';
+  L.forEach(function(c,i){
+    h+='<label style="display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">'+
+      '<input type="checkbox" id="ud-c-'+i+'" '+(c.bloccato?'disabled':'checked')+' style="width:auto;margin-top:3px">'+
+      '<span>&#9989; '+det(c.p)+'<br>&#10060; '+det(c.d)+'<br><span style="color:var(--muted)">'+esc(c.motivo)+'</span>'+
+      (c.bloccato?'<br><span style="color:var(--red)">'+esc(c.bloccato)+'</span>':'')+'</span></label>';
+  });
+  h+='<button class="btn btn-gold" style="margin-top:8px" onclick="udUnisci()">&#128279; Unisci le coppie selezionate</button>';
+  box.innerHTML=h;
+}
+function udUnisci(){
+  var L=window._udCoppie||[], sel=L.filter(function(c,i){var e=g('ud-c-'+i);return e&&e.checked&&!c.bloccato;});
+  if(!sel.length){alert('Nessuna coppia selezionata.');return;}
+  if(!confirm('Unire '+sel.length+' coppie? Le schede doppie vengono tolte (i dati passano nella scheda tenuta).'))return;
+  var ok=0,err=[];
+  sel.forEach(function(c){try{_uniscicAtleti(c.p,c.d);ok++;if(typeof diag==='function')diag('Unisci doppioni: '+c.d.cog+' '+c.d.nom+' (id '+c.d.id+') -> id '+c.p.id,'ok');}catch(ex){err.push(c.d.cog+' '+c.d.nom+': '+ex.message);}});
+  if(typeof buildSearchIndex==='function')buildSearchIndex();
+  saveDB();
+  if(typeof toast==='function')toast(ok+' doppioni uniti'+(err.length?', '+err.length+' non uniti':''),err.length?'warn':'ok');
+  if(err.length)alert('Non uniti:\n'+err.join('\n'));
+  udApri();
 }

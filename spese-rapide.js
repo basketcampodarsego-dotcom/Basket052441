@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.20 · 26/11/2026 14:15 · BK
+// VERSIONE: v0.21 · 26/11/2026 15:30 · BK
+// v0.21: solo allineamento versione (dittafono-gestionale v0.11).
 // v0.20: solo allineamento versione (dittafono-gestionale v0.10).
 // v0.19: solo allineamento versione (dittafono v0.12, dittafono-gestionale v0.9).
 // v0.18: DETTATURA LUNGA (Alberto 26/11/2026: 'si interrompe durante la dettatura per pause
@@ -71,7 +72,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.20 · 26/11/2026 14:15';
+var SR_BUILD = 'v0.21 · 26/11/2026 15:30';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
