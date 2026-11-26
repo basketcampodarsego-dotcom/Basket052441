@@ -1,6 +1,11 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.17 · 25/11/2026 10:15 · BK
+// VERSIONE: v0.18 · 26/11/2026 11:40 · BK
+// v0.18: DETTATURA LUNGA (Alberto 26/11/2026: 'si interrompe durante la dettatura per pause
+//   troppo lunghe'). Prima: una sola sessione del riconoscimento vocale (continuous=false), che
+//   Chrome Android chiude da solo dopo ~1-2 secondi di silenzio. Ora: srAscoltoLungo riavvia
+//   l'ascolto a ogni chiusura e accoda il testo; si ferma SOLO toccando il pulsante oppure
+//   dopo SR_SILENZIO_MS (12 s) senza parole. Usato da 🎤 Parla (spese) e 🎤 Detta (dittafono.js).
 // v0.17: ↩️ Rimb.: dopo "Registra rimborso" il modulo PDF si prepara da solo; elenco
 //   "Rimborsi registrati" con 📄 Modulo per ciascuno; modulo e nota spese su PIU' MESI
 //   (dal mese ... al mese ...).
@@ -64,7 +69,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.17 · 25/11/2026 10:15';
+var SR_BUILD = 'v0.18 · 26/11/2026 11:40';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {
@@ -586,46 +591,71 @@ function srCreaDaCampo() {
 }
 
 // ── VOCE (Web Speech API, Chrome Android) ──
+// v0.18: ascolto lungo. Chrome chiude ogni sessione dopo una breve pausa: la riapriamo subito
+// e accodiamo il testo finche' non si tocca il pulsante o passano SR_SILENZIO_MS senza parole.
+var SR_SILENZIO_MS = 12000;
+// opz: { btn, campo, prima (testo gia' presente), etichetta (testo pulsante a riposo), onFine(testoCompleto, haDettato) }
+function srAscoltoLungo(opz) {
+  var SRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SRec) return null;
+  var st = { attivo: true, chiuso: false, rec: null, finale: '', ultimaVoce: Date.now(), timer: null, dettato: false };
+  var testo = function (parz) { return (opz.prima + [st.finale, parz || ''].filter(Boolean).join(' ')).replace(/\s+/g, ' ').trim(); };
+  var aggiornaBtn = function () {
+    var resta = Math.max(0, Math.ceil((SR_SILENZIO_MS - (Date.now() - st.ultimaVoce)) / 1000));
+    opz.btn.innerHTML = '<span class="ico">⏺️</span>Ascolto… tocca per finire' + (resta <= 5 ? ' (' + resta + ')' : '');
+  };
+  var chiudi = function () {
+    if (st.chiuso) return; st.chiuso = true;
+    opz.btn.classList.remove('ascolto'); opz.btn.innerHTML = opz.etichetta;
+    opz.campo.value = testo();
+    opz.onFine(opz.campo.value, st.dettato);
+  };
+  // stop: la sessione in corso viene chiusa con stop() (non abort) cosi' l'ultima frase non si perde
+  var fine = function () {
+    if (!st.attivo) return;
+    st.attivo = false; clearInterval(st.timer);
+    if (st.rec) { try { st.rec.stop(); } catch (ex) { } setTimeout(chiudi, 2000); } else chiudi();
+  };
+  var avvia = function () {
+    if (!st.attivo) return;
+    var rec = new SRec(), finSess = '';
+    rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
+    rec.onresult = function (ev) {
+      var tx = ''; finSess = '';
+      for (var i = 0; i < ev.results.length; i++) { if (ev.results[i].isFinal) finSess += ev.results[i][0].transcript; else tx += ev.results[i][0].transcript; }
+      st.ultimaVoce = Date.now();
+      opz.campo.value = testo((finSess + ' ' + tx).trim());
+    };
+    rec.onerror = function (ev) {
+      if (ev.error === 'no-speech' || ev.error === 'aborted') return; // pausa: si riparte in onend
+      srLog('Voce: errore ' + ev.error, 'err');
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') { alert('Permesso microfono negato: abilitalo per questa pagina nelle impostazioni del browser.'); fine(); }
+    };
+    rec.onend = function () {
+      if (finSess.trim()) { st.finale = [st.finale, finSess.trim()].filter(Boolean).join(' '); st.dettato = true; }
+      st.rec = null;
+      if (!st.attivo) { chiudi(); return; }
+      if (Date.now() - st.ultimaVoce >= SR_SILENZIO_MS) { fine(); return; }
+      setTimeout(avvia, 150); // nuova sessione: la dettatura continua
+    };
+    try { rec.start(); st.rec = rec; } catch (ex) { srLog('Avvio voce: ' + ex.message, 'err'); fine(); }
+  };
+  opz.btn.classList.add('ascolto');
+  st.timer = setInterval(function () { if (Date.now() - st.ultimaVoce >= SR_SILENZIO_MS) fine(); else aggiornaBtn(); }, 500);
+  aggiornaBtn(); avvia();
+  return { stop: fine };
+}
 var srRiconoscitore = null;
 function srAscolta() {
-  var SRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SRec) {
+  if (srRiconoscitore) { srRiconoscitore.stop(); return; }
+  var r = srAscoltoLungo({ btn: srEl('mic-btn'), campo: srEl('frase'), prima: '', etichetta: '<span class="ico">🎤</span>Parla',
+    onFine: function (t) { srRiconoscitore = null; t = t.trim(); if (t) srApplicaFrase(t); } });
+  if (!r) {
     srLog('SpeechRecognition non disponibile in questo browser', 'warn');
     alert('Il riconoscimento vocale non è disponibile in questo browser. Tocca il campo di testo e usa il microfono della tastiera.');
-    srEl('frase').focus();
-    return;
+    srEl('frase').focus(); return;
   }
-  if (srRiconoscitore) { srRiconoscitore.stop(); return; }
-  var rec = new SRec();
-  rec.lang = 'it-IT'; rec.interimResults = true; rec.maxAlternatives = 1; rec.continuous = false;
-  var btn = srEl('mic-btn');
-  btn.classList.add('ascolto');
-  btn.innerHTML = '<span class="ico">⏺️</span>Ascolto…';
-  var finale = '';
-  rec.onresult = function (ev) {
-    var tx = '';
-    for (var i = ev.resultIndex; i < ev.results.length; i++) {
-      tx += ev.results[i][0].transcript;
-      if (ev.results[i].isFinal) finale += ev.results[i][0].transcript;
-    }
-    srEl('frase').value = finale || tx;
-  };
-  rec.onerror = function (ev) {
-    srLog('Riconoscimento vocale: errore ' + ev.error, 'err');
-    if (ev.error === 'not-allowed') alert('Permesso microfono negato: abilitalo per questa pagina nelle impostazioni del browser.');
-    else if (ev.error !== 'no-speech' && ev.error !== 'aborted') alert('Riconoscimento vocale non riuscito (' + ev.error + '). Puoi scrivere o dettare con la tastiera.');
-  };
-  rec.onend = function () {
-    srRiconoscitore = null;
-    btn.classList.remove('ascolto');
-    btn.innerHTML = '<span class="ico">🎤</span>Parla';
-    var testo = srEl('frase').value.trim();
-    if (testo) srApplicaFrase(testo);
-  };
-  try { rec.start(); srRiconoscitore = rec; } catch (ex) {
-    srLog('Avvio riconoscimento fallito: ' + ex.message, 'err');
-    btn.classList.remove('ascolto'); btn.innerHTML = '<span class="ico">🎤</span>Parla';
-  }
+  srRiconoscitore = r;
 }
 
 // ── FOTO: compressione come documenti-atleta-upload.js (testata su foto reali) ──

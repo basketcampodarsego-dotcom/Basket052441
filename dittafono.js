@@ -1,6 +1,8 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono.js — ASD Basket Campodarsego
-// VERSIONE: v0.10 · 20/11/2026 15:45 · BK
+// VERSIONE: v0.11 · 26/11/2026 11:40 · BK
+// v0.11: 🎤 Detta non si ferma piu' alle pause: usa srAscoltoLungo (spese-rapide.js v0.18),
+//   finisce toccando il pulsante o dopo 12 s di silenzio; poi salva come prima.
 // v0.10: APPRENDIMENTO TRA VERSIONI (richiesta Alberto 20/11/2026):
 //   - nota che inizia con "BK", "per BK", "istruzione", "sviluppo", "prossima versione"
 //     -> tipo 🛠️ Per BK, stato "Per BK" (non entra in "Da elaborare");
@@ -231,30 +233,13 @@ function dfMostraFoto(foto) {
 }
 var dfRiconoscitore = null;
 function dfAscolta() {
-  var SRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SRec) { alert('Il riconoscimento vocale non è disponibile in questo browser: tocca il campo di testo e usa il microfono della tastiera.'); document.getElementById('df-testo').focus(); return; }
   if (dfRiconoscitore) { dfRiconoscitore.stop(); return; }
-  var rec = new SRec();
-  rec.lang = 'it-IT'; rec.interimResults = true; rec.continuous = false;
-  var btn = document.getElementById('df-mic'), campo = document.getElementById('df-testo');
-  var prima = campo.value ? campo.value.trim() + ' ' : '';
-  var finale = '';
-  btn.classList.add('ascolto'); btn.innerHTML = '<span class="ico">⏺️</span>Ascolto… (tocca per finire)';
-  rec.onresult = function (ev) {
-    var tx = '';
-    for (var i = ev.resultIndex; i < ev.results.length; i++) { tx += ev.results[i][0].transcript; if (ev.results[i].isFinal) finale += ev.results[i][0].transcript; }
-    campo.value = prima + (finale || tx);
-  };
-  rec.onerror = function (ev) {
-    srLog('Dittafono voce: ' + ev.error, 'err');
-    if (ev.error === 'not-allowed') alert('Permesso microfono negato: abilitalo per questa pagina.');
-  };
-  rec.onend = function () {
-    dfRiconoscitore = null;
-    btn.classList.remove('ascolto'); btn.innerHTML = '<span class="ico">🎤</span>Detta';
-    if (finale.trim()) dfSalva(campo.value); // salva SUBITO, senza conferme
-  };
-  try { rec.start(); dfRiconoscitore = rec; } catch (ex) { srLog('Avvio voce: ' + ex.message, 'err'); btn.classList.remove('ascolto'); btn.innerHTML = '<span class="ico">🎤</span>Detta'; }
+  var campo = document.getElementById('df-testo');
+  var r = typeof srAscoltoLungo === 'function' ? srAscoltoLungo({ btn: document.getElementById('df-mic'), campo: campo,
+    prima: campo.value ? campo.value.trim() + ' ' : '', etichetta: '<span class="ico">🎤</span>Detta',
+    onFine: function (t, dettato) { dfRiconoscitore = null; if (dettato && t.trim()) dfSalva(t); } }) : null; // salva SUBITO, senza conferme
+  if (!r) { alert('Il riconoscimento vocale non è disponibile in questo browser: tocca il campo di testo e usa il microfono della tastiera.'); campo.focus(); return; }
+  dfRiconoscitore = r;
 }
 
 // ════════ VISUALIZZAZIONE ════════

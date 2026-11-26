@@ -2,7 +2,7 @@
 // Versione: 20260321_1057
 // Si aggiorna automaticamente ad ogni nuova build
 
-var CACHE_NAME = 'basket052441-20261125_1130'; // 25/11/2026: gestionale v7.10, verifica allineamento
+var CACHE_NAME = 'basket052441-20261126_1115'; // 26/11/2026: gestionale v7.11, situazione tesserati
 var CACHE_URLS = [
   './basket052441.html',
   './basket-core.js',
