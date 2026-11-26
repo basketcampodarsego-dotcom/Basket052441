@@ -1,4 +1,7 @@
-// situazione-tesserati.js | v0.1 · 26/11/2026 11:15 · BK
+// situazione-tesserati.js | v0.2 · 26/11/2026 11:45 · BK
+// v0.2: (Alberto 26/11/2026: la stampa usciva verticale) 🖨️ Stampa ora crea un PDF A4 ORIZZONTALE
+//       con jsPDF (l'orientamento non dipende piu' dal browser/telefono): intestazione colonne
+//       ripetuta su ogni pagina, colori, totali, "Pagina X di Y". La vecchia stampa HTML resta in stStampaHTML.
 // v0.1: SITUAZIONE TESSERATI (richiesta Alberto 26/11/2026): accesso rapido a video e in stampa,
 //       per categoria o per annata: documenti (modulo, carta id., tessera san.), certificato
 //       con stato (giallo = entro 30 gg, rosso = scaduto/mancante), residenza, quota, rate
@@ -176,7 +179,7 @@ function stRender() {
     '<select onchange="_stStato.annata=this.value;stRender()">' + opt('', 'Tutte le annate', _stStato.annata) +
     Object.keys(annate).sort().map(function (y) { return opt(y, 'Annata ' + y, _stStato.annata); }).join('') + '</select>' +
     '<label style="display:flex;gap:4px;align-items:center;font-size:12px;margin:0"><input type="checkbox" style="width:auto;min-height:0"' + (_stStato.ritirati ? ' checked' : '') + ' onchange="_stStato.ritirati=this.checked;stRender()"> anche ritirati</label>' +
-    '<button class="btn btn-gold btn-sm" onclick="stStampa()">🖨️ Stampa</button>' +
+    '<button class="btn btn-gold btn-sm" onclick="stStampa()">🖨️ Stampa PDF (A4 orizzontale)</button>' +
     '<button class="btn btn-gray btn-sm" onclick="stCSV()">⬇️ CSV</button></div>';
   var res = stCalcola(_stStato);
   s += '<div style="font-size:11px;color:#556;margin-bottom:6px">X = consegnato, vuoto = manca. Giallo = scade entro 30 gg / residuo da pagare, rosso = scaduto o mancante.</div>';
@@ -186,7 +189,7 @@ function stRender() {
 }
 function stApri() { if (typeof goPage === 'function') goPage('situazione'); stRender(); }
 
-function stStampa() {
+function stStampaHTML() {
   var res = stCalcola(_stStato), tit = _stTitolo(_stStato);
   var html = '<!DOCTYPE html><html lang="it"><head><meta charset="utf-8"><title>' + _stEsc(tit) + '</title><style>' + ST_CSS +
     '@page{size:A4 landscape;margin:8mm}body{font-family:Arial,sans-serif;margin:0}h1{font-size:14px;margin:0 0 2px}.leg{font-size:10px;margin-bottom:6px}' +
@@ -221,4 +224,89 @@ function stCSV() {
   el.download = ('Situazione_tesserati_' + _stStato.stag + '_' + (_stStato.cat || 'tutte') + (_stStato.annata ? '_' + _stStato.annata : '')).replace(/[^\w-]+/g, '_') + '.csv';
   document.body.appendChild(el); el.click();
   setTimeout(function () { URL.revokeObjectURL(el.href); el.remove(); }, 1000);
+}
+
+// ── v0.2: PDF A4 orizzontale (jsPDF, gia' caricato nel gestionale) ──
+function stStampa() {
+  var J = window.jspdf && window.jspdf.jsPDF;
+  if (!J) { stStampaHTML(); return; }
+  var res = stCalcola(_stStato), tit = _stTitolo(_stStato), nR = res.maxRate;
+  if (!res.righe.length) { alert('Nessun atleta con questi filtri.'); return; }
+  var doc = new J({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  var W = 297, H = 210, M = 8, LARG = W - 2 * M, FS = 7, LH = 3.1;
+  var cols = [['Annata', 9, 'c'], ['Atleta', 34, 'l'], ['Nascita', 15, 'c'], ['Categoria', 20, 'l'], ['Modulo', 9, 'c'], ['Carta id.', 9, 'c'], ['Tess. san.', 9, 'c'],
+    ['Scad. cert.', 15, 'c'], ['Stato cert.', 17, 'c'], ['Residenza', 24, 'l'], ['Quota', 14, 'r']];
+  for (var i = 1; i <= nR; i++) cols.push([i + '\u00aa rata', 14, 'r'], ['Data ' + i + '\u00aa', 15, 'c']);
+  cols.push(['Residuo', 14, 'r']);
+  var fisso = cols.reduce(function (t, c) { return t + c[1]; }, 0), note = LARG - fisso;
+  if (note < 30) { var k = (LARG - 30) / fisso; cols.forEach(function (c) { c[1] = c[1] * k; }); note = 30; }
+  cols.push(['Note', note, 'l']);
+  var X = [], x0 = M; cols.forEach(function (c) { X.push(x0); x0 += c[1]; });
+  var KO = [248, 208, 208], WARN = [253, 240, 176], y = 0;
+  var cella = function (ci, yy, h, testo, fill, bold) {
+    var c = cols[ci], x = X[ci];
+    if (fill) { doc.setFillColor(fill[0], fill[1], fill[2]); doc.rect(x, yy, c[1], h, 'F'); }
+    doc.setDrawColor(190, 198, 212); doc.rect(x, yy, c[1], h);
+    if (testo == null || testo === '') return;
+    doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    var righe = Array.isArray(testo) ? testo : [String(testo)];
+    righe.forEach(function (t, j) {
+      var ty = yy + 2.6 + j * LH;
+      if (c[2] === 'r') doc.text(t, x + c[1] - 1, ty, { align: 'right' });
+      else if (c[2] === 'c') doc.text(t, x + c[1] / 2, ty, { align: 'center' });
+      else doc.text(t, x + 1, ty);
+    });
+  };
+  var taglia = function (t, w) { t = String(t || ''); while (t && doc.getTextWidth(t) > w - 2) t = t.slice(0, -1); return t; };
+  var intestazione = function () {
+    doc.setTextColor(0); doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.text(tit + ' (aggiornato ' + _stData(res.oggi) + ')', M, M + 3);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(7);
+    doc.text('X = consegnato, vuoto = manca. Giallo = scade entro 30 gg / residuo da pagare, rosso = scaduto o mancante.', M, M + 7);
+    y = M + 9; doc.setFontSize(FS);
+    doc.setFillColor(26, 42, 74); doc.rect(M, y, LARG, 6, 'F'); doc.setTextColor(255);
+    cols.forEach(function (c, ci) { doc.setFont('helvetica', 'bold'); var l = doc.splitTextToSize(c[0], c[1] - 1); l.forEach(function (t, j) { doc.text(t, X[ci] + c[1] / 2, y + 2.5 + j * 2.6, { align: 'center' }); }); });
+    doc.setTextColor(0); y += 6;
+  };
+  var spazio = function (h) { if (y + h > H - M - 5) { doc.addPage(); intestazione(); } };
+  var rigaTot = function (testo, t, fill) {
+    spazio(5); doc.setFillColor(fill[0], fill[1], fill[2]); doc.rect(M, y, LARG, 5, 'F'); doc.setDrawColor(190, 198, 212); doc.rect(M, y, LARG, 5);
+    doc.setFont('helvetica', 'bold'); doc.text(testo, M + 1, y + 3.4);
+    var iq = 10, ir = cols.length - 2;
+    doc.text(_stEuro(t.quota), X[iq] + cols[iq][1] - 1, y + 3.4, { align: 'right' });
+    doc.text('pagato ' + _stEuro(t.pagato), X[ir] - 1, y + 3.4, { align: 'right' });
+    doc.text(_stEuro(t.residuo), X[ir] + cols[ir][1] - 1, y + 3.4, { align: 'right' });
+    y += 5;
+  };
+  intestazione();
+  res.gruppi.forEach(function (g) {
+    spazio(10);
+    doc.setFillColor(223, 230, 242); doc.rect(M, y, LARG, 5, 'F'); doc.setFont('helvetica', 'bold'); doc.setTextColor(26, 42, 74);
+    doc.text(g.nome + ' \u00b7 ' + g.righe.length + ' atleti', M + 1, y + 3.4); doc.setTextColor(0); y += 5;
+    g.righe.forEach(function (r) {
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
+      var nl = r.note ? doc.splitTextToSize(String(r.note).replace(/\s+/g, ' '), cols[cols.length - 1][1] - 2).slice(0, 4) : [];
+      var h = Math.max(4.2, nl.length * LH + 1.2);
+      spazio(h);
+      var sc = r.statoCs === 'OK' ? null : r.statoCs === 'IN SCADENZA' ? WARN : KO;
+      if (r.ritirato) doc.setTextColor(130);
+      var v = [String(r.annata || ''), taglia(r.nome + (r.ritirato ? ' (rit.)' : ''), cols[1][1]), _stData(r.dn), taglia(r.cats.join(' / '), cols[3][1]),
+        r.modulo ? 'X' : '', r.identita ? 'X' : '', r.tessera ? 'X' : '', _stData(r.cs), r.statoCs, taglia(r.comune, cols[9][1]), _stEuro(r.quota)];
+      var f = [null, null, r.dn ? null : KO, null, r.modulo ? null : KO, r.identita ? null : KO, r.tessera ? null : KO, sc, sc, r.comune ? null : KO, null];
+      for (var k = 0; k < nR; k++) { var p = r.rate[k]; v.push(p ? _stEuro(+p.importo || 0) : '', p ? _stData(p.data) : ''); f.push(null, null); }
+      v.push(_stEuro(r.residuo)); f.push(r.residuo != null && r.residuo > 0.005 ? WARN : r.residuo != null && r.residuo < -0.005 ? KO : null);
+      v.push(nl); f.push(null);
+      v.forEach(function (t, ci) { cella(ci, y, h, t, f[ci], ci === 1); });
+      doc.setTextColor(0); y += h;
+    });
+    var t = _stTotali(g.righe);
+    rigaTot('Totale ' + g.nome + ': ' + t.n + ' atleti \u00b7 cert. da sistemare ' + t.certKo + ' \u00b7 documenti incompleti ' + t.docKo, t, [242, 244, 248]);
+    y += 2;
+  });
+  var T = _stTotali(res.righe);
+  rigaTot('TOTALE GENERALE: ' + T.n + ' atleti \u00b7 cert. da sistemare ' + T.certKo + ' \u00b7 documenti incompleti ' + T.docKo + (T.quotaND ? ' \u00b7 quota da decidere ' + T.quotaND : ''), T, [228, 233, 242]);
+  var n = doc.getNumberOfPages();
+  for (var pg = 1; pg <= n; pg++) { doc.setPage(pg); doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.text('Pagina ' + pg + ' di ' + n, W - M, H - 4, { align: 'right' }); }
+  var nome = ('Situazione_tesserati_' + _stStato.stag + '_' + (_stStato.cat || 'tutte') + (_stStato.annata ? '_' + _stStato.annata : '')).replace(/[^\w-]+/g, '_') + '.pdf';
+  doc.save(nome);
+  if (typeof diag === 'function') diag('Situazione tesserati PDF: ' + nome + ', ' + n + ' pagine', 'ok');
 }
