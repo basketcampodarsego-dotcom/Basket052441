@@ -1,6 +1,13 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-gestionale.js — ASD Basket Campodarsego
-// VERSIONE: v0.9 · 26/11/2026 13:30 · BK
+// VERSIONE: v0.10 · 26/11/2026 14:15 · BK
+// v0.10: (BK_ListaModifiche punti 7-8, Alberto 26/11/2026)
+//   - Pannello "Aggiorna scheda": al posto di "Nessun dato di scheda riconosciuto (o gia' uguale)" tre
+//     messaggi distinti: dato GIA' PRESENTE (elencato, "non serve aggiornare"), NESSUN DATO trovato nella
+//     frase (con esempi), dato SCARTATO (motivo, es. data non plausibile).
+//   - COMUNE dettato corretto sul nome ufficiale (elenco comuni della zona, anche con 1-2 lettere
+//     diverse: "Campo San Piero" -> Camposampiero); comune fuori elenco segnalato. "residente" anche
+//     senza "a" ("residente Borgoricco").
 // v0.9: (BK_ListaModifiche 26/11/2026, punti 1-3)
 //   - NOTA CON PIU' ATLETI ("Rossi Luca certificato scade 15/10/2027. Lovato Paolo certificato scade
 //     18/10/2027"): ogni atleta prende i dati SOLO dal suo pezzo di frase (dal suo nome al nome del
@@ -78,7 +85,7 @@
 //   report-residenti.js (rrCalcola, facoltativo).
 // ════════════════════════════════════════════════════════
 
-var DFG_VERSIONE = 'v0.9 · 26/11/2026 13:30';
+var DFG_VERSIONE = 'v0.10 · 26/11/2026 14:15';
 var DFG = { atl: [], pag: {}, all: [], pres: [], caricato: false, risposta: null, presStato: {} };
 var DFG_TIPI_PAG = ['Quota (1a rata)', 'Quota (2a rata)', 'Saldo quota', 'Quota annuale', 'Assicurazione', 'Divisa', 'Altro'];
 var DFG_METODI = { Contanti: 'CONTANTI_CASSA', Bonifico: 'BONIFICO', POS: 'BONIFICO' };
@@ -108,6 +115,29 @@ function dfgScadenzaDaEmissione(iso) {
   return d.getFullYear() + '-' + dfgPad(d.getMonth() + 1) + '-' + dfgPad(d.getDate());
 }
 function dfgTitolo(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-zà-ú])/g, function (x, a, b) { return a + b.toUpperCase(); }).replace(/\b(Di|Del|Della|De|San|Sant')\b/g, function (w) { return /^(Di|Del|Della)$/.test(w) ? w.toLowerCase() : w; }); }
+// v0.10: comuni della zona (nomi ufficiali). Un nome dettato uguale o con 1-2 lettere diverse
+// (spazi, apostrofi e accenti ignorati) viene sostituito dal nome ufficiale.
+var DFG_COMUNI = ['Campodarsego', 'Camposampiero', 'Borgoricco', 'Cadoneghe', 'Vigodarzere', 'Vigonza', 'Padova', 'Curtarolo',
+  'Limena', 'Loreggia', 'Massanzago', 'Piombino Dese', 'Trebaseleghe', 'San Giorgio delle Pertiche', 'San Giorgio in Bosco',
+  'Santa Giustina in Colle', 'Villanova di Camposampiero', 'Villa del Conte', 'Campo San Martino', 'Piazzola sul Brenta',
+  'Cittadella', 'San Martino di Lupari', 'Galliera Veneta', 'Tombolo', 'Fontaniva', 'Carmignano di Brenta', 'Grantorto',
+  'Campodoro', 'Villafranca Padovana', 'Mestrino', 'Rubano', 'Selvazzano Dentro', 'Abano Terme', 'Albignasego',
+  'Noventa Padovana', 'Ponte San Nicolò', 'Saonara', 'Noale', 'Scorzè', 'Mirano', 'Pianiga', 'Resana', 'Castelfranco Veneto'];
+function dfgCompatto(x) { return String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, ''); }
+function dfgDistanza(a, b) {
+  var m = a.length, n = b.length, d = [], i, j;
+  for (i = 0; i <= m; i++) d[i] = [i];
+  for (j = 0; j <= n; j++) d[0][j] = j;
+  for (i = 1; i <= m; i++) for (j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m][n];
+}
+function dfgComuneUfficiale(dettato) {
+  var c = dfgCompatto(dettato), best = null, bd = 99;
+  DFG_COMUNI.forEach(function (u) { var x = dfgCompatto(u), dd = x === c ? 0 : dfgDistanza(c, x); if (dd < bd) { bd = dd; best = u; } });
+  if (best && (bd === 0 || (bd === 1 && c.length >= 9) || (bd === 2 && c.length >= 12))) return { nome: best, inElenco: true, corretto: bd > 0 };
+  return { nome: dfgTitolo(dettato), inElenco: false, corretto: false };
+}
+
 // Dati di scheda riconosciuti nel testo. Ritorna {dn, indComune, cs, csDa, doc:{modulo,identita,tessera}}
 function dfgEstraiDati(testo) {
   var t = String(testo || ''), r = { doc: {}, errori: [] };
@@ -132,8 +162,13 @@ function dfgEstraiDati(testo) {
         else if (csN) { r.cs = csN; r.csDa = csDa; }
       }
     });
-    var mr = f.match(/\b(?:residente|abita|vive)\s+(?:a|ad|in)\s+([A-Za-zÀ-ÿ'][A-Za-zÀ-ÿ' ]*?)(?=\s*(?:[,.;:(]|$|\s+(?:nat[oa]|e\s|ed\s|ha\s|con\s|certificat)))/i);
-    if (mr && !/\?/.test(f)) r.indComune = dfgTitolo(mr[1].trim());
+    var mr = f.match(/\b(?:residente|abita|vive)\s+(?!(?:(?:a|ad|in)\s+)?(?:via|viale|piazza|corso)\b)(?:(?:a|ad|in)\s+)?([A-Za-zÀ-ÿ'][A-Za-zÀ-ÿ' ]*?)(?=\s*(?:[,.;:(]|$|\s+(?:nat[oa]|e\s|ed\s|ha\s|con\s|certificat)))/i);
+    if (mr && !/\?/.test(f)) { // v0.10: nome ufficiale del comune
+      var cu = dfgComuneUfficiale(mr[1].trim());
+      r.indComune = cu.nome;
+      if (cu.corretto) r.avvisi = (r.avvisi || []).concat('comune dettato "' + mr[1].trim() + '" corretto in ' + cu.nome);
+      else if (!cu.inElenco) r.avvisi = (r.avvisi || []).concat('comune "' + cu.nome + '" non presente nell\'elenco dei comuni della zona: controlla che sia scritto giusto');
+    }
     var v = neg ? 'NO' : 'SI';
     if (/modulo\s+(di\s+)?iscrizion/.test(fl)) r.doc.modulo = v;
     if (/(carta|documento)\s+d.?\s*identit/.test(fl) && !/identit\w*\s*\?/.test(fl)) r.doc.identita = v;
@@ -753,19 +788,22 @@ function dfgApriDati(id) {
 }
 function dfgProposta(testo, a, n) {
   if (a && n && (n.atleti || []).length > 1) testo = dfgSegmento(testo, a, dfgAtletiNota(n)); // v0.9: solo il pezzo dell'atleta
-  var d = dfgEstraiDati(testo), righe = [];
+  var d = dfgEstraiDati(testo), righe = [], uguali = [];
   Object.keys(DFG_CAMPI).forEach(function (k) {
     if (d[k] === undefined || d[k] === null || d[k] === '') return;
     var prec = a ? a[k] : undefined;
     var uguale = typeof d[k] === 'boolean' ? !!prec === d[k] : typeof d[k] === 'number' ? (prec !== undefined && prec !== null && prec !== '' && Number(prec) === d[k]) : String(prec || '') === d[k];
     if (!a || !uguale) righe.push({ k: k, l: DFG_CAMPI[k] + (k === 'cs' && d.csDa && d.csDa !== 'scadenza' ? ' (da ' + d.csDa + ' + 365 gg)' : ''), da: prec, a: d[k] });
+    else uguali.push(DFG_CAMPI[k] + ' ' + dfgValore(k, d[k])); // v0.10
   });
   if (d.cat) { // v0.9: categoria della stagione in corso
     var st = dfgStagioneAtleti(DFG.atl, srOggi()), att = a ? dfgCategorie(a, st.chiave) : [];
     if (att.indexOf(d.cat) < 0) righe.push({ k: 'isc.cat', l: 'Categoria ' + st.chiave, da: att.join(' + '), a: d.cat, stag: st.chiave });
+    else uguali.push('categoria ' + d.cat); // v0.10
   }
-  Object.keys(d.doc || {}).forEach(function (k) { var prec = a && a.docConsegnati ? a.docConsegnati[k] : ''; if (prec !== d.doc[k]) righe.push({ k: 'doc.' + k, l: DFG_DOC[k], da: prec || '', a: d.doc[k] }); });
+  Object.keys(d.doc || {}).forEach(function (k) { var prec = a && a.docConsegnati ? a.docConsegnati[k] : ''; if (prec !== d.doc[k]) righe.push({ k: 'doc.' + k, l: DFG_DOC[k], da: prec || '', a: d.doc[k] }); else uguali.push(DFG_DOC[k] + ' ' + (d.doc[k] === 'SI' ? 'consegnato' : 'non consegnato')); });
   righe.errori = d.errori || [];
+  righe.uguali = uguali; righe.avvisi = d.avvisi || []; // v0.10
   return righe;
 }
 function dfgRenderProposta(id) {
@@ -777,12 +815,16 @@ function dfgRenderProposta(id) {
   if (multi.length > 1) testa = '<div style="font-size:12px;margin:6px 0">Nota con ' + multi.length + ' atleti, uno alla volta: ' + multi.map(function (x) {
     return '<button class="btn-gray btn-sm" style="margin:2px' + (x.id === a.id ? ';outline:2px solid var(--gold)' : '') + '" onclick="document.getElementById(\'dfg-atl-' + id + '\').value=\'' + x.id + '\';dfgRenderProposta(\'' + id + '\')">' + (fatti.indexOf(x.id) >= 0 ? '✅ ' : '') + srEsc(dfgNomeAtl(x)) + '</button>';
   }).join('') + '</div>';
-  if (pr.errori && pr.errori.length) testa += '<div class="errore" style="font-size:12px">⚠️ ' + pr.errori.map(srEsc).join('<br>⚠️ ') + '</div>';
+  if (pr.errori && pr.errori.length) testa += '<div class="errore" style="font-size:12px">⚠️ Scartato: ' + pr.errori.map(srEsc).join('<br>⚠️ Scartato: ') + '</div>';
+  if (pr.avvisi && pr.avvisi.length) testa += '<div style="font-size:12px;color:var(--warn);margin:4px 0">ℹ️ ' + pr.avvisi.map(srEsc).join('<br>ℹ️ ') + '</div>';
+  if (pr.uguali && pr.uguali.length) testa += '<div style="font-size:12px;color:#2e9e5b;margin:4px 0">✔️ Già presente nella scheda di ' + srEsc(dfgNomeAtl(a)) + ': ' + pr.uguali.map(srEsc).join(', ') + (pr.length ? '' : '. Non serve aggiornare.') + '</div>';
+  var vuoto = (pr.uguali && pr.uguali.length) ? '' : (pr.errori && pr.errori.length) ? '<div style="font-size:12px;color:var(--muted);margin:6px 0">Nessun altro dato valido da inserire.</div>'
+    : '<div style="font-size:12px;color:var(--muted);margin:6px 0">Non ho trovato dati da inserire in questa frase. Esempi: "residente a Borgoricco", "nato il 24/01/2017", "certificato scade il 10/09/2027", "ha consegnato la tessera sanitaria" (legenda: comandi).</div>';
   el.innerHTML = testa + (pr.length ? '<div style="margin:8px 0;font-size:13px">' + pr.map(function (r, i) {
     return '<label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:13px;color:var(--text)"><input type="checkbox" id="dfg-c-' + id + '-' + i + '" checked style="width:auto;min-height:0;margin-top:3px">' +
       '<span><b>' + srEsc(r.l) + '</b>: ' + srEsc(dfgValore(r.k, r.da)) + ' → <b>' + srEsc(dfgValore(r.k, r.a)) + '</b></span></label>';
   }).join('') + '</div><button class="btn-gold btn-sm" onclick="dfgConfermaDati(\'' + id + '\')">✅ Aggiorna la scheda</button> '
-    : '<div style="font-size:12px;color:var(--muted);margin:6px 0">Nessun dato di scheda riconosciuto (o già uguale).</div>') +
+    : vuoto) +
     '<button class="btn-gray btn-sm" onclick="dfgConfermaDati(\'' + id + '\',true)">📎 Aggiungi alle note dell\'atleta</button> <button class="btn-gray btn-sm" onclick="dfgChiudi(\'' + id + '\')">Chiudi</button>' +
     (sens ? '<div style="font-size:12px;color:var(--warn);margin-top:6px">La nota contiene dati da non registrare (codice fiscale, telefono o n. documento): nelle note dell\'atleta vengono oscurati.</div>' : '');
 }
