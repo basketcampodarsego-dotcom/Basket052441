@@ -1,4 +1,5 @@
-<!-- spese-rapide.html | v0.18 · 26/11/2026 11:40 · BK -->
+<!-- spese-rapide.html | v0.19 · 26/11/2026 13:30 · BK -->
+<!-- v0.19: dittafono v0.12 + dittafono-gestionale v0.9 (note con piu' atleti, date plausibili, categoria/quota/sconto fratello dettabili); script con ?v= contro la cache -->
 <!-- v0.18: dettatura lunga: non si interrompe alle pause (stop col pulsante o dopo 12 s di silenzio) -->
 <!DOCTYPE html>
 <html lang="it">
@@ -334,10 +335,10 @@
 <!-- funzioni pure Economia: ecoValidaMovimento, ecoNextNumeroMovimento, ecoNewId, ecoAnnullaMovimento, ecoNuovoCodice -->
 <script src="economia-core-DRAFT.js"></script>
 <script src="spese-rapide-voce.js"></script>
-<script src="spese-rapide.js"></script>
-<script src="dittafono.js"></script>
+<script src="spese-rapide.js?v=0.19"></script>
+<script src="dittafono.js?v=0.12"></script>
 <script src="report-residenti.js"></script>
-<script src="dittafono-gestionale.js"></script>
+<script src="dittafono-gestionale.js?v=0.9"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="documenti-pdf.js"></script>
 <script src="palestra-affitti.js"></script>

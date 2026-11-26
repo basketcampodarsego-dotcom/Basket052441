@@ -1,6 +1,16 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-gestionale.js — ASD Basket Campodarsego
-// VERSIONE: v0.8 · 21/11/2026 02:30 · BK
+// VERSIONE: v0.9 · 26/11/2026 13:30 · BK
+// v0.9: (BK_ListaModifiche 26/11/2026, punti 1-3)
+//   - NOTA CON PIU' ATLETI ("Rossi Luca certificato scade 15/10/2027. Lovato Paolo certificato scade
+//     18/10/2027"): ogni atleta prende i dati SOLO dal suo pezzo di frase (dal suo nome al nome del
+//     successivo); pulsanti per passare da un atleta all'altro; la nota resta da elaborare finche'
+//     non sono stati aggiornati tutti. Prima: data presa dall'ULTIMA frase per chiunque.
+//   - DATE NON PLAUSIBILI scartate e segnalate: nascita prima del 1930 o futura, certificato prima
+//     del 2000 o oltre oggi + 2 anni (es. "3027").
+//   - NUOVI DATI DETTABILI: categoria della stagione ("Rossi Luca iscritto Aquilotti", "categoria
+//     Pulcini"), quota personalizzata ("Rossi Luca quota annua 300 euro"), sconto fratello
+//     ("Zuanon Nicolo' sconto fratello" / "senza sconto fratello").
 // v0.8: RICEVUTA del singolo pagamento come quella del gestionale (Alberto 21/11/2026):
 //   chi paga (genitore se detraibile, come nel gestionale) con residenza, via e CF,
 //   causale per categoria, atleta con luogo/data di nascita e CF, frase della detrazione
@@ -68,7 +78,7 @@
 //   report-residenti.js (rrCalcola, facoltativo).
 // ════════════════════════════════════════════════════════
 
-var DFG_VERSIONE = 'v0.8 · 21/11/2026 02:30';
+var DFG_VERSIONE = 'v0.9 · 26/11/2026 13:30';
 var DFG = { atl: [], pag: {}, all: [], pres: [], caricato: false, risposta: null, presStato: {} };
 var DFG_TIPI_PAG = ['Quota (1a rata)', 'Quota (2a rata)', 'Saldo quota', 'Quota annuale', 'Assicurazione', 'Divisa', 'Altro'];
 var DFG_METODI = { Contanti: 'CONTANTI_CASSA', Bonifico: 'BONIFICO', POS: 'BONIFICO' };
@@ -100,7 +110,9 @@ function dfgScadenzaDaEmissione(iso) {
 function dfgTitolo(s) { return String(s).toLowerCase().replace(/(^|[\s'-])([a-zà-ú])/g, function (x, a, b) { return a + b.toUpperCase(); }).replace(/\b(Di|Del|Della|De|San|Sant')\b/g, function (w) { return /^(Di|Del|Della)$/.test(w) ? w.toLowerCase() : w; }); }
 // Dati di scheda riconosciuti nel testo. Ritorna {dn, indComune, cs, csDa, doc:{modulo,identita,tessera}}
 function dfgEstraiDati(testo) {
-  var t = String(testo || ''), r = { doc: {} };
+  var t = String(testo || ''), r = { doc: {}, errori: [] };
+  var oggiD = new Date(), oggiIso = oggiD.getFullYear() + '-' + dfgPad(oggiD.getMonth() + 1) + '-' + dfgPad(oggiD.getDate());
+  var maxCs = (oggiD.getFullYear() + 2) + oggiIso.slice(4);
   var frasi = t.split(/(?<=[.;])\s+|\n/);
   var base = 0;
   frasi.forEach(function (f) {
@@ -108,10 +120,16 @@ function dfgEstraiDati(testo) {
     var neg = /\bnon\s+(ha\s+)?(consegnat|portat|ancora)/.test(fl);
     dfgDate(f).forEach(function (d) {
       var prima = fl.slice(Math.max(0, d.pos - 45), d.pos);
-      if (/\bnat[oa]\s+(il\s+|l'\s*|nel\s+)?$/.test(prima)) r.dn = d.iso;
+      if (/\bnat[oa]\s+(il\s+|l'\s*|nel\s+)?$/.test(prima)) {
+        if (d.iso.slice(0, 4) < '1930' || d.iso > oggiIso) r.errori.push('data di nascita ' + d.iso.split('-').reverse().join('/') + ' non plausibile: scartata');
+        else r.dn = d.iso;
+      }
       else if (/certificat|visita|idoneit/.test(fl)) {
-        if (/scad\w*\s+(il\s+|l'\s*)?$/.test(prima)) { r.cs = d.iso; r.csDa = 'scadenza'; }
-        else if (/(fatto|del|rilasciat\w*|emess\w*|fatta)\s+(il\s+|l'\s*)?$/.test(prima) && r.csDa !== 'scadenza') { r.cs = dfgScadenzaDaEmissione(d.iso); r.csDa = 'emissione ' + d.iso; }
+        var csN = null, csDa = null;
+        if (/scad\w*\s+(il\s+|l'\s*)?$/.test(prima)) { csN = d.iso; csDa = 'scadenza'; }
+        else if (/(fatto|del|rilasciat\w*|emess\w*|fatta)\s+(il\s+|l'\s*)?$/.test(prima) && r.csDa !== 'scadenza') { csN = dfgScadenzaDaEmissione(d.iso); csDa = 'emissione ' + d.iso; }
+        if (csN && (csN.slice(0, 4) < '2000' || csN > maxCs)) r.errori.push('scadenza certificato ' + csN.split('-').reverse().join('/') + ' non plausibile (oltre 2 anni da oggi): scartata');
+        else if (csN) { r.cs = csN; r.csDa = csDa; }
       }
     });
     var mr = f.match(/\b(?:residente|abita|vive)\s+(?:a|ad|in)\s+([A-Za-zÀ-ÿ'][A-Za-zÀ-ÿ' ]*?)(?=\s*(?:[,.;:(]|$|\s+(?:nat[oa]|e\s|ed\s|ha\s|con\s|certificat)))/i);
@@ -120,9 +138,21 @@ function dfgEstraiDati(testo) {
     if (/modulo\s+(di\s+)?iscrizion/.test(fl)) r.doc.modulo = v;
     if (/(carta|documento)\s+d.?\s*identit/.test(fl) && !/identit\w*\s*\?/.test(fl)) r.doc.identita = v;
     if (/tessera\s+sanitaria/.test(fl)) r.doc.tessera = v;
+    // v0.9: categoria della stagione
+    var fn = dfgNormP(f);
+    if (/\b(iscritt[oa]|categoria|passa(to|ta)?\s+(a|ai|agli|negli|nei|tra|fra)|gioca\s+(con|negli|nei|tra|fra))\b/.test(fn) && !/\?/.test(f)) {
+      Object.keys(DFG_CAT_RADICI).forEach(function (c) { if (!r.cat && fn.indexOf(DFG_CAT_RADICI[c]) >= 0) r.cat = c; });
+    }
+    // v0.9: quota personalizzata (non un pagamento)
+    var mq = fn.match(/\bquota\s+(?:annua(?:le)?\s+|personalizzata\s+|dovuta\s+|(?:della\s+)?stagione\s+)?(?:e\s+|di\s+|a\s+)?(?:€\s*)?(\d{1,4}(?:[.,]\d{1,2})?)\b/);
+    if (mq && !/pagat|versat|bonific|contant|\brat[ae]\b|saldo|acconto/.test(fn)) r.quotaAnnua = Math.round(parseFloat(mq[1].replace(',', '.')) * 100) / 100;
+    // v0.9: sconto fratello
+    if (/(senza|niente|nessuno|togli\w*|tolto|rimuovi\w*|no)\s+(lo\s+|l'\s*)?sconto/.test(fn)) r.scontoFratello = false;
+    else if (/sconto\s+(del\s+|per\s+)?(fratell|sorell)/.test(fn)) r.scontoFratello = true;
     base += f.length;
   });
   if (!Object.keys(r.doc).length) delete r.doc;
+  if (!r.errori.length) delete r.errori;
   return r;
 }
 function dfgEstraiMetodo(testo) {
@@ -678,30 +708,77 @@ function dfgSegnaGiaFatto(id, aid) {
     'già presente nel gestionale').catch(function () { /* errore già mostrato da dfAggiornaNota */ });
 }
 
+// v0.9: pezzo della nota che riguarda l'atleta a (dal suo nome al nome dell'atleta successivo).
+// Usato solo quando la nota nomina piu' atleti.
+function dfgNormMap(testo) {
+  var out = '', map = [], t = String(testo || '');
+  for (var i = 0; i < t.length; i++) { var c = t[i].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); for (var k = 0; k < c.length; k++) { out += c[k]; map.push(i); } }
+  return { s: out, map: map };
+}
+function dfgPosAtleta(nm, a) {
+  var cog = dfgNormP(a.cog).trim(), nom = dfgNormP(a.nom).trim(), s = ' ' + nm.s + ' ';
+  var cand = [cog + ' ' + nom, nom + ' ' + cog, cog];
+  for (var i = 0; i < cand.length; i++) {
+    var c = cand[i].trim(); if (c.length < 3) continue;
+    var re = new RegExp('[^a-z0-9]' + c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=[^a-z0-9])'), m = re.exec(s);
+    if (m) return m.index; // indice in nm.s (lo spazio aggiunto all'inizio compensa il carattere prima)
+  }
+  return -1;
+}
+function dfgSegmento(testo, a, atletiNota) {
+  var nm = dfgNormMap(testo), pos = [];
+  (atletiNota || []).forEach(function (x) { var p = dfgPosAtleta(nm, x); if (p >= 0) pos.push({ id: x.id, p: p }); });
+  var mio = pos.find(function (x) { return x.id === a.id; });
+  if (!mio || pos.length < 2) return testo;
+  var dopo = pos.filter(function (x) { return x.p > mio.p; }).sort(function (x, y) { return x.p - y.p; })[0];
+  var da = nm.map[mio.p] || 0, a2 = dopo ? nm.map[dopo.p] : String(testo).length;
+  return String(testo).slice(da, a2);
+}
+function dfgAtletiNota(n) { return (n && n.atleti || []).map(function (x) { return dfgAtleta(x.id); }).filter(Boolean); }
+function dfgAtletiFatti(n) { return (n && n.collegamenti || []).filter(function (c) { return c.tipo === 'ATLETA'; }).map(function (c) { return c.atletaId; }); }
+
 // Proposta dati scheda
-var DFG_CAMPI = { dn: 'Data di nascita', indComune: 'Comune di residenza', cs: 'Scadenza certificato' };
-function dfgValore(campo, v) { return v == null || v === '' ? '—' : (campo === 'dn' || campo === 'cs') && String(v).indexOf('-') > 0 ? srDataIt(v) : String(v); }
+var DFG_CAMPI = { dn: 'Data di nascita', indComune: 'Comune di residenza', cs: 'Scadenza certificato', quotaAnnua: 'Quota personalizzata', scontoFratello: 'Sconto fratello' };
+function dfgValore(campo, v) { if (v === true) return 'Sì'; if (v === false) return 'No'; if (campo === 'quotaAnnua' && v !== '' && v != null) return srEuro(+v); return v == null || v === '' ? '—' : (campo === 'dn' || campo === 'cs') && String(v).indexOf('-') > 0 ? srDataIt(v) : String(v); }
 function dfgApriDati(id) {
   var n = dfTrova(id), el = n && dfgPannello(id);
   if (!n || !el) return;
   if (!DFG.caricato) { el.innerHTML = '<div class="errore">Anagrafica non ancora caricata: riprova tra poco.</div>'; return; }
   var sel = dfgAtletaProposto(n);
+  var multi = dfgAtletiNota(n); // v0.9: si parte dal primo atleta non ancora aggiornato
+  if (multi.length > 1) { var fatti = dfgAtletiFatti(n), prossimo = multi.find(function (x) { return fatti.indexOf(x.id) < 0; }); sel = (prossimo || multi[0]).id; }
   el.innerHTML = '<div class="card" style="margin-top:8px;border:1px solid var(--gold)"><label>Atleta</label><select id="dfg-atl-' + id + '" onchange="dfgRenderProposta(\'' + id + '\')">' + dfgOpzioniAtleti(n, sel) + '</select>' +
     '<div id="dfg-prop-' + id + '"></div><div id="dfg-esito-' + id + '"></div></div>';
   dfgRenderProposta(id);
 }
-function dfgProposta(testo, a) {
+function dfgProposta(testo, a, n) {
+  if (a && n && (n.atleti || []).length > 1) testo = dfgSegmento(testo, a, dfgAtletiNota(n)); // v0.9: solo il pezzo dell'atleta
   var d = dfgEstraiDati(testo), righe = [];
-  Object.keys(DFG_CAMPI).forEach(function (k) { if (d[k] && (!a || String(a[k] || '') !== d[k])) righe.push({ k: k, l: DFG_CAMPI[k] + (k === 'cs' && d.csDa && d.csDa !== 'scadenza' ? ' (da ' + d.csDa + ' + 365 gg)' : ''), da: a ? a[k] : '', a: d[k] }); });
+  Object.keys(DFG_CAMPI).forEach(function (k) {
+    if (d[k] === undefined || d[k] === null || d[k] === '') return;
+    var prec = a ? a[k] : undefined;
+    var uguale = typeof d[k] === 'boolean' ? !!prec === d[k] : typeof d[k] === 'number' ? (prec !== undefined && prec !== null && prec !== '' && Number(prec) === d[k]) : String(prec || '') === d[k];
+    if (!a || !uguale) righe.push({ k: k, l: DFG_CAMPI[k] + (k === 'cs' && d.csDa && d.csDa !== 'scadenza' ? ' (da ' + d.csDa + ' + 365 gg)' : ''), da: prec, a: d[k] });
+  });
+  if (d.cat) { // v0.9: categoria della stagione in corso
+    var st = dfgStagioneAtleti(DFG.atl, srOggi()), att = a ? dfgCategorie(a, st.chiave) : [];
+    if (att.indexOf(d.cat) < 0) righe.push({ k: 'isc.cat', l: 'Categoria ' + st.chiave, da: att.join(' + '), a: d.cat, stag: st.chiave });
+  }
   Object.keys(d.doc || {}).forEach(function (k) { var prec = a && a.docConsegnati ? a.docConsegnati[k] : ''; if (prec !== d.doc[k]) righe.push({ k: 'doc.' + k, l: DFG_DOC[k], da: prec || '', a: d.doc[k] }); });
+  righe.errori = d.errori || [];
   return righe;
 }
 function dfgRenderProposta(id) {
   var n = dfTrova(id), a = dfgAtleta(parseInt(document.getElementById('dfg-atl-' + id).value, 10)), el = document.getElementById('dfg-prop-' + id);
   if (!a) { el.innerHTML = '<div style="font-size:12px;color:var(--muted);margin:6px 0">Scegli l\'atleta a cui si riferisce la nota.</div>'; return; }
-  var pr = dfgProposta(n.testo, a);
+  var pr = dfgProposta(n.testo, a, n);
   var sens = dfgOscura(n.testo) !== n.testo;
-  el.innerHTML = (pr.length ? '<div style="margin:8px 0;font-size:13px">' + pr.map(function (r, i) {
+  var multi = dfgAtletiNota(n), fatti = dfgAtletiFatti(n), testa = ''; // v0.9
+  if (multi.length > 1) testa = '<div style="font-size:12px;margin:6px 0">Nota con ' + multi.length + ' atleti, uno alla volta: ' + multi.map(function (x) {
+    return '<button class="btn-gray btn-sm" style="margin:2px' + (x.id === a.id ? ';outline:2px solid var(--gold)' : '') + '" onclick="document.getElementById(\'dfg-atl-' + id + '\').value=\'' + x.id + '\';dfgRenderProposta(\'' + id + '\')">' + (fatti.indexOf(x.id) >= 0 ? '✅ ' : '') + srEsc(dfgNomeAtl(x)) + '</button>';
+  }).join('') + '</div>';
+  if (pr.errori && pr.errori.length) testa += '<div class="errore" style="font-size:12px">⚠️ ' + pr.errori.map(srEsc).join('<br>⚠️ ') + '</div>';
+  el.innerHTML = testa + (pr.length ? '<div style="margin:8px 0;font-size:13px">' + pr.map(function (r, i) {
     return '<label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0;font-size:13px;color:var(--text)"><input type="checkbox" id="dfg-c-' + id + '-' + i + '" checked style="width:auto;min-height:0;margin-top:3px">' +
       '<span><b>' + srEsc(r.l) + '</b>: ' + srEsc(dfgValore(r.k, r.da)) + ' → <b>' + srEsc(dfgValore(r.k, r.a)) + '</b></span></label>';
   }).join('') + '</div><button class="btn-gold btn-sm" onclick="dfgConfermaDati(\'' + id + '\')">✅ Aggiorna la scheda</button> '
@@ -713,11 +790,13 @@ function dfgConfermaDati(id, soloNota) {
   var n = dfTrova(id), es = document.getElementById('dfg-esito-' + id);
   var aid = parseInt(document.getElementById('dfg-atl-' + id).value, 10), a0 = dfgAtleta(aid);
   if (!a0) { es.innerHTML = '<div class="errore">Scegli l\'atleta.</div>'; return; }
-  var scelte = soloNota ? [] : dfgProposta(n.testo, a0).filter(function (r, i) { var c = document.getElementById('dfg-c-' + id + '-' + i); return c && c.checked; });
+  var scelte = soloNota ? [] : dfgProposta(n.testo, a0, n).filter(function (r, i) { var c = document.getElementById('dfg-c-' + id + '-' + i); return c && c.checked; });
   if (!soloNota && !scelte.length) { es.innerHTML = '<div class="errore">Nessuna voce selezionata.</div>'; return; }
   var nome = dfgNomeAtl(a0), oggiIt = srDataIt(srOggi()), adesso = new Date().toISOString();
   var descr = soloNota ? 'aggiunta alle note dell\'atleta' : scelte.map(function (r) { return r.l + ' ' + dfgValore(r.k, r.a); }).join('; ');
   var copia = dfgNotaAggiornata(n, [{ tipo: 'ATLETA', atletaId: aid, nome: nome, campi: scelte.map(function (r) { return r.k; }) }], 'scheda ' + nome + ': ' + descr);
+  var multiN = dfgAtletiNota(n), fattiN = dfgAtletiFatti(copia); // v0.9: resta da elaborare finche' mancano atleti
+  if (multiN.length > 1 && multiN.some(function (x) { return fattiN.indexOf(x.id) < 0; })) copia.stato = n.stato;
   var ref = _db.collection('basket052441').doc('atleti');
   es.innerHTML = '<div class="domanda">Aggiornamento…</div>';
   _db.runTransaction(function (tx) {
@@ -728,6 +807,12 @@ function dfgConfermaDati(id, soloNota) {
       if (soloNota) a.note = ((a.note || '').trim() + (a.note ? '\n' : '') + '[' + oggiIt + '] ' + dfgOscura(n.testo)).slice(0, 4000);
       scelte.forEach(function (r) {
         if (r.k.indexOf('doc.') === 0) { a.docConsegnati = a.docConsegnati || {}; a.docConsegnati[r.k.slice(4)] = r.a; }
+        else if (r.k === 'isc.cat') { // v0.9
+          a.iscrizioni = a.iscrizioni || [];
+          var isc = a.iscrizioni.find(function (i) { return i.anno === r.stag; });
+          if (isc) { if (isc.cat2 === r.a) isc.cat2 = ''; isc.cat1 = r.a; }
+          else a.iscrizioni.push({ anno: r.stag, fed: 'FIP', cat1: r.a, cat2: '', dataIscr: '', note: 'da dittafono' });
+        }
         else a[r.k] = r.a;
       });
       a.modTs = adesso;

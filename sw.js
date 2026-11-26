@@ -2,7 +2,7 @@
 // Versione: 20260321_1057
 // Si aggiorna automaticamente ad ogni nuova build
 
-var CACHE_NAME = 'basket052441-20261126_1145'; // 26/11/2026: gestionale v7.12, situazione tesserati PDF orizzontale
+var CACHE_NAME = 'basket052441-20261126_1330'; // 26/11/2026: gestionale v7.13, basket-core v1.7, lista modifiche
 var CACHE_URLS = [
   './basket052441.html',
   './basket-core.js',

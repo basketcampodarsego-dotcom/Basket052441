@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.18 · 26/11/2026 11:40 · BK
+// VERSIONE: v0.19 · 26/11/2026 13:30 · BK
+// v0.19: solo allineamento versione (dittafono v0.12, dittafono-gestionale v0.9).
 // v0.18: DETTATURA LUNGA (Alberto 26/11/2026: 'si interrompe durante la dettatura per pause
 //   troppo lunghe'). Prima: una sola sessione del riconoscimento vocale (continuous=false), che
 //   Chrome Android chiude da solo dopo ~1-2 secondi di silenzio. Ora: srAscoltoLungo riavvia
@@ -69,7 +70,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.18 · 26/11/2026 11:40';
+var SR_BUILD = 'v0.19 · 26/11/2026 13:30';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {

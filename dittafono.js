@@ -1,6 +1,8 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono.js — ASD Basket Campodarsego
-// VERSIONE: v0.11 · 26/11/2026 11:40 · BK
+// VERSIONE: v0.12 · 26/11/2026 13:30 · BK
+// v0.12: "quota annua 300", "sconto fratello" = DATO ATLETA (non pagamento), se nella frase non ci sono
+//   parole di pagamento (pagato, versato, bonifico, contanti, rata, saldo...).
 // v0.11: 🎤 Detta non si ferma piu' alle pause: usa srAscoltoLungo (spese-rapide.js v0.18),
 //   finisce toccando il pulsante o dopo 12 s di silenzio; poi salva come prima.
 // v0.10: APPRENDIMENTO TRA VERSIONI (richiesta Alberto 20/11/2026):
@@ -116,6 +118,8 @@ function dfTrovaAtleti(testo, atleti) {
   return out;
 }
 var DF_RE_PRESENZE = /\b(allenament\w*|assent\w*|present\w*|convocat\w*)\b/;
+var DF_RE_DATO_QUOTA = /\b(quota\s+(annua|annuale|personalizzata|dovuta|stagione|della stagione)|sconto\s+(del\s+|per\s+)?(fratell|sorell)\w*|senza\s+sconto)\b/; // v0.12
+var DF_RE_PAGATO = /\b(pagat\w*|versat\w*|bonific\w*|contant\w*|rata|rate|saldo|acconto|pos|bancomat)\b/; // v0.12
 var DF_RE_PAGAMENTO = /\b(pagat\w*|pagamento|quota|rata|rate|saldo|versat\w*|bonific\w*|acconto)\b/;
 var DF_RE_DATO = /\b(certificat\w*|maglia|cellular\w*|telefon\w*|numero|iscritt\w*|iscrizion\w*|residen\w*|abita|via|nat[oa]|tutor\w*|mamma|papa|madre|padre|document\w*|consegnat\w*|email|mail|categoria|ritirat\w*|fratell\w*|sorell\w*)\b/;
 // Classificazione della nota. Ritorna { tipo, atleti, importo }
@@ -130,7 +134,8 @@ function dfClassifica(testo, atleti) {
   var tipo;
   if (DF_RE_PRESENZE.test(t)) tipo = 'PRESENZE';
   else if (trov.length) {
-    if (DF_RE_PAGAMENTO.test(t) || (imp != null && !DF_RE_DATO.test(t))) tipo = 'PAGAMENTO';
+    if (DF_RE_DATO_QUOTA.test(t) && !DF_RE_PAGATO.test(t)) tipo = 'DATO_ATLETA'; // v0.12
+    else if (DF_RE_PAGAMENTO.test(t) || (imp != null && !DF_RE_DATO.test(t))) tipo = 'PAGAMENTO';
     else if (DF_RE_DATO.test(t)) tipo = 'DATO_ATLETA';
     else tipo = 'NOTA_ATLETA';
   } else if (imp != null) {

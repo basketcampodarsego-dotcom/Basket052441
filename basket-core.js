@@ -4,7 +4,8 @@
 // Contiene SOLO le funzioni verificate identiche in entrambi i moduli
 // (confronto automatico byte-per-byte, 17/08/2026).
 // Variabili come DB, DB_KEY, BUILD_VERSION restano locali a ciascun modulo.
-// Versione: v1.6 — Build 20/11/2026 18:00 (_inStagione per il Tabulato: le rate di
+// Versione: v1.7 — Build 26/11/2026 13:30 (_cmpAtl: ordine alfabetico cognome+nome, regola Alberto 26/11/2026)
+// Precedente: v1.6 — Build 20/11/2026 18:00 (_inStagione per il Tabulato: le rate di
 // gennaio-agosto ora contano nella stagione giusta.)
 // v1.5 — Build 20/11/2026 15:30 (_pagDetraibile: regola di Alberto
 // 20/11/2026 per il riepilogo detraibile: solo quote/rate/saldo pagate con
@@ -1045,4 +1046,54 @@ function _inStagione(data, stagione){
   var y=parseInt(String(stagione||'').slice(0,4),10);
   if(!data||!y)return false;
   return data>=y+'-09-01'&&data<=(y+1)+'-08-31';
+}
+
+// ── v1.7 (26/11/2026): REGOLA ORDINAMENTO di Alberto: dopo il criterio di raggruppamento
+// l'ordine e' SEMPRE alfabetico per cognome, poi nome (maiuscole/accenti ignorati).
+function _cmpAtl(a,b){
+  var c=String(a&&a.cog||'').localeCompare(String(b&&b.cog||''),'it',{sensitivity:'base'});
+  return c||String(a&&a.nom||'').localeCompare(String(b&&b.nom||''),'it',{sensitivity:'base'});
+}
+
+// ── v1.7 (26/11/2026): TABELLA IN PDF A4 ORIZZONTALE (jsPDF). Su Android Chrome la stampa HTML
+// ignora "@page landscape" ed esce verticale: il PDF ha sempre l'orientamento giusto.
+// cols: [{h:'Titolo', w:'60px'|'auto', al:'l'|'c'|'r'}], righe: [[testo,...]], nome file .pdf
+function bkPdfTabella(titolo, sotto, cols, righe, nome){
+  var J=window.jspdf&&window.jspdf.jsPDF; if(!J)return false;
+  var doc=new J({orientation:'landscape',unit:'mm',format:'a4'});
+  var W=297,H=210,M=7,LARG=W-2*M,FS=7,LH=3.1;
+  var px=cols.map(function(c){var n=parseFloat(c.w);return isNaN(n)?0:n;}), nAuto=px.filter(function(n){return !n;}).length;
+  var totPx=px.reduce(function(s,n){return s+n;},0), k=0.26; // 1px ~ 0.26 mm
+  var resto=LARG-totPx*k;
+  if(nAuto&&resto<nAuto*30){k=(LARG-nAuto*30)/totPx;resto=nAuto*30;}
+  if(!nAuto)k=LARG/totPx;
+  var Wc=px.map(function(n){return n?n*k:resto/nAuto;}), X=[],x0=M; Wc.forEach(function(w){X.push(x0);x0+=w;});
+  var pulisci=function(v){return String(v==null?'':v).replace(/<br\s*\/?>/gi,' ').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/\s+/g,' ').trim();};
+  var y=0;
+  var testa=function(){
+    doc.setTextColor(26,42,74);doc.setFont('helvetica','bold');doc.setFontSize(11);doc.text(pulisci(titolo),M,M+3);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80);doc.text(pulisci(sotto),M,M+7);
+    y=M+9;doc.setFontSize(FS);doc.setFillColor(26,42,74);doc.rect(M,y,LARG,5.5,'F');doc.setTextColor(255);doc.setFont('helvetica','bold');
+    cols.forEach(function(c,i){doc.text(doc.splitTextToSize(pulisci(c.h),Wc[i]-1)[0]||'',X[i]+Wc[i]/2,y+3.6,{align:'center'});});
+    doc.setTextColor(0);doc.setFont('helvetica','normal');y+=5.5;
+  };
+  testa();
+  righe.forEach(function(r,ri){
+    var celle=r.map(function(v,i){return doc.splitTextToSize(pulisci(v),Wc[i]-1.6).slice(0,3);});
+    var h=Math.max(4.2,celle.reduce(function(m,c){return Math.max(m,c.length);},1)*LH+1.1);
+    if(y+h>H-M-5){doc.addPage();testa();}
+    if(ri%2){doc.setFillColor(244,247,255);doc.rect(M,y,LARG,h,'F');}
+    doc.setDrawColor(200,205,215);
+    celle.forEach(function(c,i){
+      doc.rect(X[i],y,Wc[i],h);
+      var al=cols[i].al||'c';
+      c.forEach(function(t,j){var ty=y+2.7+j*LH;
+        if(al==='l')doc.text(t,X[i]+0.8,ty);else if(al==='r')doc.text(t,X[i]+Wc[i]-0.8,ty,{align:'right'});else doc.text(t,X[i]+Wc[i]/2,ty,{align:'center'});});
+    });
+    y+=h;
+  });
+  var n=doc.getNumberOfPages();
+  for(var p=1;p<=n;p++){doc.setPage(p);doc.setFontSize(7);doc.setTextColor(110);doc.text('Pagina '+p+' di '+n,W-M,H-4,{align:'right'});}
+  doc.save(String(nome||'tabella').replace(/[^\w.-]+/g,'_').replace(/(\.pdf)?$/i,'.pdf'));
+  return true;
 }

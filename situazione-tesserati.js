@@ -1,4 +1,8 @@
-// situazione-tesserati.js | v0.2 · 26/11/2026 11:45 · BK
+// situazione-tesserati.js | v0.3 · 26/11/2026 13:30 · BK
+// v0.3: (Alberto 26/11/2026) ORDINE: dopo il raggruppamento (categoria/annata) SEMPRE alfabetico per
+//       cognome e nome (_cmpAtl). RITIRATI: quota dovuta = gia' pagato (residuo 0); quelli con pagamenti
+//       nella stagione compaiono sempre (grigi, "rit.") cosi' i loro versamenti restano nei totali;
+//       "anche ritirati" mostra pure quelli senza pagamenti.
 // v0.2: (Alberto 26/11/2026: la stampa usciva verticale) 🖨️ Stampa ora crea un PDF A4 ORIZZONTALE
 //       con jsPDF (l'orientamento non dipende piu' dal browser/telefono): intestazione colonne
 //       ripetuta su ogni pagina, colori, totali, "Pagina X di Y". La vecchia stampa HTML resta in stStampaHTML.
@@ -64,7 +68,6 @@ function stCalcola(f) {
   var righe = [];
   (DB && DB.atleti || []).forEach(function (a) {
     if (!a || !a.cog) return;
-    if (a.ritirato && !f.ritirati) return;
     var cats = _stCategorie(a, f.stag);
     if (!cats.length) return; // non iscritto in questa stagione
     if (f.cat === 'MINI' && !cats.some(function (c) { return ST_MINI.test(c); })) return;
@@ -74,6 +77,7 @@ function stCalcola(f) {
     var d = a.docConsegnati || {};
     var quota = _stQuota(a, cats), rate = _stRate(a, cats, per);
     var pagato = Math.round(rate.reduce(function (s, p) { return s + (+p.importo || 0); }, 0) * 100) / 100;
+    if (a.ritirato) { if (!f.ritirati && !rate.length) return; quota = pagato; } // v0.3: il ritirato non paghera' altro
     righe.push({
       a: a, nome: ((a.cog || '') + ' ' + (a.nom || '')).trim(), annata: ann || '', dn: a.dn || '',
       cat: (f.cat && f.cat !== 'MINI' ? f.cat : f.cat === 'MINI' ? cats.filter(function (c) { return ST_MINI.test(c); })[0] : cats[0]), cats: cats,
@@ -91,8 +95,7 @@ function stCalcola(f) {
   righe.sort(function (x, y) {
     var gx = ordG(chiave(x)), gy = ordG(chiave(y));
     if (gx !== gy) return gx < gy ? -1 : 1;
-    if (f.gruppo === 'categoria' && String(x.annata) !== String(y.annata)) return String(x.annata || '9999') < String(y.annata || '9999') ? -1 : 1;
-    return x.nome.localeCompare(y.nome);
+    return typeof _cmpAtl === 'function' ? _cmpAtl(x.a, y.a) : x.nome.localeCompare(y.nome, 'it', { sensitivity: 'base' });
   });
   var gruppi = [];
   righe.forEach(function (r) {
@@ -109,6 +112,7 @@ function _stTotali(righe) {
   righe.forEach(function (r) {
     if (r.quota == null) t.quotaND++; else { t.quota += r.quota; t.residuo += Math.max(0, r.residuo); }
     t.pagato += r.pagato;
+    if (r.ritirato) return; // documenti/certificato dei ritirati non contano
     if (r.statoCs !== 'OK') t.certKo++;
     if (!(r.modulo && r.identita && r.tessera)) t.docKo++;
   });
@@ -178,7 +182,7 @@ function stRender() {
     ST_ORDINE_CAT.map(function (c) { return opt(c, c, _stStato.cat); }).join('') + '</select>' +
     '<select onchange="_stStato.annata=this.value;stRender()">' + opt('', 'Tutte le annate', _stStato.annata) +
     Object.keys(annate).sort().map(function (y) { return opt(y, 'Annata ' + y, _stStato.annata); }).join('') + '</select>' +
-    '<label style="display:flex;gap:4px;align-items:center;font-size:12px;margin:0"><input type="checkbox" style="width:auto;min-height:0"' + (_stStato.ritirati ? ' checked' : '') + ' onchange="_stStato.ritirati=this.checked;stRender()"> anche ritirati</label>' +
+    '<label style="display:flex;gap:4px;align-items:center;font-size:12px;margin:0"><input type="checkbox" style="width:auto;min-height:0"' + (_stStato.ritirati ? ' checked' : '') + ' onchange="_stStato.ritirati=this.checked;stRender()"> anche ritirati senza pagamenti</label>' +
     '<button class="btn btn-gold btn-sm" onclick="stStampa()">🖨️ Stampa PDF (A4 orizzontale)</button>' +
     '<button class="btn btn-gray btn-sm" onclick="stCSV()">⬇️ CSV</button></div>';
   var res = stCalcola(_stStato);
