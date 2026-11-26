@@ -1,4 +1,5 @@
-<!-- spese-rapide.html | v0.21 · 26/11/2026 15:30 · BK -->
+<!-- spese-rapide.html | v0.22 · 26/11/2026 15:45 · BK -->
+<!-- v0.22: dittafono v0.13: "Rileggi prima di salvare" + "✏️ Correggi testo" -->
 <!-- v0.21: dittafono-gestionale v0.11: pulsante "Gia' nella scheda" -->
 <!-- v0.20: dittafono-gestionale v0.10: messaggi chiari in "Aggiorna scheda" (gia' presente / nessun dato / scartato), comune corretto sul nome ufficiale -->
 <!-- v0.19: dittafono v0.12 + dittafono-gestionale v0.9 (note con piu' atleti, date plausibili, categoria/quota/sconto fratello dettabili); script con ?v= contro la cache -->
@@ -146,7 +147,9 @@
     <div id="pa-avvisi"></div>
     <div id="dfg-avvisi"></div>
     <button class="btn-gold big-btn" id="df-mic" style="width:100%;min-height:120px;font-size:20px;margin-bottom:10px" onclick="dfAscolta()"><span class="ico">🎤</span>Detta</button>
-    <div class="card-desc" style="margin-bottom:6px">Dì quello che vuoi ricordare: spese, pagamenti, presenze, dati degli atleti, appunti. Si salva subito così com'è; lo sistemi dopo in 📥 Note.</div>
+    <label style="display:flex;gap:6px;align-items:center;font-size:13px;margin:-4px 0 8px"><input type="checkbox" id="df-rileggi" checked style="width:auto;min-height:0" onchange="dfImpostaRileggi(this.checked)"> Rileggi prima di salvare (correggi il testo, poi 💾 Salva nota)</label>
+    <script>try{document.getElementById('df-rileggi').checked=localStorage.getItem('df_rileggi')!=='0';}catch(e){}</script>
+    <div class="card-desc" style="margin-bottom:6px">Dì quello che vuoi ricordare: spese, pagamenti, presenze, dati degli atleti, appunti. Con "Rileggi" attivo il testo resta qui da correggere finché non tocchi 💾 Salva nota; poi lo sistemi in 📥 Note.</div>
     <textarea id="df-testo" rows="3" placeholder="…oppure scrivi qui. Scrivi &quot;comandi&quot; per la legenda. Puoi chiedere: &quot;chi ha il certificato scaduto?&quot;, &quot;chi non ha pagato?&quot;, &quot;cassa&quot;, &quot;situazione Rossi&quot;"></textarea>
     <div style="display:flex;gap:8px;margin-bottom:8px">
       <button class="btn-gray" style="flex:1" onclick="document.getElementById('df-foto-cam').click()">📷 Foto</button>
@@ -337,8 +340,8 @@
 <!-- funzioni pure Economia: ecoValidaMovimento, ecoNextNumeroMovimento, ecoNewId, ecoAnnullaMovimento, ecoNuovoCodice -->
 <script src="economia-core-DRAFT.js"></script>
 <script src="spese-rapide-voce.js"></script>
-<script src="spese-rapide.js?v=0.21"></script>
-<script src="dittafono.js?v=0.12"></script>
+<script src="spese-rapide.js?v=0.22"></script>
+<script src="dittafono.js?v=0.13"></script>
 <script src="report-residenti.js"></script>
 <script src="dittafono-gestionale.js?v=0.11"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>

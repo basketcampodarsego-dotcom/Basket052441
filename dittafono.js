@@ -1,6 +1,11 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono.js — ASD Basket Campodarsego
-// VERSIONE: v0.12 · 26/11/2026 13:30 · BK
+// VERSIONE: v0.13 · 26/11/2026 15:45 · BK
+// v0.13: (Alberto 26/11/2026: "il dittafono interpreta male le parole, vorrei correggerle prima di dare il via")
+//   - "Rileggi prima di salvare" (casella sotto 🎤 Detta, attiva di base, ricordata sul telefono): finita la
+//     dettatura il testo resta nel campo, lo correggi e tocchi 💾 Salva nota. Tolta la spunta: salva subito come prima.
+//   - ✏️ Correggi testo sulle note da elaborare e sugli appunti: il testo nuovo viene riletto (tipo, atleti,
+//     importo); il testo vecchio resta nella storia della nota.
 // v0.12: "quota annua 300", "sconto fratello" = DATO ATLETA (non pagamento), se nella frase non ci sono
 //   parole di pagamento (pagato, versato, bonifico, contanti, rata, saldo...).
 // v0.11: 🎤 Detta non si ferma piu' alle pause: usa srAscoltoLungo (spese-rapide.js v0.18),
@@ -223,7 +228,29 @@ function dfSalva(testo) {
     dfRenderCodaInfo();
   }).then(dfAggiornaContatore);
 }
-function dfSalvaDaCampo() { dfSalva(document.getElementById('df-testo').value); }
+function dfSalvaDaCampo() { var es = document.getElementById('df-esito'); if (es) es.innerHTML = ''; dfSalva(document.getElementById('df-testo').value); }
+// v0.13: rileggi prima di salvare (default si')
+function dfRileggi() { var c = document.getElementById('df-rileggi'); return c ? c.checked : true; }
+function dfImpostaRileggi(v) { try { localStorage.setItem('df_rileggi', v ? '1' : '0'); } catch (ex) { } }
+function dfInitRileggi() { var c = document.getElementById('df-rileggi'); if (!c) return; try { c.checked = localStorage.getItem('df_rileggi') !== '0'; } catch (ex) { c.checked = true; } }
+// v0.13: correggi il testo di una nota gia' salvata (da elaborare o appunto)
+function dfCorreggi(id) {
+  var n = dfTrova(id), box = document.getElementById('df-cor-' + id); if (!n || !box) return;
+  box.innerHTML = '<textarea id="df-cor-t-' + id + '" rows="3" style="width:100%;margin:6px 0">' + srEsc(n.testo || '') + '</textarea>' +
+    '<button class="btn-gold btn-sm" onclick="dfSalvaCorrezione(\'' + id + '\')">💾 Salva correzione</button> <button class="btn-gray btn-sm" onclick="document.getElementById(\'df-cor-' + id + '\').innerHTML=\'\'">Annulla</button>';
+  var t = document.getElementById('df-cor-t-' + id); if (t) t.focus();
+}
+function dfSalvaCorrezione(id) {
+  var n = dfTrova(id), t = document.getElementById('df-cor-t-' + id); if (!n || !t) return;
+  var nuovo = String(t.value || '').trim();
+  if (!nuovo) { alert('Il testo non può essere vuoto (per eliminarla usa Scarta).'); return; }
+  if (nuovo === n.testo) { document.getElementById('df-cor-' + id).innerHTML = ''; return; }
+  var cl = dfClassifica(nuovo, DF.atleti);
+  if (typeof paClassificaNota === 'function' && typeof PA !== 'undefined' && PA.conf && paClassificaNota(nuovo, PA.conf.utenti, cl.atleti) === 'PALESTRA') { cl.tipo = 'PALESTRA'; cl.importo = null; }
+  var stato = cl.tipo === 'PER_BK' ? 'SVILUPPO' : (n.stato === 'APPUNTO' && cl.tipo !== 'APPUNTO' ? 'NUOVA' : n.stato);
+  dfAggiornaNota(n, { testo: nuovo, tipo: cl.tipo, importo: cl.importo, atleti: cl.atleti, stato: stato }, 'testo corretto (prima: "' + n.testo + '")').catch(function () { });
+}
+
 function dfFotoScelta(inp) {
   var f = inp.files && inp.files[0];
   inp.value = '';
@@ -242,7 +269,15 @@ function dfAscolta() {
   var campo = document.getElementById('df-testo');
   var r = typeof srAscoltoLungo === 'function' ? srAscoltoLungo({ btn: document.getElementById('df-mic'), campo: campo,
     prima: campo.value ? campo.value.trim() + ' ' : '', etichetta: '<span class="ico">🎤</span>Detta',
-    onFine: function (t, dettato) { dfRiconoscitore = null; if (dettato && t.trim()) dfSalva(t); } }) : null; // salva SUBITO, senza conferme
+    onFine: function (t, dettato) {
+      dfRiconoscitore = null;
+      if (!(dettato && t.trim())) return;
+      if (dfRileggi()) { // v0.13: il testo resta nel campo da correggere
+        var es = document.getElementById('df-esito');
+        if (es) es.innerHTML = '<div style="font-size:13px;color:var(--gold);margin:6px 0">✏️ Controlla il testo e correggi le parole sbagliate, poi tocca <b>💾 Salva nota</b>. Puoi anche dettare ancora: si aggiunge in fondo.</div>';
+        try { campo.focus(); } catch (ex) { }
+      } else dfSalva(t);
+    } }) : null;
   if (!r) { alert('Il riconoscimento vocale non è disponibile in questo browser: tocca il campo di testo e usa il microfono della tastiera.'); campo.focus(); return; }
   dfRiconoscitore = r;
 }
@@ -277,8 +312,10 @@ function dfHtmlNota(n, compatta) {
     else if (n.tipo === 'PALESTRA' && typeof paApriNota === 'function') azioni += '<button class="btn-gold btn-sm" onclick="paApriNota(\'' + n.id + '\')">📅 Registra in palestra</button> ';
     else if (n.tipo === 'PRESENZE' && typeof dfgApriPresenze === 'function') azioni += '<button class="btn-gold btn-sm" onclick="dfgApriPresenze(\'' + n.id + '\')">✅ Registra presenze</button> <button class="btn-gray btn-sm" onclick="dfgApriDati(\'' + n.id + '\')">📎 Note atleta</button> ';
     azioni += '<button class="btn-gray btn-sm" onclick="dfCambiaTipo(\'' + n.id + '\')">Cambia tipo</button> ';
+    azioni += '<button class="btn-gray btn-sm" onclick="dfCorreggi(\'' + n.id + '\')">✏️ Correggi testo</button> '; // v0.13
     if (!compatta) azioni += '<button class="btn-gray btn-sm" onclick="dfImpostaStato(\'' + n.id + '\',\'APPUNTO\')">📌 Tieni come appunto</button> <button class="btn-red btn-sm" onclick="dfImpostaStato(\'' + n.id + '\',\'SCARTATA\')">Scarta</button>';
   }
+  if (n.stato === 'APPUNTO') azioni += '<button class="btn-gray btn-sm" onclick="dfCorreggi(\'' + n.id + '\')">✏️ Correggi testo</button> '; // v0.13
   if (n.stato === 'ELABORATA' && !compatta && typeof dfgLinkPagamento === 'function' && dfgLinkPagamento(n))
     azioni += '<button class="btn-gold btn-sm" onclick="dfgPreparaRicevuta(\'' + n.id + '\')">🧾 Ricevuta PDF</button> ';
   var link = (n.collegamenti || []).map(function (c) { return '<span class="badge b-ok">→ ' + srEsc(c.numero || c.id) + '</span>'; }).join('');
@@ -289,7 +326,7 @@ function dfHtmlNota(n, compatta) {
     '<div>' + atl + (n.importo != null && /^(SPESA|INCASSO|PAGAMENTO)$/.test(n.tipo) ? '<span class="badge" style="background:var(--bg2);color:var(--text)">' + srEuro(n.importo) + '</span>' : '') +
     (n.stato !== 'NUOVA' ? '<span class="badge" style="background:var(--bg2);color:var(--muted)">' + (DF_STATI[n.stato] || n.stato) + '</span>' : '') + link + '</div>' +
     (ambiguo ? '<div style="font-size:12px;color:var(--warn);margin-top:4px">Più atleti con lo stesso cognome: si chiarisce in elaborazione.</div>' : '') +
-    (azioni ? '<div style="margin-top:6px">' + azioni + '</div>' : '') + (compatta ? '' : '<div id="dfg-pan-' + n.id + '"></div>') + '</div></div>';
+    (azioni ? '<div style="margin-top:6px">' + azioni + '</div>' : '') + '<div id="df-cor-' + n.id + '"></div>' + (compatta ? '' : '<div id="dfg-pan-' + n.id + '"></div>') + '</div></div>';
 }
 function dfCaricaMini(id) {
   if (SR.miniCache['N' + id]) { var e = document.getElementById('dfmini-' + id); if (e) e.src = 'data:image/jpeg;base64,' + SR.miniCache['N' + id]; return; }
