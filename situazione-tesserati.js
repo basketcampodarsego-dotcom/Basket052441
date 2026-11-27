@@ -1,4 +1,9 @@
-// situazione-tesserati.js | v0.4 · 27/11/2026 10:15 · BK
+// situazione-tesserati.js | v0.5 · 27/11/2026 21:45 · BK
+// v0.5: (BK_ListaModifiche punto 18, REGOLA FISSA Alberto 27/11/2026) un pagamento registrato si mostra SEMPRE:
+//       tutti i pagamenti della stagione, nessuno scartato per categoria o tipo, con importo, data e tipo
+//       (Ass., 1ª r., Div. ...); colonna "Versato tot." con tutto il versato; residuo = quota - quote e
+//       assicurazione (divisa/altro non riducono il residuo); pagato in piu' = residuo negativo "in più, da
+//       verificare". Quota amatori volley 20 EUR come basket amatori. Colori leggibili (testo scuro su giallo/rosso).
 // v0.4: (BK_ListaModifiche punto 17) a video il nome dell'atleta (e ✏️) apre la sua scheda nel gestionale per
 //       correggere i dati; al salvataggio la tabella si ricalcola da sola. In PDF/CSV nessun collegamento.
 // v0.3: (Alberto 26/11/2026) ORDINE: dopo il raggruppamento (categoria/annata) SEMPRE alfabetico per
@@ -16,7 +21,7 @@
 // Dipende da: DB (gestionale), basket-core.js (esc, _annoNascitaAtleta, _catMultiplaAtleta,
 //             _statoCertificato, _comuneAtleta, _isoLocale). Usa _apriStampa se presente.
 
-var ST_QUOTE_CAT = { Pulcini: 200, Scoiattoli: 340, Aquilotti: 340, Esordienti: 340, Special: 340, AmaBasket: 20, AmaVolley: 0, Dirigente: 0, Volontario: 0, Ex: 0 };
+var ST_QUOTE_CAT = { Pulcini: 200, Scoiattoli: 340, Aquilotti: 340, Esordienti: 340, Special: 340, AmaBasket: 20, AmaVolley: 20, Dirigente: 0, Volontario: 0, Ex: 0 };
 var ST_ORDINE_CAT = ['Pulcini', 'Scoiattoli', 'Aquilotti', 'Esordienti', 'Special', 'AmaBasket', 'AmaVolley', 'Dirigente', 'Volontario', 'Ex'];
 var ST_MINI = /^(Pulcini|Scoiattoli|Aquilotti|Esordienti)$/;
 var _stStato = { stag: '', gruppo: 'categoria', cat: 'MINI', annata: '', ritirati: false };
@@ -53,15 +58,16 @@ function _stQuota(a, cats) {
   var mini = cats.some(function (c) { return ST_MINI.test(c); });
   return Math.round(base * (a.scontoFratello && mini ? 0.8 : 1) * 100) / 100;
 }
-// rate della quota nella stagione (esclusi Divisa/Altro; Assicurazione solo per AmaBasket), in ordine di data
+// v0.5: TUTTI i pagamenti registrati nella stagione, in ordine di data (nessuno scartato)
 function _stRate(a, cats, per) {
-  var ama = cats.indexOf('AmaBasket') >= 0;
   return ((DB.pagamenti || {})[a.id] || []).filter(function (p) {
-    if (!p || !p.data || p.data < per.da || p.data > per.a) return false;
-    if (p.tipo === 'Divisa' || p.tipo === 'Altro') return false;
-    if (p.tipo === 'Assicurazione' && !ama) return false;
-    return true;
+    return p && p.data && p.data >= per.da && p.data <= per.a;
   }).sort(function (x, y) { return x.data.localeCompare(y.data); });
+}
+function _stContaResiduo(p) { return p.tipo !== 'Divisa' && p.tipo !== 'Altro'; } // divisa/altro: visibili, non riducono il residuo
+function _stTipoBreve(t) {
+  var m = { 'Quota (1a rata)': '1ª r.', 'Quota (2a rata)': '2ª r.', 'Saldo quota': 'Saldo', 'Quota annuale': 'Annua', 'Assicurazione': 'Ass.', 'Divisa': 'Div.', 'Altro': 'Altro' };
+  return t ? (m[t] || String(t).slice(0, 8)) : '';
 }
 
 // righe della situazione per la stagione e i filtri scelti
@@ -78,7 +84,8 @@ function stCalcola(f) {
     if (f.annata && String(ann) !== String(f.annata)) return;
     var d = a.docConsegnati || {};
     var quota = _stQuota(a, cats), rate = _stRate(a, cats, per);
-    var pagato = Math.round(rate.reduce(function (s, p) { return s + (+p.importo || 0); }, 0) * 100) / 100;
+    var pagato = Math.round(rate.filter(_stContaResiduo).reduce(function (s, p) { return s + (+p.importo || 0); }, 0) * 100) / 100;
+    var versato = Math.round(rate.reduce(function (s, p) { return s + (+p.importo || 0); }, 0) * 100) / 100;
     if (a.ritirato) { if (!f.ritirati && !rate.length) return; quota = pagato; } // v0.3: il ritirato non paghera' altro
     righe.push({
       a: a, nome: ((a.cog || '') + ' ' + (a.nom || '')).trim(), annata: ann || '', dn: a.dn || '',
@@ -86,7 +93,7 @@ function stCalcola(f) {
       modulo: d.modulo === 'SI', identita: d.identita === 'SI', tessera: d.tessera === 'SI',
       cs: a.cs || '', statoCs: typeof _statoCertificato === 'function' ? _statoCertificato(a.cs, oggi) : (a.cs ? 'OK' : 'MANCA'),
       comune: typeof _comuneAtleta === 'function' ? _comuneAtleta(a) : (a.indComune || ''),
-      quota: quota, rate: rate, pagato: pagato, residuo: quota == null ? null : Math.round((quota - pagato) * 100) / 100,
+      quota: quota, rate: rate, pagato: pagato, versato: versato, residuo: quota == null ? null : Math.round((quota - pagato) * 100) / 100,
       note: a.note || '', ritirato: !!a.ritirato
     });
   });
@@ -110,10 +117,11 @@ function stCalcola(f) {
 }
 
 function _stTotali(righe) {
-  var t = { n: righe.length, quota: 0, pagato: 0, residuo: 0, certKo: 0, docKo: 0, quotaND: 0 };
+  var t = { n: righe.length, quota: 0, pagato: 0, versato: 0, residuo: 0, inPiu: 0, certKo: 0, docKo: 0, quotaND: 0 };
   righe.forEach(function (r) {
     if (r.quota == null) t.quotaND++; else { t.quota += r.quota; t.residuo += Math.max(0, r.residuo); }
-    t.pagato += r.pagato;
+    t.pagato += r.pagato; t.versato += r.versato || 0;
+    if (r.residuo != null && r.residuo < -0.005) t.inPiu += -r.residuo;
     if (r.ritirato) return; // documenti/certificato dei ritirati non contano
     if (r.statoCs !== 'OK') t.certKo++;
     if (!(r.modulo && r.identita && r.tessera)) t.docKo++;
@@ -126,9 +134,9 @@ function stTabellaHTML(res, conLink) {
   var nR = res.maxRate, X = function (b) { return b ? '<td class="st-c">X</td>' : '<td class="st-c st-ko"></td>'; };
   var h = '<table class="st-t"><thead><tr><th>Annata</th><th>Atleta</th><th>Nascita</th><th>Categoria</th>' +
     '<th>Modulo</th><th>Carta id.</th><th>Tess. san.</th><th>Scad. cert.</th><th>Stato cert.</th><th>Residenza</th><th>Quota</th>';
-  for (var i = 1; i <= nR; i++) h += '<th>' + i + 'ª rata</th><th>Data ' + i + 'ª</th>';
-  h += '<th>Residuo</th><th>Note</th></tr></thead><tbody>';
-  var nCol = 13 + nR * 2;
+  for (var i = 1; i <= nR; i++) h += '<th>' + i + '° pag.</th><th>Data e tipo</th>';
+  h += '<th>Versato tot.</th><th>Residuo</th><th>Note</th></tr></thead><tbody>';
+  var nCol = 14 + nR * 2;
   res.gruppi.forEach(function (g) {
     h += '<tr class="st-g"><td colspan="' + nCol + '">' + _stEsc(g.nome) + ' · ' + g.righe.length + ' atleti</td></tr>';
     g.righe.forEach(function (r) {
@@ -138,17 +146,18 @@ function stTabellaHTML(res, conLink) {
         X(r.modulo) + X(r.identita) + X(r.tessera) +
         '<td class="st-c' + sc + '">' + _stEsc(_stData(r.cs)) + '</td><td class="st-c' + sc + '">' + _stEsc(r.statoCs) + '</td>' +
         '<td' + (r.comune ? '' : ' class="st-ko"') + '>' + _stEsc(r.comune) + '</td><td class="st-r">' + _stEuro(r.quota) + '</td>';
-      for (var k = 0; k < nR; k++) { var p = r.rate[k]; h += '<td class="st-r">' + (p ? _stEuro(+p.importo || 0) : '') + '</td><td class="st-c">' + (p ? _stData(p.data) : '') + '</td>'; }
+      for (var k = 0; k < nR; k++) { var p = r.rate[k]; h += '<td class="st-r">' + (p ? _stEuro(+p.importo || 0) : '') + '</td><td class="st-c">' + (p ? _stData(p.data) + (p.tipo ? '<br><small>' + _stEsc(_stTipoBreve(p.tipo)) + '</small>' : '') : '') + '</td>'; }
       var rc = r.residuo == null ? '' : r.residuo > 0.005 ? ' st-warn' : r.residuo < -0.005 ? ' st-ko' : ' st-ok';
-      h += '<td class="st-r' + rc + '">' + _stEuro(r.residuo) + '</td><td class="st-note">' + _stEsc(r.note) + '</td></tr>';
+      var resTxt = r.residuo != null && r.residuo < -0.005 ? 'in più ' + _stEuro(-r.residuo) + '<br><small>da verificare</small>' : _stEuro(r.residuo);
+      h += '<td class="st-r">' + _stEuro(r.versato || 0) + '</td><td class="st-r' + rc + '">' + resTxt + '</td><td class="st-note">' + _stEsc(r.note) + '</td></tr>';
     });
     var t = _stTotali(g.righe);
     h += '<tr class="st-tot"><td colspan="10">Totale ' + _stEsc(g.nome) + ': ' + t.n + ' atleti · cert. da sistemare ' + t.certKo + ' · documenti incompleti ' + t.docKo + '</td>' +
-      '<td class="st-r">' + _stEuro(t.quota) + '</td><td colspan="' + nR * 2 + '" class="st-r">pagato ' + _stEuro(t.pagato) + '</td><td class="st-r">' + _stEuro(t.residuo) + '</td><td></td></tr>';
+      '<td class="st-r">' + _stEuro(t.quota) + '</td><td colspan="' + nR * 2 + '" class="st-r">quote pagate ' + _stEuro(t.pagato) + '</td><td class="st-r">' + _stEuro(t.versato) + '</td><td class="st-r">' + _stEuro(t.residuo) + (t.inPiu > 0.005 ? '<br><small>in più ' + _stEuro(t.inPiu) + '</small>' : '') + '</td><td></td></tr>';
   });
   var T = _stTotali(res.righe);
   h += '<tr class="st-tot st-totg"><td colspan="10">TOTALE GENERALE: ' + T.n + ' atleti · cert. da sistemare ' + T.certKo + ' · documenti incompleti ' + T.docKo + (T.quotaND ? ' · quota da decidere ' + T.quotaND : '') + '</td>' +
-    '<td class="st-r">' + _stEuro(T.quota) + '</td><td colspan="' + nR * 2 + '" class="st-r">pagato ' + _stEuro(T.pagato) + '</td><td class="st-r">' + _stEuro(T.residuo) + '</td><td></td></tr>';
+    '<td class="st-r">' + _stEuro(T.quota) + '</td><td colspan="' + nR * 2 + '" class="st-r">quote pagate ' + _stEuro(T.pagato) + '</td><td class="st-r">' + _stEuro(T.versato) + '</td><td class="st-r">' + _stEuro(T.residuo) + (T.inPiu > 0.005 ? '<br><small>in più ' + _stEuro(T.inPiu) + '</small>' : '') + '</td><td></td></tr>';
   return h + '</tbody></table>';
 }
 
@@ -157,7 +166,7 @@ var ST_CSS = '.st-t{border-collapse:collapse;font-size:11px;width:100%}' +
   '.st-t th{background:#1a2a4a;color:#fff;font-weight:600;white-space:nowrap}' +
   '.st-c{text-align:center;white-space:nowrap}.st-r{text-align:right;white-space:nowrap}.st-n{white-space:nowrap;font-weight:600}' +
   '.st-note{min-width:120px;font-size:10px}.st-g td{background:#dfe6f2;font-weight:700;color:#1a2a4a}' +
-  '.st-ko{background:#f8d0d0}.st-warn{background:#fdf0b0}.st-ok{color:#1a7a3a}.st-rit td{color:#888}' +
+  '.st-ko{background:#f8d0d0;color:#7a0010 !important;font-weight:600}.st-warn{background:#fdf0b0;color:#4a3500 !important;font-weight:600}.st-ok{color:#2e9e5b;font-weight:600}.st-rit td{color:#888}.st-ko a,.st-warn a{color:inherit}' +
   '.st-tot td{background:#f2f4f8;font-weight:600}.st-totg td{background:#e4e9f2;font-weight:700}';
 
 function _stTitolo(f) {
@@ -214,14 +223,14 @@ function stCSV() {
   var q = function (v) { v = String(v == null ? '' : v); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   var n = function (v) { return v == null ? '' : (Math.round(v * 100) / 100).toFixed(2).replace('.', ','); };
   var hd = ['Gruppo', 'Annata', 'Atleta', 'Data nascita', 'Categoria', 'Modulo', 'Carta id.', 'Tess. san.', 'Scad. certificato', 'Stato cert.', 'Residenza', 'Quota'];
-  for (var i = 1; i <= nR; i++) hd.push(i + 'a rata', 'Data ' + i + 'a rata');
-  hd.push('Residuo', 'Note');
+  for (var i = 1; i <= nR; i++) hd.push(i + ' pagamento', 'Data ' + i, 'Tipo ' + i);
+  hd.push('Versato totale', 'Residuo', 'Note');
   var out = [hd.map(q).join(';')];
   res.gruppi.forEach(function (g) {
     g.righe.forEach(function (r) {
       var v = [g.nome, r.annata, r.nome, _stData(r.dn), r.cats.join(' / '), r.modulo ? 'X' : '', r.identita ? 'X' : '', r.tessera ? 'X' : '', _stData(r.cs), r.statoCs, r.comune, n(r.quota)];
-      for (var k = 0; k < nR; k++) { var p = r.rate[k]; v.push(p ? n(+p.importo || 0) : '', p ? _stData(p.data) : ''); }
-      v.push(n(r.residuo), r.note);
+      for (var k = 0; k < nR; k++) { var p = r.rate[k]; v.push(p ? n(+p.importo || 0) : '', p ? _stData(p.data) : '', p ? (p.tipo || '') : ''); }
+      v.push(n(r.versato || 0), n(r.residuo), r.note);
       out.push(v.map(q).join(';'));
     });
   });
@@ -242,8 +251,8 @@ function stStampa() {
   var W = 297, H = 210, M = 8, LARG = W - 2 * M, FS = 7, LH = 3.1;
   var cols = [['Annata', 9, 'c'], ['Atleta', 34, 'l'], ['Nascita', 15, 'c'], ['Categoria', 20, 'l'], ['Modulo', 9, 'c'], ['Carta id.', 9, 'c'], ['Tess. san.', 9, 'c'],
     ['Scad. cert.', 15, 'c'], ['Stato cert.', 17, 'c'], ['Residenza', 24, 'l'], ['Quota', 14, 'r']];
-  for (var i = 1; i <= nR; i++) cols.push([i + '\u00aa rata', 14, 'r'], ['Data ' + i + '\u00aa', 15, 'c']);
-  cols.push(['Residuo', 14, 'r']);
+  for (var i = 1; i <= nR; i++) cols.push([i + '\u00b0 pag.', 14, 'r'], ['Data e tipo', 15, 'c']);
+  cols.push(['Versato tot.', 15, 'r'], ['Residuo', 15, 'r']);
   var fisso = cols.reduce(function (t, c) { return t + c[1]; }, 0), note = LARG - fisso;
   if (note < 30) { var k = (LARG - 30) / fisso; cols.forEach(function (c) { c[1] = c[1] * k; }); note = 30; }
   cols.push(['Note', note, 'l']);
@@ -277,9 +286,10 @@ function stStampa() {
   var rigaTot = function (testo, t, fill) {
     spazio(5); doc.setFillColor(fill[0], fill[1], fill[2]); doc.rect(M, y, LARG, 5, 'F'); doc.setDrawColor(190, 198, 212); doc.rect(M, y, LARG, 5);
     doc.setFont('helvetica', 'bold'); doc.text(testo, M + 1, y + 3.4);
-    var iq = 10, ir = cols.length - 2;
+    var iq = 10, ir = cols.length - 2, iv = cols.length - 3;
     doc.text(_stEuro(t.quota), X[iq] + cols[iq][1] - 1, y + 3.4, { align: 'right' });
-    doc.text('pagato ' + _stEuro(t.pagato), X[ir] - 1, y + 3.4, { align: 'right' });
+    doc.text('quote pagate ' + _stEuro(t.pagato), X[iv] - 1, y + 3.4, { align: 'right' });
+    doc.text(_stEuro(t.versato), X[iv] + cols[iv][1] - 1, y + 3.4, { align: 'right' });
     doc.text(_stEuro(t.residuo), X[ir] + cols[ir][1] - 1, y + 3.4, { align: 'right' });
     y += 5;
   };
@@ -291,15 +301,16 @@ function stStampa() {
     g.righe.forEach(function (r) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(FS);
       var nl = r.note ? doc.splitTextToSize(String(r.note).replace(/\s+/g, ' '), cols[cols.length - 1][1] - 2).slice(0, 4) : [];
-      var h = Math.max(4.2, nl.length * LH + 1.2);
+      var h = Math.max(4.2, nl.length * LH + 1.2, (r.rate.length || (r.residuo != null && r.residuo < -0.005)) ? 2 * LH + 1.2 : 0);
       spazio(h);
       var sc = r.statoCs === 'OK' ? null : r.statoCs === 'IN SCADENZA' ? WARN : KO;
       if (r.ritirato) doc.setTextColor(130);
       var v = [String(r.annata || ''), taglia(r.nome + (r.ritirato ? ' (rit.)' : ''), cols[1][1]), _stData(r.dn), taglia(r.cats.join(' / '), cols[3][1]),
         r.modulo ? 'X' : '', r.identita ? 'X' : '', r.tessera ? 'X' : '', _stData(r.cs), r.statoCs, taglia(r.comune, cols[9][1]), _stEuro(r.quota)];
       var f = [null, null, r.dn ? null : KO, null, r.modulo ? null : KO, r.identita ? null : KO, r.tessera ? null : KO, sc, sc, r.comune ? null : KO, null];
-      for (var k = 0; k < nR; k++) { var p = r.rate[k]; v.push(p ? _stEuro(+p.importo || 0) : '', p ? _stData(p.data) : ''); f.push(null, null); }
-      v.push(_stEuro(r.residuo)); f.push(r.residuo != null && r.residuo > 0.005 ? WARN : r.residuo != null && r.residuo < -0.005 ? KO : null);
+      for (var k = 0; k < nR; k++) { var p = r.rate[k]; v.push(p ? _stEuro(+p.importo || 0) : '', p ? [_stData(p.data), _stTipoBreve(p.tipo)] : ''); f.push(null, null); }
+      v.push(_stEuro(r.versato || 0)); f.push(null);
+      v.push(r.residuo != null && r.residuo < -0.005 ? ['in più', _stEuro(-r.residuo)] : _stEuro(r.residuo)); f.push(r.residuo != null && r.residuo > 0.005 ? WARN : r.residuo != null && r.residuo < -0.005 ? KO : null);
       v.push(nl); f.push(null);
       v.forEach(function (t, ci) { cella(ci, y, h, t, f[ci], ci === 1); });
       doc.setTextColor(0); y += h;

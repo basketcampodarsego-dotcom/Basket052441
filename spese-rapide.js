@@ -1,6 +1,7 @@
 // ════════════════════════════════════════════════════════
 // FILE: spese-rapide.js — ASD Basket Campodarsego
-// VERSIONE: v0.23 · 27/11/2026 00:45 · BK
+// VERSIONE: v0.24 · 27/11/2026 21:45 · BK
+// v0.24: solo allineamento versione (dittafono-gestionale v0.13).
 // v0.23: etichette mezzi: "Mia carta" -> "PostePay presidente", "Miei contanti" -> "Contanti presidente" (Alberto 27/11/2026).
 // v0.22: solo allineamento versione (dittafono v0.13).
 // v0.21: solo allineamento versione (dittafono-gestionale v0.11).
@@ -74,7 +75,7 @@
 // Dipende da: economia-core-DRAFT.js, spese-rapide-voce.js, Firebase compat.
 // ════════════════════════════════════════════════════════
 
-var SR_BUILD = 'v0.23 · 27/11/2026 00:45';
+var SR_BUILD = 'v0.24 · 27/11/2026 21:45';
 var SR_CONTO_PER_CARTA = 'BANCA';
 var SR_CODICE_CENTRO = { PALESTRA: 'PALESTRA', SPORT: 'SPORT' }; // codici usati dai movimenti storici importati
 var SR_MEZZI = {

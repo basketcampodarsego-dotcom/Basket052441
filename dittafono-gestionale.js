@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-gestionale.js — ASD Basket Campodarsego
-// VERSIONE: v0.12 · 27/11/2026 00:45 · BK
+// VERSIONE: v0.13 · 27/11/2026 21:45 · BK
+// v0.13: (BK_ListaModifiche punto 18) quote: amatori volley 20 EUR come basket amatori; i pagamenti di tipo
+//   Assicurazione contano per TUTTI (prima solo AmaBasket: i 20 EUR dei volley sparivano); "chi non ha pagato"
+//   elenca anche chi ha PAGATO PIU' del dovuto (da verificare).
 // v0.12: (BK_ListaModifiche punto 14) domanda "stesso genitore?" e "genitore mancante" SOLO per chi ne ha bisogno:
 //   minorenni, o senza data di nascita e non in categorie da adulti. Esclusi maggiorenni e AmaBasket/AmaVolley/
 //   Dirigente/Volontario/Ex (caso reale: Brugnolo Andrea, amatore e papa' di Lara). Testo piu' chiaro:
@@ -92,7 +95,7 @@
 //   report-residenti.js (rrCalcola, facoltativo).
 // ════════════════════════════════════════════════════════
 
-var DFG_VERSIONE = 'v0.12 · 27/11/2026 00:45';
+var DFG_VERSIONE = 'v0.13 · 27/11/2026 21:45';
 var DFG = { atl: [], pag: {}, all: [], pres: [], caricato: false, risposta: null, presStato: {} };
 var DFG_TIPI_PAG = ['Quota (1a rata)', 'Quota (2a rata)', 'Saldo quota', 'Quota annuale', 'Assicurazione', 'Divisa', 'Altro'];
 var DFG_METODI = { Contanti: 'CONTANTI_CASSA', Bonifico: 'BONIFICO', POS: 'BONIFICO' };
@@ -257,7 +260,7 @@ function dfgComune(a) {
 }
 
 // ── QUOTE (v0.6) ──
-var DFG_QUOTE_CAT = { Pulcini: 200, Scoiattoli: 340, Aquilotti: 340, Esordienti: 340, Special: 340, AmaBasket: 20, AmaVolley: 0, Dirigente: 0, Volontario: 0, Ex: 0 };
+var DFG_QUOTE_CAT = { Pulcini: 200, Scoiattoli: 340, Aquilotti: 340, Esordienti: 340, Special: 340, AmaBasket: 20, AmaVolley: 20, Dirigente: 0, Volontario: 0, Ex: 0 };
 // quota dovuta nella stagione: dal campo quotaAnnua (foglio/scheda) se c'e', altrimenti dalla categoria; null = da decidere
 function dfgQuotaDovuta(a, stag) {
   if (a.quotaAnnua !== undefined && a.quotaAnnua !== null && a.quotaAnnua !== '') return Number(a.quotaAnnua) || 0;
@@ -269,11 +272,9 @@ function dfgQuotaDovuta(a, stag) {
   return Math.round(base * (a.scontoFratello && mini ? 0.8 : 1) * 100) / 100;
 }
 function dfgQuotaPagata(a, pag, st) {
-  var ama = dfgCategorie(a, st.chiave).indexOf('AmaBasket') >= 0;
-  return Math.round((pag[a.id] || []).filter(function (p) {
+  return Math.round((pag[a.id] || []).filter(function (p) { // v0.13: assicurazione conta per tutti
     if (!(p.data >= st.da && p.data <= st.a)) return false;
     if (p.tipo === 'Divisa' || p.tipo === 'Altro') return false;
-    if (p.tipo === 'Assicurazione' && !ama) return false;
     return true;
   }).reduce(function (s, p) { return s + (+p.importo || 0); }, 0) * 100) / 100;
 }
@@ -491,17 +492,19 @@ function dfgRispondi(q, atleti, pag, oggi, extra) {
         nota: 'Conta i documenti segnati come consegnati dal dittafono (campo nuovo): chi è stato registrato prima risulta senza.' };
     }
     case 'NON_PAGATO': {
-      var link3 = [], daDec = [], tot3 = 0;
+      var link3 = [], daDec = [], tot3 = 0, inPiu3 = [];
       var r3 = ord(atletiVeri.slice()).map(function (a) {
         var dov = dfgQuotaDovuta(a, st.chiave), pg = dfgQuotaPagata(a, pag, st);
         if (dov === null) { daDec.push(dfgNomeAtl(a)); return null; }
-        var res = Math.round((dov - pg) * 100) / 100; if (res <= 0.004) return null;
+        var res = Math.round((dov - pg) * 100) / 100;
+        if (res < -0.004) { inPiu3.push(dfgNomeAtl(a) + ' ' + srEuro(-res)); return null; } // v0.13
+        if (res <= 0.004) return null;
         tot3 += res;
         link3.push(dfgLinkWhatsApp(a, 'Buongiorno, vi ricordiamo la quota ' + st.chiave + ' di ' + dfgNomeAtl(a) + ': ' + srEuro(dov) + ', già versati ' + srEuro(pg) + ', restano ' + srEuro(res) + '. Grazie! ASD Basket Campodarsego'));
         return [dfgNomeAtl(a), cat(a), srEuro(dov), srEuro(pg), srEuro(res)];
       }).filter(Boolean);
       return { titolo: 'Quote da saldare', sotto: 'Stagione ' + st.chiave + ' · ' + r3.length + ' atleti · totale ' + srEuro(tot3), colonne: ['Atleta', 'Categoria', 'Dovuta', 'Pagata', 'Residuo'], righe: r3,
-        link: link3, linkTesto: '💬', nota: 'Regole: Pulcini 200 €, altri minibasket e Special 340 €, fratello minore -20%, basket amatori 20 €, volley amatori Max Music = contributo di squadra (no quota individuale); quota scritta in scheda se diversa.' + (daDec.length ? ' Quota da decidere: ' + daDec.join(', ') + '.' : '') + ' 💬 = messaggio WhatsApp pronto al genitore (serve il telefono in scheda).' };
+        link: link3, linkTesto: '💬', nota: 'Regole: Pulcini 200 €, altri minibasket e Special 340 €, fratello minore -20%, basket e volley amatori 20 € (assicurazione); quota scritta in scheda se diversa.' + (daDec.length ? ' Quota da decidere: ' + daDec.join(', ') + '.' : '') + (inPiu3.length ? ' ⚠️ Pagato PIÙ del dovuto (da verificare): ' + inPiu3.join(', ') + '.' : '') + ' 💬 = messaggio WhatsApp pronto al genitore (serve il telefono in scheda).' };
     }
     case 'RICEVUTE_ANNO': { // v0.8
       var annoR = q.anno || oggi.slice(0, 4), LR = dfgListaRicevuteAnno(atleti, pag, annoR), linkR = [];

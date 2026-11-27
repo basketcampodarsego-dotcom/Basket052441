@@ -2,7 +2,7 @@
 // Versione: 20260321_1057
 // Si aggiorna automaticamente ad ogni nuova build
 
-var CACHE_NAME = 'basket052441-20261127_1015'; // 27/11/2026: gestionale v7.16, link alla scheda dai tabulati
+var CACHE_NAME = 'basket052441-20261127_2145'; // 27/11/2026: gestionale v7.17, pagamenti sempre visibili
 var CACHE_URLS = [
   './basket052441.html',
   './basket-core.js',
