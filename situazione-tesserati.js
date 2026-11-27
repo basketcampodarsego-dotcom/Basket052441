@@ -1,4 +1,6 @@
-// situazione-tesserati.js | v0.3 · 26/11/2026 13:30 · BK
+// situazione-tesserati.js | v0.4 · 27/11/2026 10:15 · BK
+// v0.4: (BK_ListaModifiche punto 17) a video il nome dell'atleta (e ✏️) apre la sua scheda nel gestionale per
+//       correggere i dati; al salvataggio la tabella si ricalcola da sola. In PDF/CSV nessun collegamento.
 // v0.3: (Alberto 26/11/2026) ORDINE: dopo il raggruppamento (categoria/annata) SEMPRE alfabetico per
 //       cognome e nome (_cmpAtl). RITIRATI: quota dovuta = gia' pagato (residuo 0); quelli con pagamenti
 //       nella stagione compaiono sempre (grigi, "rit.") cosi' i loro versamenti restano nei totali;
@@ -120,7 +122,7 @@ function _stTotali(righe) {
 }
 
 // tabella HTML (stessa per video e stampa)
-function stTabellaHTML(res) {
+function stTabellaHTML(res, conLink) {
   var nR = res.maxRate, X = function (b) { return b ? '<td class="st-c">X</td>' : '<td class="st-c st-ko"></td>'; };
   var h = '<table class="st-t"><thead><tr><th>Annata</th><th>Atleta</th><th>Nascita</th><th>Categoria</th>' +
     '<th>Modulo</th><th>Carta id.</th><th>Tess. san.</th><th>Scad. cert.</th><th>Stato cert.</th><th>Residenza</th><th>Quota</th>';
@@ -131,7 +133,7 @@ function stTabellaHTML(res) {
     h += '<tr class="st-g"><td colspan="' + nCol + '">' + _stEsc(g.nome) + ' · ' + g.righe.length + ' atleti</td></tr>';
     g.righe.forEach(function (r) {
       var sc = r.statoCs === 'OK' ? '' : r.statoCs === 'IN SCADENZA' ? ' st-warn' : ' st-ko';
-      h += '<tr' + (r.ritirato ? ' class="st-rit"' : '') + '><td class="st-c">' + _stEsc(r.annata) + '</td><td class="st-n">' + _stEsc(r.nome) + (r.ritirato ? ' (rit.)' : '') + '</td>' +
+      h += '<tr' + (r.ritirato ? ' class="st-rit"' : '') + '><td class="st-c">' + _stEsc(r.annata) + '</td><td class="st-n">' + (conLink ? '<a href="javascript:void(0)" onclick="stApriScheda(' + r.a.id + ')" style="color:inherit;text-decoration:underline">' + _stEsc(r.nome) + '</a> <span onclick="stApriScheda(' + r.a.id + ')" style="cursor:pointer">✏️</span>' : _stEsc(r.nome)) + (r.ritirato ? ' (rit.)' : '') + '</td>' +
         '<td class="st-c' + (r.dn ? '' : ' st-ko') + '">' + _stEsc(_stData(r.dn)) + '</td><td>' + _stEsc(r.cats.join(' / ')) + '</td>' +
         X(r.modulo) + X(r.identita) + X(r.tessera) +
         '<td class="st-c' + sc + '">' + _stEsc(_stData(r.cs)) + '</td><td class="st-c' + sc + '">' + _stEsc(r.statoCs) + '</td>' +
@@ -187,7 +189,7 @@ function stRender() {
     '<button class="btn btn-gray btn-sm" onclick="stCSV()">⬇️ CSV</button></div>';
   var res = stCalcola(_stStato);
   s += '<div style="font-size:11px;color:#556;margin-bottom:6px">X = consegnato, vuoto = manca. Giallo = scade entro 30 gg / residuo da pagare, rosso = scaduto o mancante.</div>';
-  s += res.righe.length ? '<div style="overflow-x:auto">' + stTabellaHTML(res) + '</div>' : '<div class="card">Nessun atleta con questi filtri.</div>';
+  s += res.righe.length ? '<div style="overflow-x:auto">' + stTabellaHTML(res, true) + '</div>' : '<div class="card">Nessun atleta con questi filtri.</div>';
   box.innerHTML = s;
   if (typeof diag === 'function') diag('Situazione tesserati: ' + res.righe.length + ' atleti, stagione ' + _stStato.stag, 'ok');
 }
@@ -314,3 +316,28 @@ function stStampa() {
   doc.save(nome);
   if (typeof diag === 'function') diag('Situazione tesserati PDF: ' + nome + ', ' + n + ' pagine', 'ok');
 }
+
+// ── v0.4: apertura della scheda atleta e ricalcolo dopo il salvataggio
+function stApriScheda(id) {
+  window._stRiaggiorna = true;
+  if (typeof openModalAtleta === 'function') openModalAtleta(id);
+  else if (typeof apriModifica === 'function') apriModifica(id);
+}
+(function () { // dopo ogni salvataggio del database, se si e' aperta una scheda da qui, ricalcola la tabella
+  if (typeof window === 'undefined' || window._stSaveAgganciato) return;
+  var aggancia = function () {
+    if (typeof window.saveDB !== 'function') return false;
+    var orig = window.saveDB;
+    window.saveDB = function () {
+      try { return orig.apply(this, arguments); }
+      finally {
+        try {
+          var pg = document.getElementById('page-situazione');
+          if (window._stRiaggiorna && pg && pg.classList.contains('active')) setTimeout(stRender, 300);
+        } catch (ex) { }
+      }
+    };
+    window._stSaveAgganciato = true; return true;
+  };
+  if (!aggancia()) document.addEventListener('DOMContentLoaded', aggancia);
+})();
