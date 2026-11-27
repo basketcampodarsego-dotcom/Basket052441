@@ -1,6 +1,7 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-carta.js — ASD Basket Campodarsego
-// VERSIONE: v0.3 · 25/11/2026 07:45 · BK
+// VERSIONE: v0.4 · 27/11/2026 00:45 · BK
+// v0.4: righe carta marcate fonte 'CARTA' -> movimento con mezzo carta Tasca (economia-import-banca-ui v1.2).
 // v0.3: doppioni con stessa data, importo e descrizione dell'estratto = gia' presenti
 //   (non proposti), come nell'import banca v1.1.
 // v0.2: abbinamento con le spese pagate con carta Tasca gia' registrate da
@@ -116,6 +117,7 @@ function ecoImportPreparaElencoCarta(txt) {
       importo: r.importo,
       descrizione: r.descrizione,
       riferimento: null,
+      fonte: 'CARTA', // v0.4 (27/11/2026): movimento creato con mezzo carta Tasca, non bonifico
       duplicato: dedup.duplicato,
       criterioDedup: dedup.criterio,
       categoriaCodice: suggerimento.categoriaCodice,

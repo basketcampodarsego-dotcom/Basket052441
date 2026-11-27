@@ -1,6 +1,10 @@
 // ════════════════════════════════════════════════════════
 // FILE: dittafono-gestionale.js — ASD Basket Campodarsego
-// VERSIONE: v0.11 · 26/11/2026 15:30 · BK
+// VERSIONE: v0.12 · 27/11/2026 00:45 · BK
+// v0.12: (BK_ListaModifiche punto 14) domanda "stesso genitore?" e "genitore mancante" SOLO per chi ne ha bisogno:
+//   minorenni, o senza data di nascita e non in categorie da adulti. Esclusi maggiorenni e AmaBasket/AmaVolley/
+//   Dirigente/Volontario/Ex (caso reale: Brugnolo Andrea, amatore e papa' di Lara). Testo piu' chiaro:
+//   "Lara non ha i dati del genitore: e' lo stesso di Andrea (nome genitore)?".
 // v0.11: (BK_ListaModifiche punto 9) quando i dati dettati sono GIA' tutti nella scheda, pulsante
 //   "✔️ Gia' nella scheda": la nota passa a Elaborata (collegata all'atleta), senza scrivere sulla
 //   scheda. Prima l'unica uscita era "Scarta". Con piu' atleti resta da elaborare finche' mancano gli altri.
@@ -88,7 +92,7 @@
 //   report-residenti.js (rrCalcola, facoltativo).
 // ════════════════════════════════════════════════════════
 
-var DFG_VERSIONE = 'v0.11 · 26/11/2026 15:30';
+var DFG_VERSIONE = 'v0.12 · 27/11/2026 00:45';
 var DFG = { atl: [], pag: {}, all: [], pres: [], caricato: false, risposta: null, presStato: {} };
 var DFG_TIPI_PAG = ['Quota (1a rata)', 'Quota (2a rata)', 'Saldo quota', 'Quota annuale', 'Assicurazione', 'Divisa', 'Altro'];
 var DFG_METODI = { Contanti: 'CONTANTI_CASSA', Bonifico: 'BONIFICO', POS: 'BONIFICO' };
@@ -276,11 +280,20 @@ function dfgQuotaPagata(a, pag, st) {
 function dfgTelefono(a) { var t = String(a.tutCell1 || a.tel || a.tutCell2 || '').replace(/\D/g, ''); if (!t) return ''; if (t.length === 10 && t[0] === '3') t = '39' + t; return t; }
 function dfgLinkWhatsApp(a, testo) { var t = dfgTelefono(a); return t ? 'https://wa.me/' + t + '?text=' + encodeURIComponent(testo) : ''; }
 function dfgMinorenne(a, oggi) { var e = dfgEta(a, oggi.slice(0, 4)); return e !== null && e < 18; }
+// v0.12: serve il genitore? No per maggiorenni e per chi ha solo categorie da adulti nell'ultima stagione iscritta.
+var DFG_CAT_ADULTI = ['AmaBasket', 'AmaVolley', 'Dirigente', 'Volontario', 'Ex'];
+function dfgServeGenitore(a, oggi) {
+  var isc = (a.iscrizioni || []).filter(function (i) { return i && i.anno; }).sort(function (x, y) { return String(y.anno).localeCompare(String(x.anno)); })[0];
+  var cats = isc ? [isc.cat1, isc.cat2].filter(Boolean) : [];
+  if (cats.length && cats.every(function (c) { return DFG_CAT_ADULTI.indexOf(c) >= 0; })) return false;
+  if (dfgEta(a, oggi.slice(0, 4)) !== null) return dfgMinorenne(a, oggi);
+  return true; // data di nascita mancante: nel dubbio si'
+}
 // v0.7: ANAGRAFICA INCOMPLETA — cosa manca per ciascun uso del dato.
 // Ricevuta intestata a chi paga: il genitore per i minorenni, l'atleta se maggiorenne.
 function dfgAnagrafica(a, oggi) {
   var v = function (x) { return String(x || '').trim() !== ''; };
-  var min = dfgMinorenne(a, oggi);
+  var min = dfgMinorenne(a, oggi) && dfgServeGenitore(a, oggi); // v0.12
   var res = v(a.indVia) || v(a.ind) || v(a.tutVia);
   var t = [];
   if (!v(a.cog) || !v(a.nom)) t.push('nome/cognome');
@@ -333,6 +346,7 @@ var DFG_CAMPI_IND = ['indVia', 'indNr', 'indCap', 'indComune', 'indProv'];
 // Coppie da verificare: stesso cognome, uno con genitore (nome+cognome), l'altro con dati del genitore mancanti.
 function dfgFratelliDaVerificare(atleti) {
   var v = function (x) { return String(x || '').trim() !== ''; };
+  var oggiF = (typeof srOggi === 'function' ? srOggi() : new Date().toISOString().slice(0, 10)); // v0.12
   var norm = function (x) { return String(x || '').trim().toUpperCase(); };
   var gruppi = {};
   (atleti || []).forEach(function (a) { if (a && a.cog && !a.ritirato) (gruppi[norm(a.cog)] = gruppi[norm(a.cog)] || []).push(a); });
@@ -340,6 +354,7 @@ function dfgFratelliDaVerificare(atleti) {
   Object.keys(gruppi).forEach(function (g) {
     var arr = gruppi[g]; if (arr.length < 2) return;
     arr.forEach(function (y) {
+      if (!dfgServeGenitore(y, oggiF)) return; // v0.12: adulti/amatori non hanno bisogno del genitore
       var manca = DFG_CAMPI_TUT.filter(function (k) { return !v(y[k]); });
       if (!(manca.indexOf('tutCog') >= 0 || manca.indexOf('tutNom') >= 0 || (manca.indexOf('tutCf') >= 0 && manca.indexOf('cfTut') >= 0) || manca.indexOf('tutCell1') >= 0)) return;
       var cand = arr.filter(function (x) {
@@ -354,7 +369,7 @@ function dfgFratelliDaVerificare(atleti) {
       var conInd = !v(y.indVia) && !v(y.ind) && v(x.indVia);
       if (conInd) campi = campi.concat(DFG_CAMPI_IND.filter(function (k) { return !v(y[k]) && v(x[k]); }));
       if (!campi.length) return;
-      out.push({ da: x.id, a: y.id, daNome: (x.cog + ' ' + (x.nom || '')).trim(), aNome: (y.cog + ' ' + (y.nom || '')).trim(), genitore: (x.tutNom + ' ' + x.tutCog).trim(), campi: campi, indirizzo: conInd });
+      out.push({ da: x.id, a: y.id, daNome: (x.cog + ' ' + (x.nom || '')).trim(), aNome: (y.cog + ' ' + (y.nom || '')).trim(), aNom: y.nom || y.cog, daNom: x.nom || x.cog, genitore: (x.tutNom + ' ' + x.tutCog).trim(), campi: campi, indirizzo: conInd });
     });
   });
   return out;
@@ -363,7 +378,7 @@ function dfgHtmlFratelli(lista) {
   if (!lista || !lista.length) return '';
   return '<div style="margin-top:10px">' + lista.map(function (f) {
     var idb = 'dfg-fr-' + f.a + '-' + f.da;
-    return '<div class="domanda" id="' + idb + '" style="margin-top:6px">👪 <b>' + srEsc(f.aNome) + '</b> e <b>' + srEsc(f.daNome) + '</b> hanno lo stesso genitore (' + srEsc(f.genitore) + ')?<br>' +
+    return '<div class="domanda" id="' + idb + '" style="margin-top:6px">👪 <b>' + srEsc(f.aNome) + '</b> non ha i dati del genitore: è lo stesso di <b>' + srEsc(f.daNome) + '</b> (' + srEsc(f.genitore) + ')?<br>' +
       '<button class="btn-sm" onclick="dfgCopiaGenitore(' + f.da + ',' + f.a + ')">Sì, copia i dati' + (f.indirizzo ? ' e l\'indirizzo' : '') + '</button> ' +
       '<button class="btn-gray btn-sm" onclick="dfgNonFratelli(' + f.da + ',' + f.a + ')">No</button></div>';
   }).join('') + '</div>';

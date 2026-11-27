@@ -1,6 +1,9 @@
 // ════════════════════════════════════════════════════════
 // FILE: economia-verifica.js — ASD Basket Campodarsego
-// VERSIONE: v0.1 · 25/11/2026 11:30 · BK
+// VERSIONE: v0.2 · 27/11/2026 00:45 · BK
+// v0.2: (BK_ListaModifiche punto 16) Estratto gestionale PDF: colonna "Mezzo" con una lettera e legenda in fondo:
+//   B bonifico (anche addebiti in conto) · T carta Tasca · C contanti societa' · R contanti del presidente da
+//   rimborsare · P PostePay del presidente · G giroconto conto -> carta Tasca · ? non indicato (da sistemare).
 // v0.1: VERIFICA ALLINEAMENTO (Alberto 25/11/2026: "ho il sospetto che le registrazioni
 //   in database siano confuse, doppie o mancanti").
 //   1) Confronto VOCE PER VOCE tra le righe degli estratti PDF (banca BCC + carta Tasca,
@@ -202,6 +205,19 @@ function ecoVerAnnullaDoppio(i) {
 }
 
 // ── ESTRATTO GESTIONALE PDF (per conto, con saldo progressivo) ──
+// v0.2: lettera del mezzo di pagamento di un movimento
+var ECO_VER_MEZZI = { B: 'bonifico (anche addebiti in conto)', T: 'carta Tasca', C: 'contanti della societa\'', R: 'contanti del presidente da rimborsare', P: 'PostePay del presidente', G: 'giroconto (conto -> carta Tasca)', '?': 'non indicato: da sistemare' };
+function _ecoVerMezzo(m, tipoConto) {
+  if (m.origine === 'GIROCONTO_RAPIDO' || /GIROCONTO/i.test(m.categoriaCodice || '')) return 'G';
+  var mz = { BONIFICO: 'B', CARTA_TASCA: 'T', CONTANTI_CASSA: 'C', CONTANTI_PERSONALI: 'R', CARTA_PERSONALE: 'P' }[m.mezzoPagamento || ''];
+  if (mz) return mz;
+  if (m.riconciliaSu === 'CARTA' || m.fonte === 'CARTA') return 'T';
+  var mt = String(m.metodoPagamento || '').toLowerCase();
+  if (mt === 'bonifico') return 'B';
+  if (mt === 'contanti') return tipoConto === 'CASSA' ? 'C' : '?';
+  if (!mt) return tipoConto === 'CASSA' ? 'C' : '?';
+  return '?'; // carta/POS/assegno/altro: mezzi non usati dall'ASD
+}
 function ecoVerEstrattoPDF() {
   var tipo = document.getElementById('eco-ver-conto').value, da = document.getElementById('eco-ver-da').value, a = document.getElementById('eco-ver-a').value;
   if (!da || !a || a < da) { alert('Indica il periodo (dal ... al ...).'); return; }
@@ -219,14 +235,14 @@ function ecoVerEstrattoPDF() {
     saldo = Math.round(saldo * 100) / 100;
     var lista = vivi.filter(function (m) { var d = _ecoVerData(m); return d >= da && d <= a; }).sort(function (p, q) { return _ecoVerData(p).localeCompare(_ecoVerData(q)) || String(p.numeroMovimento || '').localeCompare(String(q.numeroMovimento || '')); });
     var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    var Y = 0, entr = 0, usc = 0;
+    var Y = 0, entr = 0, usc = 0, conteMezzi = {};
     var testata = function () {
       doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
       doc.text('ESTRATTO GESTIONALE — ' + (tipo === 'BANCA' ? 'CONTO BANCA' : 'CASSA CONTANTI') + ' · ASD Basket Campodarsego', 12, 14);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
       doc.text('Periodo ' + _ecoVerIt(da) + ' – ' + _ecoVerIt(a) + ' · dati del gestionale (non della banca) · stampato il ' + new Date().toLocaleDateString('it-IT'), 12, 19);
       doc.setFillColor(235, 235, 235); doc.rect(10, 22, 190, 6, 'F'); doc.setFont('helvetica', 'bold');
-      doc.text('Data', 11, 26); doc.text('N. mov.', 29, 26); doc.text('Descrizione', 52, 26); doc.text('Entrate', 150, 26, { align: 'right' }); doc.text('Uscite', 172, 26, { align: 'right' }); doc.text('Saldo', 198, 26, { align: 'right' });
+      doc.text('Data', 11, 26); doc.text('N. mov.', 29, 26); doc.text('M.', 50, 26); doc.text('Descrizione', 57, 26); doc.text('Entrate', 150, 26, { align: 'right' }); doc.text('Uscite', 172, 26, { align: 'right' }); doc.text('Saldo', 198, 26, { align: 'right' });
       doc.setFont('helvetica', 'normal'); Y = 32;
     };
     testata();
@@ -236,7 +252,9 @@ function ecoVerEstrattoPDF() {
       var imp = _ecoVerImp(m); saldo = Math.round((saldo + imp) * 100) / 100; if (imp >= 0) entr += imp; else usc -= imp;
       var desc = String(m.descrizioneEstratto || m.note || m.categoriaCodice || '').replace(/\s+/g, ' ');
       doc.text(_ecoVerIt(_ecoVerData(m)), 11, Y); doc.text(String(m.numeroMovimento || '').slice(0, 12), 29, Y);
-      doc.text((doc.splitTextToSize(desc, 84)[0] || ''), 52, Y);
+      var lett = _ecoVerMezzo(m, tipo); conteMezzi[lett] = (conteMezzi[lett] || 0) + 1;
+      doc.setFont('helvetica', 'bold'); doc.text(lett, 51, Y); doc.setFont('helvetica', 'normal');
+      doc.text((doc.splitTextToSize(desc, 79)[0] || ''), 57, Y);
       if (imp >= 0) doc.text(imp.toFixed(2), 150, Y, { align: 'right' }); else doc.text((-imp).toFixed(2), 172, Y, { align: 'right' });
       doc.text(saldo.toFixed(2), 198, Y, { align: 'right' });
       Y += 4.6; doc.setDrawColor(225); doc.line(10, Y - 3.4, 200, Y - 3.4);
@@ -244,6 +262,10 @@ function ecoVerEstrattoPDF() {
     if (Y > 270) { doc.addPage(); testata(); }
     Y += 3; doc.setFont('helvetica', 'bold');
     doc.text('Totali periodo (' + lista.length + ' movimenti)', 52, Y); doc.text(entr.toFixed(2), 150, Y, { align: 'right' }); doc.text(usc.toFixed(2), 172, Y, { align: 'right' }); doc.text(saldo.toFixed(2), 198, Y, { align: 'right' });
+    // v0.2: legenda mezzi
+    if (Y > 262) { doc.addPage(); testata(); }
+    Y += 8; doc.setFont('helvetica', 'bold'); doc.setFontSize(8); doc.text('Legenda colonna M. (mezzo di pagamento):', 11, Y); doc.setFont('helvetica', 'normal');
+    Object.keys(ECO_VER_MEZZI).forEach(function (k) { Y += 4; doc.text(k + ' = ' + ECO_VER_MEZZI[k] + (conteMezzi[k] ? '  (' + conteMezzi[k] + ')' : ''), 14, Y); });
     var n = doc.getNumberOfPages();
     for (var p = 1; p <= n; p++) { doc.setPage(p); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text('Pagina ' + p + ' di ' + n, 200, 292, { align: 'right' }); }
     var nome = 'Estratto_gestionale_' + tipo + '_' + da + '_' + a + '.pdf';

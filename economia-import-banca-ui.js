@@ -1,6 +1,8 @@
 // ────────────────────────────────────────────────────────────
 // FILE: economia-import-banca-ui.js — ASD Basket Campodarsego
-// VERSIONE: v1.1 · 25/11/2026 07:30 · BK
+// VERSIONE: v1.2 · 27/11/2026 00:45 · BK
+// v1.2: movimenti creati dall'estratto CARTA Tasca con metodoPagamento 'carta' e mezzoPagamento CARTA_TASCA
+//   (prima 'bonifico' anche per la carta); dal conto banca mezzoPagamento BONIFICO. Serve alla colonna Mezzo dell'estratto.
 // v1.1: filtro "Solo da decidere" (possibili duplicati, da verificare, senza
 //   categoria, pagamenti forse gia' presenti) attivo di default; per ogni possibile
 //   duplicato mostra il movimento gia' in Economia con cui coincide; per i pagamenti
@@ -596,7 +598,7 @@ function ecoImportConferma() {
       contoFinanziarioId: contoDefault.id, dataDocumento: ecoImportISOData(e.dataContabile),
       dataScadenza: null, annoEsercizio: annoEsercizio, numeroDocumento: null,
       note: e.descrizione.substring(0, 300), stato: 'PAGATO', dataPagamento: ecoImportISOData(e.dataValuta),
-      metodoPagamento: 'bonifico', riferimentoBancario: e.riferimento ? e.riferimento.valore : null,
+      metodoPagamento: e.fonte === 'CARTA' ? 'carta' : 'bonifico', mezzoPagamento: e.fonte === 'CARTA' ? 'CARTA_TASCA' : 'BONIFICO', fonte: e.fonte || 'BANCA', riferimentoBancario: e.riferimento ? e.riferimento.valore : null,
       dataRegistrazione: new Date().toISOString(), createdAt: new Date().toISOString(),
       createdBy: (window.firebase && firebase.auth().currentUser) ? firebase.auth().currentUser.email : ''
     };
